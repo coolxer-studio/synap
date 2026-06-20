@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="./static/images/favicon.ico"/>
+  <title>工具箱</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+    }
+
+    #container {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    #header {
+      background-color: #00BCD4;
+      color: white;
+      padding: 2px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .left-content {
+      flex: 1;
+      padding: 10px;
+    }
+
+    .center-content {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+    }
+
+    .right-content {
+      flex: 1;
+      padding: 10px;
+    }
+
+    .button-list {
+      display: flex;
+      flex-direction: column;
+      /* 将子元素纵向排列 */
+      padding: 5px;
+      /* 设置按钮之间的间距 */
+    }
+
+    .button {
+      display: flex;
+      margin: 5px 30px;
+      padding: 5px;
+      background-color: #fff;
+      color: #333;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .button .left-button {
+      flex: 1;
+      text-align: left;
+      padding: auto;
+    }
+
+    .button .center-button {
+      flex: 4;
+      padding-top: 5px;
+      text-align: center;
+      font-size: 16px;
+    }
+
+    .button .right-button {
+      flex: 1;
+      text-align: right;
+      padding: auto;
+    }
+
+    .button .right-button img {
+      width: 30px;
+      height: 30px;
+    }
+
+    .button:hover {
+      background-color: #00BCD4;
+    }
+
+    /* 弹出框样式 */
+    .alert-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    .modal-content {
+      background-color: white;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-input {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    .modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 15px;
+    }
+
+    .modal-buttons button {
+      margin-left: 10px;
+      padding: 5px 10px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  </style>
+  <script>
+    // 回退按钮
+    function back() {
+      window.history.back();
+    }
+
+    // 提示框    
+    function instruction(info) {
+      document.getElementById("alert-modal-instruction").style.display = "flex";
+      document.getElementById("instruction-content").innerHTML = info;
+    }
+    function instructionConfirm() {
+      document.getElementById("alert-modal-instruction").style.display = "none";
+    };
+
+    // 模拟登录
+    function login() {
+      document.getElementById("alert-modal-login").style.display = "flex";
+    };
+
+    function loginConfirm() {
+      const username = document.getElementById("username-input").value;
+      const password = document.getElementById("password-input").value;
+      if (username.length > 0 && password.length > 0) {
+        // 登录成功
+        // 上传用户数据
+        if (typeof window.userData === 'function') {
+          var userId = username;
+          window.userData(userId, { username: username, password: password });
+        }
+        alert('登录成功！');
+        document.getElementById("alert-modal-login").style.display = "none";
+      } else {
+        alert('请输入用户名和密码');
+      }
+    };
+
+    function loginCancle() {
+      document.getElementById("alert-modal-login").style.display = "none";
+    };
+
+    // 触发错误
+    function triggerError() {
+      // 这个函数不存在，会引发错误
+      nonExistentFunction();
+    }
+
+    // 输出错误
+    function consoleError() {
+      console.error('错误信息');
+    }
+
+    // 性能测试
+    const checkConsole = (n) => {
+      const ct = performance.now();
+      for (let i = 0; i < n; i++) {
+        console.debug(performance.now());
+        console.clear()
+      }
+      const ce = performance.now();
+      const diff = ce - ct;
+      alert(diff);
+    }
+
+  </script>
+  <script type="text/javascript" src="./js/probe.js"></script>
+</head>
+
+<body>
+  <div id="container">
+    <div id="header">
+      <div class="left-content">
+        <img onclick="back()" src="./static/images/arrow-left.svg" alt="">
+      </div>
+      <div class="center-content">工具箱</div>
+      <div class="right-content"></div>
+    </div>
+    <div class="button-list">
+
+      <div class="button">
+        <div class="left-button"></div>
+        <div class="center-button" onclick="triggerError()">触发错误</div>
+        <div onclick="instruction('通过调用一个没有定义的函数，触发[Uncaught ReferenceError: nonExistentFunction is not defined]异常')"
+          class="right-button"><img src="./static/images/ic_tool_help.png" /></div>
+      </div>
+      <div class="button">
+        <div class="left-button"></div>
+        <div class="center-button" onclick="consoleError()">输出错误</div>
+        <div onclick="instruction('调用[console.error()]，输出自定义的error信息到控制台')" class="right-button"><img
+            src="./static/images/ic_tool_help.png" /></div>
+      </div>
+      <div class="button">
+        <div class="left-button"></div>
+        <div class="center-button" onclick="checkConsole(100)">测试性能</div>
+        <div onclick="instruction('用于性能测试')" class="right-button"><img src="./static/images/ic_tool_help.png" /></div>
+      </div>
+      <div class="button">
+        <div class="left-button"></div>
+        <div class="center-button" onclick="checkConsole(300)">测试性能</div>
+        <div onclick="instruction('用于性能测试')" class="right-button"><img src="./static/images/ic_tool_help.png" /></div>
+      </div>
+      <div class="button">
+        <div class="left-button"></div>
+        <div class="center-button" onclick="login()">模拟登录</div>
+        <div onclick="instruction('模拟用户登录行为，验证用户数据接口')" class="right-button"><img
+            src="./static/images/ic_tool_help.png" /></div>
+      </div>
+
+
+    </div>
+  </div>
+  <!-- 提示框 -->
+  <div id="alert-modal-instruction" class="alert-modal">
+    <div class="modal-content">
+      <h2>说明</h2>
+      <p id="instruction-content"></p>
+      <div class="modal-buttons">
+        <button onclick="instructionConfirm()">确认</button>
+      </div>
+    </div>
+  </div>
+  <!-- 提示框 -->
+
+  <!-- 模拟登录框 -->
+  <div id="alert-modal-login" class="alert-modal">
+    <div class="modal-content">
+      <h2>登录</h2>
+      <input id="username-input" type="text" class="modal-input" placeholder="用户名">
+      <input id="password-input" type="password" class="modal-input" placeholder="密码">
+      <div class="modal-buttons">
+        <button onclick="loginCancle()">取消</button>
+        <button onclick="loginConfirm()">登录</button>
+      </div>
+    </div>
+  </div>
+  <!-- 模拟登录框 -->
+  </div>
+</body>
+
+</html>
