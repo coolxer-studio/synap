@@ -1,0 +1,467 @@
+{
+  "common" : [
+    "",
+    "0A3D9651-09B2-4CB0-A620-0897E5828AE1",
+    1704685332026,
+    "1.0.0.220519",
+    "1",
+    "EDR终端",
+    "com.cooltom.probe-ios",
+    "1.0",
+    "ios",
+    "apple",
+    "iPhone12,1",
+    "iOS",
+    "14.3",
+    "Wi-Fi",
+    "192.168.1.8",
+    "0.0.0.0",
+    0,
+    0,
+    "北京市",
+    "海淀区",
+    "学院路街道",
+    "学院大街288号",
+    "北京市海淀区学院大街288号",
+    "2024-01-08 11:42:12"
+  ],
+  "data" : [
+    {
+      "screen" : [
+        828,
+        1792,
+        0.64817845821380615
+      ],
+      "device" : [
+        "iPhone",
+        "yaoqi.li的iPhone",
+        0,
+        "iOS",
+        "14.3",
+        "iPhone12,1",
+        "20.2.0",
+        "iPhone12,1",
+        "CN",
+        "zh-Hans-CN",
+        "GMT+8",
+        "¥",
+        "",
+        "2024-01-06 15:03:26",
+        "1970-01-01 00:00:00 +0000",
+        "1970-01-01 00:00:00 +0000",
+        1
+      ],
+      "cpu" : [
+        6,
+        6,
+        "arm64e",
+        "arm64"
+      ],
+      "storage" : [
+        62435444,
+        18553168,
+        3952336,
+        45408.8828125
+      ],
+      "sysctl" : [
+        "N104AP"
+      ],
+      "uuid" : [
+        "CEC96377-852C-4E35-B909-0278652118D5",
+        "CC0B8D21-6282-4439-B84F-56494500DB52",
+        "62EBF615-F84D-4E5F-A48E-E4E2AD960EBE",
+        "0A3D9651-09B2-4CB0-A620-0897E5828AE1"
+      ],
+      "battery" : [
+        -1,
+        0.46000000834465027,
+        1,
+        0
+      ],
+      "type" : "DeviceData",
+      "network" : [
+        1,
+        "nil",
+        "中国电信",
+        "nil",
+        "460",
+        "cn",
+        "11",
+        1,
+        "192.168.1.8",
+        "nil",
+        "nil",
+        "nil",
+        -1,
+        "Wi-Fi"
+      ],
+      "buildDate" : "2024-01-08 11:42:13"
+    },
+    {
+      "socket" : [
+        0
+      ],
+      "httpProxy" : [
+      ],
+      "netInterface" : [
+      ],
+      "custom" : [
+        "2,(null),(null),192.168.1.8"
+      ],
+      "hosts" : [
+      ],
+      "sslPing" : [
+        0
+      ],
+      "type" : "NetData",
+      "response" : [
+        [
+          "221.198.162.60"
+        ],
+        [
+        ]
+      ],
+      "buildDate" : "2024-01-08 11:42:14"
+    },
+    {
+      "environment" : [
+        "nil",
+        "nil"
+      ],
+      "buildDate" : "2024-01-08 11:42:14",
+      "permission" : [
+      ],
+      "type" : "SelfAppData",
+      "base" : [
+        "EDR终端",
+        "com.cooltom.probe-ios",
+        "1.0",
+        "1",
+        "xhtjbejdqvwrek+yjvkoemsd+zs=",
+        "xhtjbejdqvwrek+yjvkoemsd+zs=",
+        "CN=Apple Release, O=iOS, C=US",
+        0,
+        0
+      ]
+    },
+    {
+      "access" : [
+        0,
+        0,
+        0,
+        0
+      ],
+      "linkFiles" : [
+        "nil",
+        "nil",
+        "nil",
+        "nil",
+        "nil"
+      ],
+      "context" : [
+      ],
+      "infoPlist" : [
+      ],
+      "exist" : [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "type" : "FileData",
+      "fileList" : [
+        ""
+      ],
+      "buildDate" : "2024-01-08 11:42:14"
+    },
+    {
+      "bundle" : [
+        "probe-ios"
+      ],
+      "stackDylib" : [
+        "\/private\/var\/containers\/Bundle\/Application\/A1483FD9-00CE-455C-895C-01BF016C1E1C\/probe-ios.app\/probe-ios",
+        "\/usr\/lib\/system\/introspection\/libdispatch.dylib",
+        "\/usr\/lib\/system\/libsystem_pthread.dylib"
+      ],
+      "images" : [
+        "\/Developer\/usr\/lib\/libBacktraceRecording.dylib",
+        "\/Developer\/usr\/lib\/libMainThreadChecker.dylib",
+        "\/Developer\/Library\/PrivateFrameworks\/DTDDISupport.framework\/libViewDebuggerSupport.dylib",
+        "\/usr\/lib\/libobjc.A.dylib",
+        "\/usr\/lib\/libSystem.B.dylib",
+        "\/usr\/lib\/libc++.1.dylib",
+        "\/usr\/lib\/swift\/libswiftUniformTypeIdentifiers.dylib",
+        "\/usr\/lib\/swift\/libswiftCore.dylib",
+        "\/usr\/lib\/swift\/libswiftCoreFoundation.dylib",
+        "\/usr\/lib\/swift\/libswiftCoreImage.dylib",
+        "\/usr\/lib\/swift\/libswiftDarwin.dylib",
+        "\/usr\/lib\/swift\/libswiftDispatch.dylib",
+        "\/usr\/lib\/swift\/libswiftMetal.dylib",
+        "\/usr\/lib\/swift\/libswiftObjectiveC.dylib",
+        "\/usr\/lib\/swift\/libswiftQuartzCore.dylib",
+        "\/usr\/lib\/swift\/libswiftos.dylib",
+        "\/usr\/lib\/swift\/libswiftCoreGraphics.dylib",
+        "\/usr\/lib\/swift\/libswiftFoundation.dylib",
+        "\/usr\/lib\/swift\/libswiftUIKit.dylib",
+        "\/usr\/lib\/libcompression.dylib",
+        "\/usr\/lib\/libarchive.2.dylib",
+        "\/usr\/lib\/libicucore.A.dylib",
+        "\/usr\/lib\/libxml2.2.dylib",
+        "\/usr\/lib\/liblangid.dylib",
+        "\/usr\/lib\/libCRFSuite.dylib",
+        "\/usr\/lib\/libc++abi.dylib",
+        "\/usr\/lib\/system\/libcache.dylib",
+        "\/usr\/lib\/system\/libcommonCrypto.dylib",
+        "\/usr\/lib\/system\/libcompiler_rt.dylib",
+        "\/usr\/lib\/system\/libcopyfile.dylib",
+        "\/usr\/lib\/system\/libcorecrypto.dylib",
+        "\/usr\/lib\/system\/introspection\/libdispatch.dylib",
+        "\/usr\/lib\/system\/libdyld.dylib",
+        "\/usr\/lib\/system\/liblaunch.dylib",
+        "\/usr\/lib\/system\/libmacho.dylib",
+        "\/usr\/lib\/system\/libremovefile.dylib",
+        "\/usr\/lib\/system\/libsystem_asl.dylib",
+        "\/usr\/lib\/system\/libsystem_blocks.dylib",
+        "\/usr\/lib\/system\/libsystem_c.dylib",
+        "\/usr\/lib\/system\/libsystem_collections.dylib",
+        "\/usr\/lib\/system\/libsystem_configuration.dylib",
+        "\/usr\/lib\/system\/libsystem_containermanager.dylib",
+        "\/usr\/lib\/system\/libsystem_coreservices.dylib",
+        "\/usr\/lib\/system\/libsystem_darwin.dylib",
+        "\/usr\/lib\/system\/libsystem_dnssd.dylib",
+        "\/usr\/lib\/system\/libsystem_featureflags.dylib",
+        "\/usr\/lib\/system\/libsystem_info.dylib",
+        "\/usr\/lib\/system\/libsystem_m.dylib",
+        "\/usr\/lib\/system\/libsystem_malloc.dylib",
+        "\/usr\/lib\/system\/libsystem_networkextension.dylib",
+        "\/usr\/lib\/system\/libsystem_notify.dylib",
+        "\/usr\/lib\/system\/libsystem_product_info_filter.dylib",
+        "\/usr\/lib\/system\/libsystem_sandbox.dylib",
+        "\/usr\/lib\/system\/libsystem_kernel.dylib",
+        "\/usr\/lib\/system\/libsystem_platform.dylib",
+        "\/usr\/lib\/system\/libsystem_pthread.dylib",
+        "\/usr\/lib\/system\/libsystem_symptoms.dylib",
+        "\/usr\/lib\/system\/libsystem_trace.dylib",
+        "\/usr\/lib\/system\/libunwind.dylib",
+        "\/usr\/lib\/system\/libxpc.dylib",
+        "\/usr\/lib\/liblzma.5.dylib",
+        "\/usr\/lib\/libapple_nghttp2.dylib",
+        "\/usr\/lib\/libnetwork.dylib",
+        "\/usr\/lib\/libsqlite3.dylib",
+        "\/usr\/lib\/libz.1.dylib",
+        "\/usr\/lib\/libenergytrace.dylib",
+        "\/usr\/lib\/libbsm.0.dylib",
+        "\/usr\/lib\/libcoretls.dylib",
+        "\/usr\/lib\/libcoretls_cfhelpers.dylib",
+        "\/usr\/lib\/libMobileGestalt.dylib",
+        "\/usr\/lib\/libpcap.A.dylib",
+        "\/usr\/lib\/libdns_services.dylib",
+        "\/usr\/lib\/libbz2.1.0.dylib",
+        "\/usr\/lib\/libiconv.2.dylib",
+        "\/usr\/lib\/libcharset.1.dylib",
+        "\/usr\/lib\/libAudioStatistics.dylib",
+        "\/usr\/lib\/libAudioToolboxUtility.dylib",
+        "\/usr\/lib\/libcupolicy.dylib",
+        "\/usr\/lib\/libTelephonyUtilDynamic.dylib",
+        "\/usr\/lib\/libutil.dylib",
+        "\/System\/Library\/PrivateFrameworks\/FontServices.framework\/libFontParser.dylib",
+        "\/System\/Library\/PrivateFrameworks\/FontServices.framework\/libhvf.dylib",
+        "\/System\/Library\/Frameworks\/Accelerate.framework\/Frameworks\/vecLib.framework\/libvMisc.dylib",
+        "\/System\/Library\/Frameworks\/Accelerate.framework\/Frameworks\/vecLib.framework\/libvDSP.dylib",
+        "\/System\/Library\/Frameworks\/Accelerate.framework\/Frameworks\/vecLib.framework\/libBLAS.dylib",
+        "\/System\/Library\/Frameworks\/Accelerate.framework\/Frameworks\/vecLib.framework\/libLAPACK.dylib",
+        "\/System\/Library\/Frameworks\/Accelerate.framework\/Frameworks\/vecLib.framework\/libLinearAlgebra.dylib",
+        "\/System\/Library\/Frameworks\/Accelerate.framework\/Frameworks\/vecLib.framework\/libSparseBLAS.dylib",
+        "\/System\/Library\/Frameworks\/Accelerate.framework\/Frameworks\/vecLib.framework\/libQuadrature.dylib",
+        "\/System\/Library\/Frameworks\/Accelerate.framework\/Frameworks\/vecLib.framework\/libBNNS.dylib",
+        "\/System\/Library\/Frameworks\/Accelerate.framework\/Frameworks\/vecLib.framework\/libSparse.dylib",
+        "\/usr\/lib\/libate.dylib",
+        "\/usr\/lib\/libexpat.1.dylib",
+        "\/System\/Library\/Frameworks\/OpenGLES.framework\/libCoreFSCache.dylib",
+        "\/System\/Library\/PrivateFrameworks\/FontServices.framework\/libGSFont.dylib",
+        "\/System\/Library\/PrivateFrameworks\/FontServices.framework\/libGSFontCache.dylib",
+        "\/usr\/lib\/libAccessibility.dylib",
+        "\/usr\/lib\/libperfcheck.dylib",
+        "\/usr\/lib\/libIOReport.dylib",
+        "\/usr\/lib\/libCTGreenTeaLogger.dylib",
+        "\/usr\/lib\/libtailspin.dylib",
+        "\/usr\/lib\/libapp_launch_measurement.dylib",
+        "\/usr\/lib\/libdscsym.dylib",
+        "\/System\/Library\/Frameworks\/OpenGLES.framework\/libGFXShared.dylib",
+        "\/System\/Library\/Frameworks\/OpenGLES.framework\/libGLImage.dylib",
+        "\/System\/Library\/Frameworks\/OpenGLES.framework\/libCVMSPluginSupport.dylib",
+        "\/System\/Library\/Frameworks\/OpenGLES.framework\/libCoreVMClient.dylib",
+        "\/usr\/lib\/libsandbox.1.dylib",
+        "\/usr\/lib\/libMatch.1.dylib",
+        "\/usr\/lib\/liblockdown.dylib",
+        "\/usr\/lib\/libmis.dylib",
+        "\/usr\/lib\/libmecab.dylib",
+        "\/usr\/lib\/libgermantok.dylib",
+        "\/usr\/lib\/libThaiTokenizer.dylib",
+        "\/usr\/lib\/libChineseTokenizer.dylib",
+        "\/usr\/lib\/libcmph.dylib",
+        "\/usr\/lib\/libheimdal-asn1.dylib",
+        "\/usr\/lib\/libprequelite.dylib",
+        "\/usr\/lib\/libresolv.9.dylib",
+        "\/usr\/lib\/swift\/libswiftAVFoundation.dylib",
+        "\/usr\/lib\/swift\/libswiftAccelerate.dylib",
+        "\/usr\/lib\/swift\/libswiftCloudKit.dylib",
+        "\/usr\/lib\/swift\/libswiftCoreAudio.dylib",
+        "\/usr\/lib\/swift\/libswiftCoreData.dylib",
+        "\/usr\/lib\/swift\/libswiftCoreLocation.dylib",
+        "\/usr\/lib\/swift\/libswiftCoreMIDI.dylib",
+        "\/usr\/lib\/swift\/libswiftCoreML.dylib",
+        "\/usr\/lib\/swift\/libswiftCoreMedia.dylib",
+        "\/usr\/lib\/swift\/libswiftVision.dylib",
+        "\/usr\/lib\/swift\/libswiftsimd.dylib",
+        "\/System\/Library\/PrivateFrameworks\/WebCore.framework\/Frameworks\/libwebrtc.dylib",
+        "\/System\/Library\/Frameworks\/Vision.framework\/libfaceCore.dylib",
+        "\/usr\/lib\/libedit.3.dylib",
+        "\/usr\/lib\/libncurses.5.4.dylib",
+        "\/usr\/lib\/libobjc-trampolines.dylib",
+        "\/usr\/lib\/libboringssl.dylib",
+        "\/usr\/lib\/libusrtcp.dylib",
+        "\/usr\/lib\/log\/liblog_network.dylib",
+        "\/usr\/lib\/libquic.dylib",
+        "\/System\/Library\/Frameworks\/Accelerate.framework\/Frameworks\/vImage.framework\/Libraries\/libCGInterfaces.dylib"
+      ],
+      "thread" : [
+        ""
+      ],
+      "resource" : [
+        "_installd",
+        33
+      ],
+      "custom" : [
+        0,
+        0,
+        1,
+        0
+      ],
+      "type" : "RuntimeData",
+      "process" : [
+        572,
+        "probe-ios"
+      ],
+      "buildDate" : "2024-01-08 11:42:14"
+    },
+    {
+      "type" : "AppData",
+      "buildDate" : "2024-01-08 11:42:14",
+      "installed" : [
+        [
+          "EDR终端",
+          "com.cooltom.probe-ios",
+          "1.0",
+          "1",
+          "xhtjbejdqvwrek+yjvkoemsd+zs=",
+          "xhtjbejdqvwrek+yjvkoemsd+zs=",
+          "CN=Apple Release, O=iOS, C=US",
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "type" : "LocationData",
+      "base" : [
+        "nil",
+        0,
+        0,
+        0,
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "buildDate" : "2024-01-08 11:42:14"
+    },
+    {
+      "swizzling" : [
+        "-[probe_ios.CrashSwift crash],$s9probe_ios10CrashSwiftC5crashyyFTo,\/private\/var\/containers\/Bundle\/Application\/A1483FD9-00CE-455C-895C-01BF016C1E1C\/probe-ios.app\/probe-ios",
+        "-[probe_ios.CrashSwift init],$s9probe_ios10CrashSwiftCACycfcTo,\/private\/var\/containers\/Bundle\/Application\/A1483FD9-00CE-455C-895C-01BF016C1E1C\/probe-ios.app\/probe-ios"
+      ],
+      "inlineHook" : [
+      ],
+      "type" : "InjectData",
+      "fishhook" : [
+        0
+      ],
+      "buildDate" : "2024-01-08 11:42:14"
+    }
+  ]
+}

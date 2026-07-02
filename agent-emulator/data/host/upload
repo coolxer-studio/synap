@@ -1,0 +1,41 @@
+{
+	"common": ["userId", "f04966f6-e63a-4289-a78b-4c61b9a7b5fb", "1709303233759", "1.231207", "1", "probe-host", "/var/folders/pn/jvf3xg4s35s16l6gy79mmhjh0000gn/T/go-build2209478022/b001/exe/probe-host", null, "host", "", "", "darwin", "13.6.3", "", "192.168.1.10", "221.198.162.44", 0, 0, "", "", "", "", "", "2024-03-01 22:27:14"],
+	"data": [{
+		"type": "DeviceData",
+		"device": ["", "yaoqilideMacBook-Pro.local", "darwin", "13.6.3", "", "", "", "zh_CN.UTF-8", "CST", "", "2024-02-23 09:58:30"],
+		"screen": ["", "", "", "", ""],
+		"cpu": ["4", "0", "Intel(R) Core(TM) i5-7360U CPU @ 2.30GHz", ""],
+		"battery": ["60799.470000", "Full"],
+		"uuid": ["", "Tue Nov  7 21", "", "f04966f6-e63a-4289-a78b-4c61b9a7b5fb"],
+		"network": ["192.168.1.10", "", "255.255.255.0", "", "", ""],
+		"storage": ["699999997952", "169009434624", "8589934592", "6523994112"]
+	}, {
+		"type": "FileData",
+		"exist": [0],
+		"context": [""],
+		"fileList": [""],
+		"access": ["---"],
+		"md5": [""],
+		"yara": [""]
+	}, {
+		"type": "RuntimeData",
+		"process": null,
+		"env": ["/Users/yaoqi.li/Documents/harmless/java/jdk-17.0.6.jdk/Contents/Home"],
+		"cmd": ["/Users/yaoqi.li/Documents/harmless/java/jdk-17.0.6.jdk/Contents/Home/bin/java\n"]
+	}, {
+		"type": "NetData",
+		"port": [0, 0],
+		"socket": [0,0,0,0],
+		"uds": [0],
+		"netInterface": [],
+		"httpProxy": [],
+		"hosts": [],
+		"certificate": []
+	}, {
+		"type": "EventData",
+		"sshd": [
+			["root", "2023-12-25 12:33:00"],
+			["test", "2023-12-25 12:38:00"]
+		]
+	}]
+}
