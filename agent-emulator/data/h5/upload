@@ -1,0 +1,72 @@
+{
+	"common": [null, "065bd526-788a-47ba-b4e2-1b4b8639dd65", 1711280321072, "1.0.0.220519", 1, "风险感知", "", "-", "h5", "Nexus", "Nexus 5", "Android", "6.0", "4G", "0.0.0.0", "0.0.0.0", null, null, "中国", "广东省", "广州市", "大槐树街道", "288号", "2024-03-24 19:38:51"],
+	"data": [{
+		"type": "EventData",
+		"href": "file:///Users/yaoqi.li/Documents/cabin/coolxer/x-genie/probe-h5/demo/index.html",
+		"docTitle": "风险感知",
+		"buildTime": "1711280321303",
+		"online": 1,
+		"data": {
+			"type": "mousemove",
+			"x": 352,
+			"y": 233,
+			"targetId": "device-info",
+			"nodeName": "DIV"
+		}
+	}, {
+		"type": "EventData",
+		"href": "file:///Users/yaoqi.li/Documents/cabin/coolxer/x-genie/probe-h5/demo/index.html",
+		"docTitle": "风险感知",
+		"buildTime": "1711280321303",
+		"online": 1,
+		"data": {
+			"type": "mousemove",
+			"x": 352,
+			"y": 233,
+			"targetId": "device-info",
+			"nodeName": "DIV"
+		}
+	}, {
+		"type": "DevToolData",
+		"data": {
+			"outerWidth": 1440,
+			"innerWidth": 400,
+			"outerHeight": 790,
+			"innerHeight": 582
+		}
+	}, {
+		"type": "DeviceData",
+		"device": ["Android", "6.0", "Nexus 5", null, "Asia/Shanghai(-480)"],
+		"screen": [400, 582, 400, 582, 7],
+		"cpu": ["2", null, null],
+		"battery": [""],
+		"uuid": ["065bd526-788a-47ba-b4e2-1b4b8639dd65"],
+		"network": [null, "4G", "unknown|unknown|50|false"],
+		"storage": [null, "8"],
+		"browser": [
+			[0, 0, 1, 0, 0, 0, 1, 1],
+			["", "probably", "probably"]
+		],
+		"baseInfo": ["2", "24", [],
+			[], "e30e1b1e", "Google Inc. (Intel Inc.)~ANGLE (Intel Inc., Intel(R) Iris(TM) Plus Graphics 640, OpenGL 4.1)", "", "MacIntel", ["Arial Unicode MS", "Gill Sans", "Helvetica Neue", "Menlo"],
+			[1, false, false], "", 0, 1, 1, 1, 0, 0, 1, 0, "data:image/png;base64,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~extensions:ANGLE_instanced_arrays;EXT_blend_minmax;EXT_color_buffer_half_float;EXT_depth_clamp;EXT_disjoint_timer_query;EXT_float_blend;EXT_frag_depth;EXT_shader_texture_lod;EXT_texture_compression_rgtc;EXT_texture_filter_anisotropic;EXT_sRGB;OES_element_index_uint;OES_fbo_render_mipmap;OES_standard_derivatives;OES_texture_float;OES_texture_float_linear;OES_texture_half_float;OES_texture_half_float_linear;OES_vertex_array_object;WEBGL_blend_func_extended;WEBGL_color_buffer_float;WEBGL_compressed_texture_s3tc;WEBGL_compressed_texture_s3tc_srgb;WEBGL_debug_renderer_info;WEBGL_debug_shaders;WEBGL_depth_texture;WEBGL_draw_buffers;WEBGL_lose_context;WEBGL_multi_draw;WEBGL_polygon_mode~webgl aliased line width range:[1, 1]~webgl aliased point size range:[1, 255.875]~webgl alpha bits:8~webgl antialiasing:yes~webgl blue bits:8~webgl depth bits:24~webgl green bits:8~webgl max anisotropy:16~webgl max combined texture image units:32~webgl max cube map texture size:16384~webgl max fragment uniform vectors:1024~webgl max render buffer size:16384~webgl max texture image units:16~webgl max texture size:16384~webgl max varying vectors:15~webgl max vertex attribs:16~webgl max vertex texture image units:16~webgl max vertex uniform vectors:1024~webgl max viewport dims:[16384, 16384]~webgl red bits:8~webgl renderer:WebKit WebGL~webgl shading language version:WebGL GLSL ES 1.0 (OpenGL ES GLSL ES 1.0 Chromium)~webgl stencil bits:0~webgl vendor:WebKit~webgl version:WebGL 1.0 (OpenGL ES 2.0 Chromium)~webgl unmasked vendor:Google Inc. (Intel Inc.)~webgl unmasked renderer:ANGLE (Intel Inc., Intel(R) Iris(TM) Plus Graphics 640, OpenGL 4.1)~webgl vertex shader high float precision:23~webgl vertex shader high float precision rangeMin:127~webgl vertex shader high float precision rangeMax:127~webgl vertex shader medium float precision:23~webgl vertex shader medium float precision rangeMin:127~webgl vertex shader medium float precision rangeMax:127~webgl vertex shader low float precision:23~webgl vertex shader low float precision rangeMin:127~webgl vertex shader low float precision rangeMax:127~webgl fragment shader high float precision:23~webgl fragment shader high float precision rangeMin:127~webgl fragment shader high float precision rangeMax:127~webgl fragment shader medium float precision:23~webgl fragment shader medium float precision rangeMin:127~webgl fragment shader medium float precision rangeMax:127~webgl fragment shader low float precision:23~webgl fragment shader low float precision rangeMin:127~webgl fragment shader low float precision rangeMax:127~webgl vertex shader high int precision:0~webgl vertex shader high int precision rangeMin:31~webgl vertex shader high int precision rangeMax:30~webgl vertex shader medium int precision:0~webgl vertex shader medium int precision rangeMin:31~webgl vertex shader medium int precision rangeMax:30~webgl vertex shader low int precision:0~webgl vertex shader low int precision rangeMin:31~webgl vertex shader low int precision rangeMax:30~webgl fragment shader high int precision:0~webgl fragment shader high int precision rangeMin:31~webgl fragment shader high int precision rangeMax:30~webgl fragment shader medium int precision:0~webgl fragment shader medium int precision rangeMin:31~webgl fragment shader medium int precision rangeMax:30~webgl fragment shader low int precision:0~webgl fragment shader low int precision rangeMin:31~webgl fragment shader low int precision rangeMax:30", 33, "20030107", 0
+		],
+		"document": ["UTF-8"],
+		"window": [null],
+		"navigator": ["Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36", null, "Google Inc."]
+	}, {
+		"type": "SelfAppData",
+		"base": ["file://"]
+	}, {
+		"type": "LocationData",
+		"base": [null, null, null, null, null, null, null, null, null]
+	}, {
+		"type": "RuntimeData",
+		"custom": [1, {
+				"0": [1, 0, -1],
+				"1": [1, 0, -1]
+			},
+			[0, 0, 0, 0], null, ""
+		]
+	}]
+}

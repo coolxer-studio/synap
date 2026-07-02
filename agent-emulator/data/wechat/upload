@@ -1,0 +1,14 @@
+{
+	"common": ["", "3aef158b-1548-4f55-b8f0-f07b488d3795", 1718720348298, "1.0.0.240701", 1, "设备测试页面", "pages/device/device", "-", "wechat", "apple", "iPhone 5", "iOS", "10.0.1", "wifi", "192.168.0.104", "223.104.227.183", null, null, "", "", "", "", "", "2024-06-18 22:19:08"],
+	"data": [{
+		"buildDate": "2024-06-17 22:31:43",
+		"type": "DeviceData",
+		"device": [null, null, -1, "devtools", "iPhone 5", "iOS 10.0.1", "devtools", null, 2048],
+		"screen": [2, 568, 320, 520, 320, 20, 48],
+		"systemSetting": [true, "portrait", true, true],
+		"appBaseInfo": ["2.25.3", false, "zh_CN", "8.0.5", 1, 16],
+		"appAuthorizeSetting": ["authorized", "authorized", "not determined", "not determined", true, "authorized", "authorized", "authorized", "authorized", "authorized", "not determined"],
+		"battery": [100, true],
+		"uuid": ["3aef158b-1548-4f55-b8f0-f07b488d3795"]
+	}]
+}
