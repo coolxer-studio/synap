@@ -18,7 +18,6 @@ synap-server 是 synap 的请求响应服务，负责接收 agent 数据、下�
 - Groovy 3.0.17
 - Jackson
 - Lombok
-- ProGuard
 
 ## 目录结构
 
@@ -135,6 +134,52 @@ spring.kafka.bootstrap-servers=192.168.1.201:9092
 
 注意：当前 `application-dev.properties` 和 `application-prod.properties` 中的 `rule.engine.groovy.path` 指向 `.../rule/groovy/`，但仓库里的 Groovy 文件实际位于 `src/main/java/com/coolxer/rule/`。本地启动或部署前需要确认该路径是否符合实际目录。
 
+### Zenvis 业务服务上报
+
+`synap-server` 通过独立的 `zenvis-business-service-spring-boot-starter` 组件向 Zenvis 公开业务服务接口上报实例心跳和运行事件。Starter 负责自动装配、实例注册、定时心跳、生命周期事件、异步事件队列及故障隔离；Synap 只保留规则执行失败和跨服务调用失败两个业务埋点。
+
+该能力默认开启。Zenvis 网络异常和业务响应失败只记录本地日志，不会影响 Synap 的启动或请求处理。如需关闭，可设置 `ZENVIS_BUSINESS_SERVICE_ENABLED=false`。
+
+默认使用本机 Zenvis 地址；Zenvis 部署在其他地址时配置：
+
+```bash
+export ZENVIS_BASE_URL=http://zenvis-host:11001
+```
+
+启用后，服务启动即上报一次 `UP` 心跳，之后默认每 30 秒续报；正常关闭时先发送 `SERVICE_STOPPING` 事件，再上报 `DOWN`。首次成功注册后发送一次 `SERVICE_STARTED`，规则执行失败和跨服务调用失败分别发送 `RULE_EXECUTION_FAILED`、`CROSS_SERVICE_CALL_FAILED`。
+
+常用环境变量：
+
+| 环境变量 | 默认值 | 说明 |
+| --- | --- | --- |
+| `ZENVIS_BUSINESS_SERVICE_ENABLED` | `true` | 是否启用 Zenvis 上报 |
+| `ZENVIS_BASE_URL` | `http://localhost:11001` | Zenvis 服务根地址 |
+| `ZENVIS_SERVICE_CODE` | `synap-server` | Zenvis 服务标识 |
+| `ZENVIS_SERVICE_NAME` | `Synap Server` | Zenvis 服务名称 |
+| `ZENVIS_INSTANCE_ID` | 空 | 实例标识；为空时自动生成 |
+| `ZENVIS_SERVICE_VERSION` | `0.0.1-SNAPSHOT` | 服务版本 |
+| `ZENVIS_SERVICE_ENVIRONMENT` | 当前 Spring profile | 部署环境 |
+| `ZENVIS_SERVICE_HOST` | 当前主机名 | 对外展示的主机 |
+| `ZENVIS_SERVICE_PORT` | `server.port` | 对外展示的端口 |
+| `ZENVIS_MANAGEMENT_URL` | 空 | 可选管理地址 |
+| `ZENVIS_HEARTBEAT_INTERVAL_MILLIS` | `30000` | 心跳间隔，需小于 Zenvis 离线阈值 |
+| `ZENVIS_CONNECT_TIMEOUT_MILLIS` | `2000` | 连接超时 |
+| `ZENVIS_READ_TIMEOUT_MILLIS` | `3000` | 读取超时 |
+| `ZENVIS_EVENT_QUEUE_CAPACITY` | `100` | 异步事件队列容量 |
+| `ZENVIS_TIME_ZONE` | `Asia/Shanghai` | 心跳和事件时间使用的时区 |
+
+未配置 `ZENVIS_INSTANCE_ID` 时，实例标识按 `serviceCode-host-port` 生成，并自动替换不符合 Zenvis 约束的字符、截断至 128 个字符。运行故障事件由单线程有界队列异步发送；队列满时事件会被丢弃并记录告警。规则产生的 agenda 不会作为服务事件逐条上报。
+
+Starter 项目位于相邻目录 `../zenvis-business-service-spring-boot-starter`。其他 Spring Boot 3.x 服务可独立引入：
+
+```xml
+<dependency>
+    <groupId>com.coolxer.zenvis</groupId>
+    <artifactId>zenvis-business-service-spring-boot-starter</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+</dependency>
+```
+
 ## 本地运行
 
 前置依赖：
@@ -147,6 +192,11 @@ spring.kafka.bootstrap-servers=192.168.1.201:9092
 启动：
 
 ```bash
+# 首次在工作区根目录安装 Starter 和 synap-server
+cd ..
+mvn -DskipTests install
+
+cd synap-server
 mvn spring-boot:run
 ```
 
@@ -155,6 +205,7 @@ mvn spring-boot:run
 运行测试：
 
 ```bash
+cd ..
 mvn test
 ```
 

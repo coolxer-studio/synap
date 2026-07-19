@@ -2,6 +2,7 @@ package com.coolxer;
 
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -19,6 +20,7 @@ public class Application {
 	 * 注入RestTemplate
 	 */
 	@Bean
+	@Primary
 	public RestTemplate restTemplate(){
 		return new RestTemplate();
 	}

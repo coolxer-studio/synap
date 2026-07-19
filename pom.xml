@@ -14,11 +14,17 @@
 	<description>synap数据接收服务</description>
 	<properties>
 		<java.version>17</java.version>
+		<zenvis-business-service-starter.version>0.1.0-SNAPSHOT</zenvis-business-service-starter.version>
 	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.coolxer.zenvis</groupId>
+			<artifactId>zenvis-business-service-spring-boot-starter</artifactId>
+			<version>${zenvis-business-service-starter.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -75,7 +81,6 @@
 				<version>2.3.2</version>
 				<configuration>
 					<excludes>
-						<exclude>**/application.properties</exclude>
 						<exclude>checker_config/**</exclude>
 						<exclude>punish_config/**</exclude>
 						<exclude>com/coolxer/rule/groovy/**</exclude>
