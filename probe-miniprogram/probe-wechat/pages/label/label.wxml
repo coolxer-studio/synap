@@ -1,0 +1,57 @@
+<!--pages/label/label.wxml-->
+<navigation-bar title="设备标签" back="{{false}}" color="black" background="#FFF"></navigation-bar>
+<scroll-view class="scrollarea" scroll-y type="list">
+  <view class="label-container">
+    <view class="label-title">
+      <image class="label-title-image" bindtap="showModal" data-content="高风险标记" src="/pages/images/ic_identify_high.png" />
+      <text style="color:#FA5252" class="label-title-context">高风险标记</text>
+    </view>
+    <view class="line"></view>
+    <view class="label-list">
+      <text style="background-color: #FA5252;" class="label-context" wx:for="{{high}}" wx:key="{{index}}">{{item}}</text>
+    </view>
+  </view>
+  <view class="label-container">
+    <view class="label-title">
+      <image class="label-title-image" bindtap="showModal" data-content="中风险标记" src="/pages/images/ic_identify_medium.png" />
+      <text style="color:#FCC419" class="label-title-context">中风险标记</text>
+    </view>
+    <view class="line"></view>
+    <view class="label-list">
+      <text style="background-color: #FCC419;" class="label-context" wx:for="{{medium}}" wx:key="{{index}}">{{item}}</text>
+    </view>
+  </view>
+
+  <view class="label-container">
+    <view class="label-title">
+      <image class="label-title-image" bindtap="showModal" data-content="低风险标记" src="/pages/images/ic_identify_low.png" />
+      <text style="color:#20C997" class="label-title-context">低风险标记</text>
+    </view>
+    <view class="line"></view>
+    <view class="label-list">
+      <text style="background-color: #20C997;" class="label-context" wx:for="{{low}}" wx:key="{{index}}">{{item}}</text>
+    </view>
+  </view>
+
+  <view class="label-container">
+    <view class="label-title">
+      <image class="label-title-image" bindtap="showModal" data-content="一般标记" src="/pages/images/ic_identify_low.png" />
+      <text style="color:#20C997" class="label-title-context">一般标记</text>
+    </view>
+    <view class="line"></view>
+    <view class="label-list">
+      <text style="background-color: #20C997;" class="label-context" wx:for="{{normal}}" wx:key="{{index}}">{{item}}</text>
+    </view>
+  </view>
+
+  <view class="label-container">
+    <view class="label-title">
+      <image class="label-title-image" bindtap="showModal" data-content="其他标记" src="/pages/images/ic_identify_low.png" />
+      <text style="color:#20C997" class="label-title-context">其他标记</text>
+    </view>
+    <view class="line"></view>
+    <view class="label-list">
+      <text style="background-color: #20C997;" class="label-context" wx:for="{{other}}" wx:key="{{index}}">{{item}}</text>
+    </view>
+  </view>
+</scroll-view>

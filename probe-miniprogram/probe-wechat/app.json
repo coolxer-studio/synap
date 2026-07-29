@@ -1,0 +1,55 @@
+{
+  "pages": [
+    "pages/device/device",
+    "pages/rating/rating",
+    "pages/label/label",
+    "pages/tool/tool"
+  ],
+  "window": {
+    "navigationBarTextStyle": "black",
+    "navigationStyle": "custom"
+  },
+  "tabBar": {
+    "color": "#777",
+    "selectedColor": "#1cb9ce",
+    "list": [
+      {
+        "pagePath": "pages/device/device",
+        "text": "设备信息",
+        "iconPath": "/pages/images/ic_device.png",
+        "selectedIconPath": "/pages/images/ic_device.png"
+      },
+      {
+        "pagePath": "pages/rating/rating",
+        "text": "风险识别",
+        "iconPath": "/pages/images/ic_analyze.png",
+        "selectedIconPath": "/pages/images/ic_analyze.png"
+      },
+      {
+        "pagePath": "pages/label/label",
+        "text": "设备标签",
+        "iconPath": "/pages/images/ic_identify.png",
+        "selectedIconPath": "/pages/images/ic_identify.png"
+      },
+      {
+        "pagePath": "pages/tool/tool",
+        "text": "测试工具",
+        "iconPath": "/pages/images/ic_tool.png",
+        "selectedIconPath": "/pages/images/ic_tool.png"
+      }
+    ]
+  },
+  "style": "v2",
+  "renderer": "skyline",
+  "rendererOptions": {
+    "skyline": {
+      "defaultDisplayBlock": true,
+      "disableABTest": true,
+      "sdkVersionBegin": "3.0.0",
+      "sdkVersionEnd": "15.255.255"
+    }
+  },
+  "componentFramework": "glass-easel",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents"
+}

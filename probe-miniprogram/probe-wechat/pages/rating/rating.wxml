@@ -1,0 +1,9 @@
+<!--pages/rating/rating.wxml-->
+<navigation-bar title="风险识别" back="{{false}}" color="black" background="#FFF"></navigation-bar>
+<view class="page">
+  <view class="context">
+    <image src="/pages/images/ic_analyze_background.gif" mode="" />
+    <text style="color: {{textColor}}" class="component1">{{grade}}（{{score}}）</text>
+  </view>
+  <image class="bottom-view" src="/pages/images/ic_analyze_background_down.png" mode="" />
+</view>
