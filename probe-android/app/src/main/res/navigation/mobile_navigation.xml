@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mobile_navigation"
+    app:startDestination="@+id/navigation_device">
+
+    <fragment
+        android:id="@+id/navigation_device"
+        android:name="com.coolxer.probe.demo.ui.device.DeviceFragment"
+        tools:layout="@layout/fragment_device" />
+
+
+    <fragment
+        android:id="@+id/navigation_analyze"
+        android:name="com.coolxer.probe.demo.ui.analyze.AnalyzeFragment"
+        tools:layout="@layout/fragment_analyze" />
+
+    <fragment
+        android:id="@+id/navigation_identify"
+        android:name="com.coolxer.probe.demo.ui.identify.IdentifyFragment"
+        tools:layout="@layout/fragment_identify" />
+</navigation>

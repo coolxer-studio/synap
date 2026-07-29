@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">x-genie终端</string>
+    <string name="title_device">设备信息</string>
+    <string name="title_analyze">风险分析</string>
+    <string name="title_identify">威胁识别</string>
+
+    <string name="label_tool">工具箱</string>
+    <string name="label_tool_crash">崩溃测试</string>
+    <string name="label_tool_privacy">隐私测试</string>
+    <string name="label_tool_login">模拟登录</string>
+    <string name="label_auth">用户认证</string>
+
+</resources>
