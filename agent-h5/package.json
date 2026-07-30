@@ -32,9 +32,9 @@
     "crypto": false
   },
   "dependencies": {
+    "@coolxer/secure-communication-js": "file:../../../secure-communication/client/javascript",
     "babel-polyfill": "^6.26.0",
     "crypto-browserify": "^3.12.0",
-    "crypto-js": "^4.0.0",
     "uuid": "^9.0.0"
   }
 }

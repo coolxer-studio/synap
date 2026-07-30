@@ -1,4 +1,4 @@
-import enc from './secure-communication/encrypt-decrypt'
+import { createH5Codec } from '@coolxer/secure-communication-js'
 import cookieOperate from "./cookie-operate";
 // 存储逻辑
 
@@ -7,7 +7,9 @@ const readF = (key, value)=> {
     if (value) {
         const item = JSON.parse(value);
         if (item.expiredAt && +item.expiredAt >= +Date.now()) {
-            return key !== 'h_five_event' ? JSON.parse(enc.Decrypt(item.value,enc.k(window.kk))) : item.value;
+            return key !== 'h_five_event'
+                ? JSON.parse(createH5Codec(window.kk).decrypt(item.value))
+                : item.value;
         }
     }
     return null;
@@ -16,7 +18,9 @@ const readF = (key, value)=> {
 const setF = (key, e, expire) => {
     return JSON.stringify({
         expiredAt: +Date.now() + (!expire ? 2592e8 : expire),
-        value: key !== 'h_five_event' ? enc.Encrypt(JSON.stringify(e), enc.k(window.kk)) : e
+        value: key !== 'h_five_event'
+            ? createH5Codec(window.kk).encrypt(JSON.stringify(e))
+            : e
     })
 }
 

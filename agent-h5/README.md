@@ -26,6 +26,25 @@
 
 ### 其他说明
 
+#### H5 通信 SDK
+
+探针通过 npm 包 `@coolxer/secure-communication-js` 完成 H5 请求和响应的 SM4 编解码，不再维护项目内的加密算法副本。当前依赖使用本地路径：
+
+```text
+file:../../../secure-communication/client/javascript
+```
+
+因此本地开发和 CI 需要保持以下相对目录：
+
+```text
+cabin/
+├── secure-communication/
+│   └── client/javascript/
+└── synap/synap-agent/agent-h5/
+```
+
+安装依赖前应先确认 JavaScript SDK 已包含 `dist/` 构建产物。SDK 的接口和协议说明见 `secure-communication/client/javascript/README.md`。
+
 #### 发送自定义数据
 
 全局暴露了userData(userId,data)函数用来发送自定义数据，初始化成功后绑定到window对象上，可以通过window.调用，userId参数建议传递脱敏后的用户标识（比如MD5或者加密处理），data参数是任意的数据对象即可。\
@@ -52,6 +71,7 @@ if(typeof window.userData === 'function'){
 node /Users/yaoqi.li/Documents/cabin/coolxer/xiaobai1894/synap-agent/agent-h5/src/test-encode.js
 
 ```
+yarn install
 npm run build
 ```
 

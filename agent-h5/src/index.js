@@ -1,4 +1,4 @@
-import enc from './lib/secure-communication/encrypt-decrypt'
+import { createH5Codec } from '@coolxer/secure-communication-js'
 import httpAjax from './lib/secure-communication/ajax-http'
 import cookieOperate from './lib/cookie-operate'
 import agLocalStore from "./lib/ag-localstore";
@@ -35,11 +35,12 @@ var startSender = function (cancelTime) {
     'Content-Type': 'application/json;charset=UTF-8',
     'code': baseData.getHeaderCode()
   }
-  const postData = enc.Encrypt(JSON.stringify(body), enc.k(window.kk)) + window.kk.toUpperCase();;
+  const codec = createH5Codec(window.kk);
+  const postData = codec.encodeRequest(JSON.stringify(body));
   httpAjax.http_post(window.up, header, postData, function (data) {
     window.probeMsgQueue = [];
     if (data && data.length > 0) {
-      var responseConfig = JSON.parse(enc.Decrypt(data, enc.k(window.kk)));
+      var responseConfig = JSON.parse(codec.decodeResponse(data));
     } else {
       console.warn('触发异常行为,不要进行非法操作!')
     }
@@ -115,7 +116,7 @@ function launchProbe() {
 
 
 const startWithPolic = function (dispatch, config) {
-  window._polic = JSON.parse(enc.Decrypt(config, enc.k(dispatch.appId())));
+  window._polic = JSON.parse(createH5Codec(dispatch.appId()).decodeResponse(config));
   window.kk = dispatch.appId();
   window.up = dispatch.upload();
   window.deviceInfoUrl = dispatch.deviceInfo();
@@ -132,6 +133,7 @@ class Loader {
   }
   init(dispatch) {
     if (dispatch.appId() && dispatch.appId().length > 0) {
+      createH5Codec(dispatch.appId());
       const exDate = new Date();
       try {
         window.sessionStorage.setItem('_t', exDate.getTime());
@@ -158,11 +160,12 @@ class Loader {
     const body = {
       'common': baseData.getCommonInfo()
     };
-    const encBody = enc.Encrypt(JSON.stringify(body), enc.k(dispatch.appId())) + dispatch.appId().toUpperCase();
     var header = {
       'Content-Type': 'application/json;charset=UTF-8',
       'code': baseData.getHeaderCode()
     };
+    const codec = createH5Codec(dispatch.appId());
+    const encBody = codec.encodeRequest(JSON.stringify(body));
     httpAjax.http_post(dispatch.start(), header, encBody,
       function (data) {
         if (data) {
@@ -193,7 +196,8 @@ class Loader {
     const body = {
       'common': baseData.getCommonInfo()
     };
-    const encBody = enc.Encrypt(JSON.stringify(body), enc.k(window.kk)) + window.kk.toUpperCase();
+    const codec = createH5Codec(window.kk);
+    const encBody = codec.encodeRequest(JSON.stringify(body));
     var header = {
       'Content-Type': 'application/json;charset=UTF-8',
       'code': baseData.getHeaderCode()
@@ -202,7 +206,7 @@ class Loader {
     httpAjax.http_post(url, header, encBody,
       function (data) {
         if (data) {
-          requestData = JSON.parse(enc.Decrypt(data, enc.k(window.kk)));;
+          requestData = JSON.parse(codec.decodeResponse(data));;
         }
       },
       function (error) {
