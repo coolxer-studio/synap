@@ -3,16 +3,11 @@ package com.coolxer.service.impl;
 import com.coolxer.model.fact.Common;
 import com.coolxer.model.fact.Header;
 import com.coolxer.model.cross.APIConfig;
-import com.coolxer.zenvis.businessservice.BusinessServiceEventSeverity;
-import com.coolxer.zenvis.businessservice.BusinessServiceReporter;
 import com.coolxer.service.CrossService;
 import com.coolxer.utils.ReflectionUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 @Slf4j
 @Service
@@ -20,14 +15,11 @@ public class CrossServiceImpl implements CrossService {
 
     private final RestTemplate restTemplate;
     private final ApiConfigLoadServiceImpl apiConfigLoadServiceImpl;
-    private final BusinessServiceReporter businessServiceReporter;
     
     public CrossServiceImpl(RestTemplate restTemplate,
-                            ApiConfigLoadServiceImpl apiConfigLoadServiceImpl,
-                            BusinessServiceReporter businessServiceReporter) {
+                            ApiConfigLoadServiceImpl apiConfigLoadServiceImpl) {
         this.restTemplate = restTemplate;
         this.apiConfigLoadServiceImpl = apiConfigLoadServiceImpl;
-        this.businessServiceReporter = businessServiceReporter;
     }
     
     /**
@@ -102,37 +94,7 @@ public class CrossServiceImpl implements CrossService {
             return response;
         } catch (RuntimeException e) {
             log.error("跨服务调用失败, apiConfigId:{}", id, e);
-            reportCrossServiceFailure(id, apiConfig, common, e);
             throw e;
-        }
-    }
-
-    private void reportCrossServiceFailure(String id,
-                                           APIConfig apiConfig,
-                                           Common common,
-                                           RuntimeException exception) {
-        Map<String, Object> data = new LinkedHashMap<>();
-        data.put("api_config_id", id);
-        if (apiConfig != null && apiConfig.getApiName() != null) {
-            data.put("api_name", apiConfig.getApiName());
-        }
-        if (common != null) {
-            data.put("platform", common.getPlatform());
-            data.put("app_id", common.getAppId());
-        }
-        String traceId = common == null ? null : common.getGuid();
-        String message = exception.getClass().getSimpleName()
-                + (exception.getMessage() == null ? "" : ": " + exception.getMessage());
-        try {
-            businessServiceReporter.reportEvent(
-                    "CROSS_SERVICE_CALL_FAILED",
-                    BusinessServiceEventSeverity.ERROR,
-                    "Synap 跨服务调用失败",
-                    message,
-                    traceId,
-                    data);
-        } catch (RuntimeException reporterException) {
-            log.warn("提交 Zenvis 跨服务失败事件时发生异常: {}", reporterException.getMessage());
         }
     }
     

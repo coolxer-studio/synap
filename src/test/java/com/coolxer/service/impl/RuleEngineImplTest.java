@@ -3,8 +3,6 @@ package com.coolxer.service.impl;
 import com.coolxer.model.checkpoint.Checkpoint;
 import com.coolxer.model.fact.AbstractFact;
 import com.coolxer.model.fact.Common;
-import com.coolxer.zenvis.businessservice.BusinessServiceEventSeverity;
-import com.coolxer.zenvis.businessservice.BusinessServiceReporter;
 import com.coolxer.service.PunishConfigService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -17,11 +15,7 @@ import java.nio.file.Path;
 import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class RuleEngineImplTest {
@@ -30,47 +24,36 @@ class RuleEngineImplTest {
     Path tempDir;
 
     @Test
-    void successfulRuleDoesNotReportFailure() throws Exception {
+    void successfulRuleReturnsCheckpoint() throws Exception {
         PunishConfigService punishConfigService = mock(PunishConfigService.class);
-        BusinessServiceReporter reporter = mock(BusinessServiceReporter.class);
         KafkaTemplate<?, ?> kafkaTemplate = mock(KafkaTemplate.class);
         AbstractFact fact = fact();
         String scriptName = fact.getClass().getSimpleName() + "Rule.groovy";
         Files.writeString(tempDir.resolve(scriptName), "return new ArrayList()");
         when(punishConfigService.getAllPunishRules()).thenReturn(Collections.emptyList());
 
-        RuleEngineImpl ruleEngine = ruleEngine(punishConfigService, reporter, kafkaTemplate, tempDir);
+        RuleEngineImpl ruleEngine = ruleEngine(punishConfigService, kafkaTemplate, tempDir);
         Checkpoint checkpoint = ruleEngine.run(fact);
 
         assertThat(checkpoint).isNotNull();
-        verify(reporter, never()).reportEvent(any(), any(), any(), any(), any(), any());
     }
 
     @Test
-    void missingRuleReportsFailure() {
+    void missingRuleReturnsNull() {
         PunishConfigService punishConfigService = mock(PunishConfigService.class);
-        BusinessServiceReporter reporter = mock(BusinessServiceReporter.class);
         KafkaTemplate<?, ?> kafkaTemplate = mock(KafkaTemplate.class);
         AbstractFact fact = fact();
 
-        RuleEngineImpl ruleEngine = ruleEngine(punishConfigService, reporter, kafkaTemplate, tempDir);
+        RuleEngineImpl ruleEngine = ruleEngine(punishConfigService, kafkaTemplate, tempDir);
         Checkpoint checkpoint = ruleEngine.run(fact);
 
         assertThat(checkpoint).isNull();
-        verify(reporter).reportEvent(
-                eq("RULE_EXECUTION_FAILED"),
-                eq(BusinessServiceEventSeverity.ERROR),
-                eq("Synap 规则执行失败"),
-                any(),
-                eq("trace-1"),
-                any());
     }
 
     private RuleEngineImpl ruleEngine(PunishConfigService punishConfigService,
-                                      BusinessServiceReporter reporter,
                                       KafkaTemplate<?, ?> kafkaTemplate,
                                       Path scriptDirectory) {
-        RuleEngineImpl ruleEngine = new RuleEngineImpl(punishConfigService, reporter);
+        RuleEngineImpl ruleEngine = new RuleEngineImpl(punishConfigService);
         ReflectionTestUtils.setField(
                 ruleEngine,
                 "groovyScriptPath",

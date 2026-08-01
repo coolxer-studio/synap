@@ -5,14 +5,10 @@ import com.coolxer.model.checkpoint.Checkpoint;
 import com.coolxer.config.TopicDefine;
 import com.coolxer.model.fact.AbstractFact;
 import com.coolxer.model.punish.Punish;
-import com.coolxer.zenvis.businessservice.BusinessServiceEventSeverity;
-import com.coolxer.zenvis.businessservice.BusinessServiceReporter;
 import com.coolxer.service.PunishConfigService;
 import com.coolxer.service.RuleEngine;
 import com.coolxer.utils.JacksonUtils;
 import com.coolxer.utils.StringConvertUtils;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import groovy.lang.Binding;
 import groovy.util.GroovyScriptEngine;
 import groovy.util.ResourceException;
@@ -39,7 +35,6 @@ import java.util.regex.Pattern;
 public class RuleEngineImpl implements RuleEngine {
 
     private final PunishConfigService punishConfigService;
-    private final BusinessServiceReporter businessServiceReporter;
 
     private static Map<String,String> FACT_TOPIC_MAP = new ConcurrentHashMap<>();
     static {
@@ -66,10 +61,8 @@ public class RuleEngineImpl implements RuleEngine {
     @Autowired
     private KafkaTemplate kafkaTemplate;
 
-    public RuleEngineImpl(PunishConfigService punishConfigService,
-                          BusinessServiceReporter businessServiceReporter) {
+    public RuleEngineImpl(PunishConfigService punishConfigService) {
         this.punishConfigService = punishConfigService;
-        this.businessServiceReporter = businessServiceReporter;
     }
 
     /**
@@ -104,45 +97,15 @@ public class RuleEngineImpl implements RuleEngine {
             kafkaTemplate.send(topic,fact.getCommon().getGuid(), JacksonUtils.toJson(checkpoint));
         } catch (IOException e) {
             log.error("执行Groovy脚本时发生IO异常, factClassName:{}, scriptName:{}", factClassName, scriptName, e);
-            reportRuleFailure(fact, factClassName, scriptName, e);
         } catch (ScriptException e) {
             log.error("执行Groovy脚本异常, factClassName:{}, scriptName:{}", factClassName, scriptName, e);
-            reportRuleFailure(fact, factClassName, scriptName, e);
         } catch (ResourceException e) {
             log.error("获取Groovy脚本资源异常, factClassName:{}, scriptName:{}", factClassName, scriptName, e);
-            reportRuleFailure(fact, factClassName, scriptName, e);
         } catch (RuntimeException e) {
             log.error("规则执行发生运行时异常, factClassName:{}, scriptName:{}", factClassName, scriptName, e);
-            reportRuleFailure(fact, factClassName, scriptName, e);
             throw e;
         }
         return checkpoint;
-    }
-
-    private void reportRuleFailure(AbstractFact fact,
-                                   String factClassName,
-                                   String scriptName,
-                                   Exception exception) {
-        Map<String, Object> data = new LinkedHashMap<>();
-        data.put("fact_type", factClassName);
-        data.put("script_name", scriptName);
-        if (fact.getCommon() != null) {
-            data.put("platform", fact.getCommon().getPlatform());
-        }
-        String traceId = fact.getCommon() == null ? null : fact.getCommon().getGuid();
-        String message = exception.getClass().getSimpleName()
-                + (exception.getMessage() == null ? "" : ": " + exception.getMessage());
-        try {
-            businessServiceReporter.reportEvent(
-                    "RULE_EXECUTION_FAILED",
-                    BusinessServiceEventSeverity.ERROR,
-                    "Synap 规则执行失败",
-                    message,
-                    traceId,
-                    data);
-        } catch (RuntimeException reporterException) {
-            log.warn("提交 Zenvis 规则失败事件时发生异常: {}", reporterException.getMessage());
-        }
     }
 
     private HashSet<Punish> hitPunishRule(ArrayList<Agenda> agendas){
