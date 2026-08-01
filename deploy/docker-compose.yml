@@ -31,6 +31,8 @@ services:
       ZENVIS_BASE_URL: ${ZENVIS_BASE_URL}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - zenvis-network
     restart: unless-stopped
     stop_grace_period: 30s
     healthcheck:
@@ -44,3 +46,8 @@ services:
       options:
         max-size: 10m
         max-file: "3"
+
+networks:
+  zenvis-network:
+    external: true
+    name: ${ZENVIS_NETWORK_NAME}
