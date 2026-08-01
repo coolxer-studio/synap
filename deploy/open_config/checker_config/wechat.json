@@ -1,0 +1,15 @@
+{
+  "startConfig": [1, 10.0, 30.0, 10.0, 864000.0],
+  "deviceConfig": {
+    "device": ["abi","deviceAbi", "benchmarkLevel", "brand", "model", "system", "platform","cpuType","memorySize"],
+    "screen": ["pixelRatio", "screenHeight","screenWidth","windowHeight","windowWidth","statusBarHeight","screenTop"],
+    "systemSetting": ["bluetoothEnabled","deviceOrientation","locationEnabled","wifiEnabled"],
+    "appBaseInfo": ["SDKVersion","enableDebug","language","version","fontSizeScaleFactor","fontSizeSetting"],
+    "appAuthorizeSetting": ["albumAuthorized","bluetoothAuthorized","cameraAuthorized","locationAuthorized","locationReducedAccuracy","microphoneAuthorized","notificationAlertAuthorized","notificationAuthorized","notificationBadgeAuthorized","notificationSoundAuthorized","phoneCalendarAuthorized"],
+    "battery": ["level","isCharging"],
+    "uuid": ["guid"]
+  }
+}
+
+
+

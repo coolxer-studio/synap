@@ -1,0 +1,46 @@
+name: ${COMPOSE_PROJECT_NAME}
+
+services:
+  synap-server:
+    image: ${SYNAP_IMAGE}:${SYNAP_IMAGE_TAG}-${IMAGE_ARCH}
+    platform: linux/${IMAGE_ARCH}
+    init: true
+    ports:
+      - "11099:11099"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./open_config/identify_config:/app/config/identify_config:ro
+      - ./open_config/checker_config:/app/config/checker_config:ro
+      - ./open_config/punish_config:/app/config/punish_config:ro
+      - ./open_config/msg_api_config:/app/config/msg_api_config:ro
+    environment:
+      TZ: Asia/Shanghai
+      SERVER_PORT: "11099"
+
+      RULE_ENGINE_GROOVY_PATH: /app/config/identify_config/
+      CHECKER_CONFIG_PATH: /app/config/checker_config/
+      PUNISH_CONFIG_PATH: /app/config/punish_config/punish_config.json
+      MSG_API_CONFIG_PATH: /app/config/msg_api_config/msg_api_config.json
+
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      SERVICE_ASSET_URL: ${ASSET_SERVICE_URL}
+      SERVICE_OPERATION_URL: ${OPERATION_SERVICE_URL}
+      SERVICE_RISK_URL: ${RISK_SERVICE_URL}
+
+      ZENVIS_BUSINESS_SERVICE_ENABLED: ${ZENVIS_BUSINESS_SERVICE_ENABLED}
+      ZENVIS_BASE_URL: ${ZENVIS_BASE_URL}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/11099"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

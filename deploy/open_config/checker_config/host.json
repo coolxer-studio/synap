@@ -1,0 +1,37 @@
+{
+  "startConfig": [1,60.0,120.0,10.0,864000.0],
+  "deviceConfig": {
+    "device": ["type", "name", "systemName", "systemVersion", "buildId", "modelCode", "countryCode", "language", "timeZone", "currency", "startElapsedTime"],
+    "screen": ["width", "height", "brightness", "density", "rotation"],
+    "cpu": ["totalCore", "usedCore", "type", "abi"],
+    "battery": ["capacity", "charging"],
+    "uuid": ["macEth0", "serial", "bootId", "guid"],
+    "network": ["lanIp", "mask", "broadcast", "routing", "signal", "type"],
+    "storage": ["totalDisk", "usedDisk", "totalRam", "usedRam"]
+  },
+  "fileConfig": {
+    "exist": ["/system/bin/windroyed"],
+    "context": ["/proc/cpuinfo"],
+    "fileList": ["/mnt/apkinstallshare::^LDS_"],
+    "md5": ["/system/etc/security/otacerts.zip"],
+    "access": ["/data/data/test.sh"],
+    "yara": [""]
+  },
+  "runtimeConfig": {
+    "process": [".*(ldinit).*", "^root", ".*frida.*"],
+    "env": ["JAVA_HOME"],
+    "cmd": ["which java"]
+  },
+  "netConfig": {
+    "port": ["8811", "8813"],
+    "socket": ["23946", "31415", "27042", "27043"],
+    "uds": ["re.frida.server"],
+    "netInterface": [".*"],
+    "httpProxy": [".*"],
+    "hosts": [".*"],
+    "certificate": [".*HttpCanary.*"]
+  },
+  "eventConfig": {
+    "sshd": [".*"]
+  }
+}

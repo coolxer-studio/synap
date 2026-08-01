@@ -1,0 +1,5 @@
+[
+  {"tag":"android-device","sourceRegex":".*","action":{"type":1,"title":"android-device","message":"android-device"}},
+  {"tag":"macos","sourceRegex":".*","action":{"type":1,"title":"运行环境异常","message":"运行在macos上"}},
+  {"tag":"root","sourceRegex":".*","action":{"type":1,"title":"运行环境异常","message":"运行在root/越狱设备上"}}
+]
