@@ -1,28 +1,131 @@
-const ipToNumber = function (ips) {
+const LAN_IP_UNAVAILABLE = 'unavailable';
+const LAN_IP_MASKED = 'masked';
+const LAN_IP_DISABLED = 'disabled';
 
-    const ipv4ToNum = (ip) => {
-        const allNum = ip.split(".");
-        if (allNum.length !== 4) return -1
-        return parseInt(allNum[0]) * 256 * 256 * 256 +
-            parseInt(allNum[1]) * 256 * 256 +
-            parseInt(allNum[2]) * 256 +
-            parseInt(allNum[3]);
+let lanIpState = {
+    status: 'uninitialized',
+    addresses: [],
+    mdnsMasked: false
+};
+let pendingDetection = null;
+
+function normalizeAddress(value) {
+    if (!value) return '';
+    let address = String(value).trim().replace(/^"|"$/g, '');
+    if (address[0] === '[') {
+        const end = address.indexOf(']');
+        if (end > 0) return address.slice(1, end).toLowerCase();
     }
-    const ip_list = [[], [], []];
-    ips.forEach((ip) => {
-        if (ip.match(/^(127\.0\.0\.1)|(localhost)|(10\.\d{1,3}\.\d{1,3}\.\d{1,3})|(172\.((1[6-9])|(2\d)|(3[01]))\.\d{1,3}\.\d{1,3})|(192\.168\.\d{1,3}\.\d{1,3})$/)) {
-            const ip_num = ipv4ToNum(ip)
-            if (ip_num > 0) ip_list[0].push(ip_num)
-        } else if (ip.match(/^[a-f0-9]{1,4}(:[a-f0-9]{1,4}){7}$/)) {
-            ip_list[2].push(ip.replace(':', '-'))
-        } else {
-            const ip_num = ipv4ToNum(ip)
-            if (ip_num > 0) ip_list[1].push(ip_num)
+    if (/^\d{1,3}(?:\.\d{1,3}){3}:\d+$/.test(address)) {
+        address = address.slice(0, address.lastIndexOf(':'));
+    }
+    return address.toLowerCase().split('%')[0];
+}
+
+export function isPrivateAddress(value) {
+    const address = normalizeAddress(value);
+    const octets = address.split('.').map((part) => Number(part));
+    if (octets.length === 4 && octets.every((part) => Number.isInteger(part) && part >= 0 && part <= 255)) {
+        if (octets[0] === 10) return true;
+        if (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) return true;
+        if (octets[0] === 192 && octets[1] === 168) return true;
+        return octets[0] === 169 && octets[1] === 254;
+    }
+    return /^f[cd][0-9a-f]{2}:/.test(address) || /^fe[89ab][0-9a-f]:/.test(address);
+}
+
+export function parseIceCandidate(candidate) {
+    if (!candidate) return null;
+    const raw = typeof candidate === 'string' ? candidate : candidate.candidate;
+    const fields = String(raw || '').trim().split(/\s+/);
+    const typeIndex = fields.indexOf('typ');
+    const type = candidate.type || (typeIndex >= 0 ? fields[typeIndex + 1] : '');
+    const address = normalizeAddress(candidate.address || (fields.length > 4 ? fields[4] : ''));
+    if (type !== 'host' || !address) return null;
+    if (address.endsWith('.local')) return { address: '', mdnsMasked: true };
+    return { address, mdnsMasked: false };
+}
+
+function snapshot(status, addresses, mdnsMasked) {
+    lanIpState = {
+        status,
+        addresses: Array.from(addresses || []).sort(),
+        mdnsMasked: Boolean(mdnsMasked)
+    };
+    return { ...lanIpState, addresses: lanIpState.addresses.slice() };
+}
+
+function rtcConstructor() {
+    return window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
+}
+
+export function detectLanIp({ enabled = true, timeout = 1200 } = {}) {
+    if (!enabled) return Promise.resolve(snapshot(LAN_IP_DISABLED, [], false));
+    if (lanIpState.status === 'available') return Promise.resolve(snapshot('available', lanIpState.addresses, lanIpState.mdnsMasked));
+    if (pendingDetection) return pendingDetection;
+
+    const RTC = rtcConstructor();
+    if (!RTC) return Promise.resolve(snapshot(LAN_IP_UNAVAILABLE, [], false));
+
+    pendingDetection = new Promise((resolve) => {
+        const addresses = new Set();
+        let mdnsMasked = false;
+        let connection;
+        let channel;
+        let timer;
+        let finished = false;
+
+        const consume = (candidate) => {
+            const parsed = parseIceCandidate(candidate);
+            if (!parsed) return;
+            if (parsed.mdnsMasked) {
+                mdnsMasked = true;
+            } else if (isPrivateAddress(parsed.address)) {
+                addresses.add(parsed.address);
+            }
+        };
+        const consumeLocalDescription = () => {
+            const sdp = connection && connection.localDescription && connection.localDescription.sdp;
+            String(sdp || '').split(/\r?\n/).forEach((line) => {
+                if (line.indexOf('a=candidate:') === 0) consume(line.slice(2));
+            });
+        };
+        const finish = () => {
+            if (finished) return;
+            finished = true;
+            clearTimeout(timer);
+            consumeLocalDescription();
+            try { if (channel) channel.close(); } catch (_) { }
+            try { if (connection) connection.close(); } catch (_) { }
+            const status = addresses.size > 0 ? 'available' : (mdnsMasked ? LAN_IP_MASKED : LAN_IP_UNAVAILABLE);
+            resolve(snapshot(status, addresses, mdnsMasked));
+        };
+
+        try {
+            // Host candidates do not need a public STUN service. Avoiding one also
+            // prevents this local-address feature from leaking browsing activity.
+            connection = new RTC({ iceServers: [] });
+            connection.onicecandidate = (event) => {
+                if (event.candidate) consume(event.candidate);
+                else finish();
+            };
+            connection.onicecandidateerror = () => { };
+            channel = connection.createDataChannel('synap-local-address');
+            timer = setTimeout(finish, Math.max(250, Math.min(Number(timeout) || 1200, 3000)));
+            connection.createOffer()
+                .then((offer) => connection.setLocalDescription(offer))
+                .catch(finish);
+        } catch (_) {
+            finish();
         }
-    })
-    // console.log('ip_list:',ip_list)
-    if (!ip_list.some((e) => { return e.length })) return [[], [], []]
-    return ip_list
+    }).finally(() => {
+        pendingDetection = null;
+    });
+    return pendingDetection;
+}
+
+export function getLanIpState() {
+    return { ...lanIpState, addresses: lanIpState.addresses.slice() };
 }
 
 export default {
@@ -31,117 +134,33 @@ export default {
      * @returns 网络类型
      */
     type: function () {
-        if (navigator.connection) {
-            if (navigator.connection.effectiveType === "4g") {
-                return "4G";
-            } else if (navigator.connection.effectiveType === "wifi") {
-                return "Wi-Fi";
-            } else {
-                return "other";
-            }
-        } else {
-            return "unknown";
-        }
+        const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (!connection) return 'unknown';
+        if (connection.type === 'wifi') return 'Wi-Fi';
+        if (connection.effectiveType) return String(connection.effectiveType).toUpperCase();
+        return connection.type || 'other';
     },
     /**
-     * 网络信息 
+     * 网络信息
      * @returns 网络信息
      */
     info: function () {
         let info = 'unknown|unknown|unknown|unknown';
         let effectiveType = 'unknown';
         let downlinkMax = 'unknown';
-        const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection
+        const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
         if (conn) {
-            if (conn.type) {
-                effectiveType = conn.type
-                downlinkMax = conn.downlinkMax || 'unknown'
-            }
-            const {
-                rtt,
-                saveData
-            } = conn;
-
-            info = [effectiveType, downlinkMax, rtt, saveData].join('|');
+            effectiveType = conn.type || conn.effectiveType || 'unknown';
+            downlinkMax = conn.downlinkMax || conn.downlink || 'unknown';
+            info = [effectiveType, downlinkMax, conn.rtt, conn.saveData].join('|');
         }
         return info;
     },
-
-    /**
-     * 获取IP地址
-     */
     lanIp: function () {
-        const f = ["RTCPeerConnection", "webkitRTCPeerConnection", "mozRTCPeerConnection", "RTCIceGatherer", "RtpDataChannels"];
-        const hasR = function () {
-            for (let l = 0; l < f.length; l++) {
-                if (f[l] in window) {
-                    return true;
-                }
-            }
-            return false;
-        };
-        if (hasR() && !new RegExp("edge").test(navigator.userAgent)) {
-            const result = [];
-            const resultSign = {};
-            let RTC = window[f[0]] || window[f[2]] || window[f[1]];
-            function REGO(x) {
-                //match just the IP address
-                const ipTest = /([0-9]{1,3}(\.[0-9]{1,3}){3}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){7})/;
-                const o = ipTest.exec(x);
-                if (!o) return;
-                const k = o[1];
-                //remove duplicates
-                if (resultSign[k] === void 0) result.push(k);
-                resultSign[k] = true
-            }
-            if (!RTC) {
-                const x = document.createElement('iframe');
-                x.id = 'bs-Iframe';
-                x.style.display = 'none';
-                x.sandbox = 'allow-same-origin';
-                document.body.appendChild(x);
-                const z = x.contentWindow;
-                RTC = z[f[0]] || z[f[2]] || z[f[1]];
-            }
-            const chParam = {};
-            chParam.RtpDataChannels = false;
-            const opParam = {};
-            //minimal requirements for data connection
-            opParam.optional = [chParam];
-            const urlParam = {};
-            urlParam.urls = ["stun:stun.ideasip.com", "stun:stun.ekiga.net"];
-            const serParam = {};
-            serParam.iceServers = [urlParam];
-            serParam.sdpSemantics = 'unified-plan';
-            try {
-                const insRTC = new RTC(serParam, opParam);
-                const channel = insRTC.createDataChannel('');
-                //create an offer sdp
-                insRTC.createOffer().then(function (e) {
-                    //trigger the stun server request
-                    return insRTC.setLocalDescription(e);
-                }).then(function () {
-                    //wait for a while to let everything done
-                    setTimeout(function () {
-                        //read candidate info from local description
-                        const o = insRTC.localDescription.sdp.split('\x0a');
-                        o.forEach(function (e) {
-                            if (e.indexOf('a=candidate:') === 0 || e.indexOf('c=IN') === 0) REGO(e);
-                        });
-                        channel.close();
-                        insRTC.close();
-                        const bFrame = document.getElementById('bs-Iframe');
-                        if (bFrame) bFrame.parentNode.removeChild(bFrame);
-                    }, 1000);
-                }).catch(function (e) {
-                    const bFrame = document.getElementById('bs-Iframe');
-                    if (bFrame) bFrame.parentNode.removeChild(bFrame);
-                    channel.close();
-                    insRTC.close();
-                });
-            } catch (e) {
-                console.error('no rtc:', e.toString())
-            }
-        }
-    }
-}
+        if (lanIpState.addresses.length) return lanIpState.addresses.join(',');
+        if (lanIpState.status === 'uninitialized') return LAN_IP_UNAVAILABLE;
+        return lanIpState.status;
+    },
+    detectLanIp,
+    getLanIpState
+};

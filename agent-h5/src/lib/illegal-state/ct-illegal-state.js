@@ -16,17 +16,31 @@ export default {
     const originalOnerror = window.onerror;
     const originalConsoleError = window.console && window.console.error;
 
+    const pending = new Map();
     const emit = (payload) => {
       if (!matchesConfig(payload.message)) return;
-      msgCallback({
+      const normalized = {
         type: 'ErrorData',
         buildDate: baseData.currentFormatDate(),
         from: payload.from || '',
         message: String(payload.message || ''),
         source: payload.source || '',
         lineno: Number(payload.lineno) || 0,
-        colno: Number(payload.colno) || 0
-      });
+        colno: Number(payload.colno) || 0,
+        count: 1
+      };
+      const fingerprint = [normalized.message, normalized.source, normalized.lineno, normalized.colno].join('|');
+      const current = pending.get(fingerprint);
+      if (current) {
+        current.message.count += 1;
+        return;
+      }
+      const entry = { message: normalized, timer: null };
+      entry.timer = setTimeout(() => {
+        pending.delete(fingerprint);
+        msgCallback(entry.message);
+      }, 5000);
+      pending.set(fingerprint, entry);
     };
 
     const onerror = function (message, source, lineno, colno, error) {
@@ -58,6 +72,11 @@ export default {
     } catch (_) { }
 
     return function cleanup() {
+      pending.forEach((entry) => {
+        clearTimeout(entry.timer);
+        msgCallback(entry.message);
+      });
+      pending.clear();
       try {
         if (onerrorInstalled && window.onerror === onerror) window.onerror = originalOnerror;
       } catch (_) { }

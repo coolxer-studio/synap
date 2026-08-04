@@ -58,6 +58,7 @@ export default function eventListener(msgCallback, { mousemoveInterval = 500 } =
     : [];
   const attached = [];
   let lastMousemoveAt = 0;
+  let lastTouch = null;
 
   const callback = function (event) {
     const now = Date.now();
@@ -65,7 +66,8 @@ export default function eventListener(msgCallback, { mousemoveInterval = 500 } =
     if (event.type === 'mousemove') lastMousemoveAt = now;
 
     const target = event.target || event.srcElement;
-    let data = { type: event.type };
+    if (event.type === 'click' && lastTouch && now - lastTouch.at < 700 && lastTouch.target === target) return;
+    let data = { type: event.type, trusted: event.isTrusted !== false };
     switch (event.type) {
       case 'pageshow':
         data.href = agLocalStore.get('h_from_href') || '';
@@ -140,7 +142,15 @@ export default function eventListener(msgCallback, { mousemoveInterval = 500 } =
     });
   };
 
+  const rememberTouch = (event) => {
+    if (event.pointerType === 'touch') lastTouch = { at: Date.now(), target: event.target };
+  };
+
+  window.addEventListener('pointerup', rememberTouch, { passive: true });
+  attached.push({ type: 'pointerup', callback: rememberTouch });
+
   listenerTypes.forEach((type) => {
+    if (['mousemove', 'mousedown', 'mouseup', 'touchstart', 'touchend'].includes(type)) return;
     const actualType = type === 'pagehide' && typeof window.onpagehide === 'undefined' ? 'unload' : type;
     if (attached.some((item) => item.type === actualType)) return;
     window.addEventListener(actualType, callback, { passive: actualType === 'touchstart' || actualType === 'touchend' });

@@ -45,7 +45,13 @@ export default {
     return ctNetwork.type();
   },
   lanIp: function () {
-    return '0.0.0.0';
+    return ctNetwork.lanIp();
+  },
+  detectLanIp: function (options) {
+    return ctNetwork.detectLanIp(options);
+  },
+  getLanIpState: function () {
+    return ctNetwork.getLanIpState();
   },
   /**
    * 设备信息

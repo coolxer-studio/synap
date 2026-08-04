@@ -43,11 +43,18 @@ await window.SynapAgent.init({
   webrtc: true,
   location: false,
   userBehavior: true,
-  debug: true
+  debug: true,
+  integrity: true,
+  session: true,
+  network: false
 }
 ```
 
 宿主应用负责取得适用的授权并在隐私政策中说明数据用途和保存周期。不得通过 `userData` 上传密码、证件号、支付信息等明文敏感数据。
+
+`webrtc: true` 会执行一次有超时限制的内网地址探测，不访问第三方 STUN 服务。浏览器启用 mDNS 隐藏时结果为 `masked`，无法探测时为 `unavailable`；可通过 `SynapAgent.getMetrics().networkInfo` 查看状态。外网 IP 由服务端从可信 HTTP 代理链识别，客户端不会自行请求第三方“查 IP”接口。
+
+SDK 仅将行为数据用于自动化、会话重放和异常交互识别，上传的是时间窗口统计而非输入内容或完整轨迹。服务端传输幂等记录默认保存 14 天；业务 Fact 的实际保存周期由部署方配置并披露。
 
 ## 接口定义
 
@@ -97,9 +104,11 @@ window.labelInfo();
 await SynapAgent.flush();
 
 const metrics = SynapAgent.getMetrics();
-// metrics.queue.queued / metrics.queue.dropped
-// metrics.requestFailures / parseFailures / collectionFailures
+// metrics.queue.queued / inFlight / dropped
+// metrics.requestFailures / parseFailures / ackFailures / retries
+// metrics.serverDuplicates / rejectedMessages / batchesSent
 // metrics.lastCollectionDurationMs / status
+// metrics.networkInfo.status / addresses / mdnsMasked
 ```
 
 ## 验证
@@ -113,6 +122,6 @@ const metrics = SynapAgent.getMetrics();
 
 - SDK 页面会话内只计算一次静态设备指纹。
 - 页面隐藏时暂停周期采集，并把待发送消息写入 sessionStorage。
-- 下次加载会恢复消息；发送失败时批次回到队首并指数退避。
+- 下次加载会恢复待发送和正在发送的消息；消息 ID 在恢复和重试时保持不变。
+- 服务端明确 ACK 后才删除消息；错误密文、空响应、业务失败和 batchId 不匹配都会重试。
 - 策略缓存按 app key 和 SDK 版本隔离，损坏时自动重新获取。
-

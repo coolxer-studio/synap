@@ -8,6 +8,7 @@ export default class MessageQueue {
     this.storageKey = storageKey || '__synap_pending_messages';
     this.limit = limit;
     this.items = [];
+    this.inFlight = [];
     this.dropped = 0;
     this.restorePersisted();
     initialItems.forEach((item) => this.enqueue(item));
@@ -31,21 +32,31 @@ export default class MessageQueue {
   }
 
   takeBatch(size = this.limit) {
-    return this.items.splice(0, Math.max(0, size));
+    this.inFlight = this.items.splice(0, Math.max(0, size));
+    return this.inFlight;
   }
 
   restoreBatch(batch) {
     if (!Array.isArray(batch) || batch.length === 0) return;
     const combined = batch.concat(this.items);
     this.items.splice(0, this.items.length, ...combined.slice(0, this.limit));
+    this.inFlight = [];
+    this.dropped += Math.max(0, combined.length - this.limit);
+  }
+
+  completeBatch(retryMessages = []) {
+    const combined = retryMessages.concat(this.items);
+    this.items.splice(0, this.items.length, ...combined.slice(0, this.limit));
+    this.inFlight = [];
     this.dropped += Math.max(0, combined.length - this.limit);
   }
 
   persist() {
     if (!this.storage) return false;
     try {
-      if (this.items.length > 0) {
-        this.storage.setItem(this.storageKey, JSON.stringify(this.items));
+      const pending = this.inFlight.concat(this.items);
+      if (pending.length > 0) {
+        this.storage.setItem(this.storageKey, JSON.stringify(pending));
       } else {
         this.storage.removeItem(this.storageKey);
       }
@@ -72,6 +83,6 @@ export default class MessageQueue {
   }
 
   metrics() {
-    return { queued: this.items.length, dropped: this.dropped };
+    return { queued: this.items.length, inFlight: this.inFlight.length, dropped: this.dropped };
   }
 }

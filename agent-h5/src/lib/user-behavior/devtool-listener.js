@@ -2,6 +2,7 @@ import baseData from '../base-data';
 
 export default function devToolListener(msgCallback, threshold = 200) {
   let hasDevTool = false;
+  let lastShortcutAt = 0;
   const cleanups = [];
 
   const emit = (data) => msgCallback({
@@ -11,11 +12,15 @@ export default function devToolListener(msgCallback, threshold = 200) {
   });
 
   const shortcutListener = function (event) {
+    const now = Date.now();
+    if (now - lastShortcutAt < 5000) return;
     const code = event.keyCode || event.which;
     if ((event.ctrlKey || event.metaKey) && event.altKey && String.fromCharCode(code).toLowerCase() === 'i') {
       emit({ key: event.ctrlKey ? 'event.ctrlKey' : 'event.metaKey' });
+      lastShortcutAt = now;
     } else if (code === 123) {
       emit({ key: 'f12' });
+      lastShortcutAt = now;
     }
   };
 

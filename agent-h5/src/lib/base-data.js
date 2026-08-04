@@ -33,14 +33,23 @@ export default (function () {
     currentFormatDate(){
       return dateFormat(new Date());
     }
+    getStartId() {
+      return getOrCreateStartId();
+    }
     getHeaderCode() {
       return `${ctDeviceInfo.guid()}-${PLATFORM}-${APP_ID}-${SDK_VERSION}`;
+    }
+    prepareNetworkInfo(options) {
+      return ctDeviceInfo.detectLanIp(options);
+    }
+    getNetworkInfo() {
+      return ctDeviceInfo.getLanIpState();
     }
     getCommonInfo() {
       const common = new Array(COMMON_FIELD_COUNT).fill('');
       common[0] = agLocalStore.get('user_id');
       common[1] = ctDeviceInfo.guid();
-      common[2] = getOrCreateStartId();
+      common[2] = this.getStartId();
       common[3] = SDK_VERSION;
       common[4] = APP_ID;
       common[5] = document.title;

@@ -1,5 +1,6 @@
 import ctEventListener from './event-listener'
 import ctDevToolListener from './devtool-listener'
+import ctBehaviorMonitor from './behavior-monitor'
 window.ct_event_config = {
     "event": ["pageshow", "pagehide", "click", "input", "mousemove", "touchstart", "touchend", "mousedown", "mouseup"]
 };
@@ -16,6 +17,9 @@ export default {
     },
     eventMonitor: function (msgCallback) {
         return ctEventListener(msgCallback);
+    },
+    behaviorMonitor: function (msgCallback) {
+        return ctBehaviorMonitor(msgCallback);
     },
     loadConfig: function (config) {
         window.ct_event_config = config['eventConfig'];

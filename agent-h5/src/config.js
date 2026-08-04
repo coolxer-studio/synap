@@ -1,6 +1,6 @@
 export const PLATFORM = 'h5';
 export const APP_ID = 1;
-export const SDK_VERSION = '1.1.0';
+export const SDK_VERSION = '1.2.0';
 export const COMMON_FIELD_COUNT = 24;
 export const DEFAULT_APP_KEY = '2396641245c4fe6ttd041565b3651245';
 export const DEFAULT_BASE_URL = 'http://127.0.0.1:11099';
@@ -20,7 +20,10 @@ export const DEFAULT_COLLECTION_PROFILE = Object.freeze({
   webrtc: true,
   location: true,
   userBehavior: true,
-  debug: true
+  debug: true,
+  integrity: true,
+  session: true,
+  network: false
 });
 
 export const DEFAULT_OPTIONS = Object.freeze({
@@ -57,7 +60,10 @@ export function normalizeCollectionProfile(profile) {
       webrtc: false,
       location: false,
       userBehavior: false,
-      debug: false
+      debug: false,
+      integrity: false,
+      session: false,
+      network: false
     };
   }
   if (typeof profile !== 'object') {

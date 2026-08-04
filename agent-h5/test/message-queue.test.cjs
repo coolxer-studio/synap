@@ -19,7 +19,30 @@ test('enqueue stores immutable snapshots and tracks overflow', () => {
   assert.equal(queue.items[0].data.x, 1);
   assert.equal(queue.enqueue({ type: 'DeviceData' }), true);
   assert.equal(queue.enqueue({ type: 'RuntimeData' }), false);
-  assert.deepEqual(queue.metrics(), { queued: 2, dropped: 1 });
+  assert.deepEqual(queue.metrics(), { queued: 2, inFlight: 0, dropped: 1 });
+});
+
+test('in-flight messages are included in lifecycle persistence', () => {
+  const storage = memoryStorage();
+  const queue = new MessageQueue({ storage, storageKey: 'pending', limit: 5 });
+  queue.enqueue({ type: 'UserData', messageId: 'message-1' });
+  queue.takeBatch(1);
+  queue.persist();
+
+  const restored = new MessageQueue({ storage, storageKey: 'pending', limit: 5 });
+  assert.equal(restored.items[0].messageId, 'message-1');
+});
+
+test('partial acknowledgement restores only retryable messages', () => {
+  const queue = new MessageQueue({ limit: 5 });
+  queue.enqueue({ messageId: 'accepted' });
+  queue.enqueue({ messageId: 'retry' });
+  queue.takeBatch(2);
+  queue.enqueue({ messageId: 'new' });
+  queue.completeBatch([{ messageId: 'retry' }]);
+
+  assert.deepEqual(queue.items.map((item) => item.messageId), ['retry', 'new']);
+  assert.equal(queue.metrics().inFlight, 0);
 });
 
 test('failed batches are restored before messages queued during upload', () => {
@@ -41,4 +64,3 @@ test('pending messages survive a page lifecycle', () => {
   assert.equal(restored.items[0].data.type, 'click');
   assert.equal(storage.getItem('pending'), null);
 });
-

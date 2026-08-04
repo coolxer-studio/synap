@@ -8,6 +8,7 @@ import ctUserBehavior from './lib/user-behavior/ct-user-behavior';
 import agLocalStore from './lib/ag-localstore';
 import MessageQueue from './lib/message-queue';
 import { decodePolicy } from './lib/policy';
+import { collectIntegrity, networkMonitor, sessionMonitor } from './lib/security-monitor';
 import {
   DEFAULT_OPTIONS,
   SDK_VERSION,
@@ -22,6 +23,7 @@ const shared = window.__synapAgentRuntime || {
   endpoints: null,
   codec: null,
   policy: null,
+  policyFingerprint: '',
   queue: null,
   initPromise: null,
   inFlight: null,
@@ -33,10 +35,24 @@ const shared = window.__synapAgentRuntime || {
   checkStartedAt: 0,
   sendStartedAt: 0,
   cachedDeviceInfo: null,
+  collectionState: {
+    deviceSent: false,
+    selfAppFingerprint: '',
+    runtimeFingerprint: '',
+    location: null,
+    integrityFingerprint: ''
+  },
+  nextSequence: 0,
+  collectionStorageKey: '',
   warnedLegacy: false,
   metrics: {
     requestFailures: 0,
     parseFailures: 0,
+    batchesSent: 0,
+    retries: 0,
+    ackFailures: 0,
+    serverDuplicates: 0,
+    rejectedMessages: 0,
     collectionFailures: 0,
     lastCollectionDurationMs: 0
   },
@@ -130,11 +146,38 @@ function filteredPolicy(policy, profile) {
 
 function pushMessage(message) {
   if (!shared.queue) return false;
-  const accepted = shared.queue.enqueue(message);
+  const snapshot = withMessageMetadata(message);
+  const accepted = shared.queue.enqueue(snapshot);
   if (!accepted && shared.queue.dropped === 1) {
     console.warn('SynapAgent message queue is full; subsequent messages may be dropped');
   }
   return accepted;
+}
+
+function createId(prefix) {
+  try {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+      return `${prefix}-${window.crypto.randomUUID()}`;
+    }
+    if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+      const values = new Uint32Array(4);
+      window.crypto.getRandomValues(values);
+      return `${prefix}-${Array.from(values).map((value) => value.toString(16)).join('')}`;
+    }
+  } catch (_) { }
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function withMessageMetadata(message) {
+  if (!message || typeof message !== 'object') return message;
+  if (message.messageId && Number.isFinite(Number(message.sequence)) && message.observedAt) return message;
+  shared.nextSequence += 1;
+  return {
+    ...message,
+    messageId: message.messageId || createId('msg'),
+    sequence: Number.isFinite(Number(message.sequence)) ? Number(message.sequence) : shared.nextSequence,
+    observedAt: message.observedAt || Date.now()
+  };
 }
 
 function decodeResponse(response) {
@@ -165,7 +208,18 @@ async function flushQueue() {
   }
 
   const batch = shared.queue.takeBatch(shared.options.batchSize);
-  const body = { common: baseData.getCommonInfo(), data: batch };
+  const batchId = createId('batch');
+  const body = {
+    common: baseData.getCommonInfo(),
+    meta: {
+      protocolVersion: 2,
+      batchId,
+      sessionId: String(baseData.getStartId()),
+      attempt: shared.retryCount + 1,
+      createdAt: Date.now()
+    },
+    data: batch
+  };
   let encoded;
   try {
     encoded = shared.codec.encodeRequest(JSON.stringify(body));
@@ -179,15 +233,50 @@ async function flushQueue() {
     headers: requestHeaders(),
     timeout: shared.options.requestTimeout
   }).then((response) => {
-    shared.retryCount = 0;
-    if (response) {
-      try { decodeResponse(response); } catch (_) { /* upload responses are advisory */ }
+    const decoded = decodeResponse(response);
+    const ack = decoded && decoded.ack;
+    const acknowledgedBatchId = ack && (ack.batchId || ack.batch_id);
+    if (!decoded || Number(decoded.status) !== 1 || !ack || acknowledgedBatchId !== batchId) {
+      const error = new Error('Invalid SynapAgent upload acknowledgement');
+      error.type = 'ack';
+      throw error;
+    }
+    const acceptedMessageIds = ack.acceptedMessageIds || ack.accepted_message_ids || [];
+    const duplicateMessageIds = ack.duplicateMessageIds || ack.duplicate_message_ids || [];
+    const rejectedItems = ack.rejectedItems || ack.rejected_items || [];
+    const accepted = new Set([...acceptedMessageIds, ...duplicateMessageIds]);
+    const rejected = new Map(rejectedItems.map((item) => [item.messageId || item.message_id, item]));
+    const retryMessages = batch.filter((item) => {
+      if (accepted.has(item.messageId)) return false;
+      const rejection = rejected.get(item.messageId);
+      return !rejection || rejection.retryable !== false;
+    });
+    const permanentlyRejected = batch.length - accepted.size - retryMessages.length;
+    shared.queue.completeBatch(retryMessages);
+    shared.metrics.serverDuplicates += duplicateMessageIds.length;
+    shared.metrics.rejectedMessages += Math.max(0, permanentlyRejected);
+    shared.metrics.batchesSent += 1;
+    shared.queue.persist();
+    if (retryMessages.length > 0) {
+      shared.retryCount += 1;
+      shared.metrics.retries += 1;
+      scheduleRetry();
+    } else {
+      shared.retryCount = 0;
+      if (shared.retryTimer) clearTimeout(shared.retryTimer);
+      shared.retryTimer = null;
     }
     return true;
   }).catch((error) => {
-    shared.queue.restoreBatch(batch);
+    const queuedIds = new Set(shared.queue.items.map((item) => item.messageId));
+    const notQueued = batch.filter((item) => !queuedIds.has(item.messageId));
+    shared.queue.restoreBatch(notQueued);
     shared.metrics.requestFailures += 1;
+    if (error && (error.type === 'ack' || /^Invalid SynapAgent/.test(error.message || ''))) {
+      shared.metrics.ackFailures += 1;
+    }
     shared.retryCount += 1;
+    shared.metrics.retries += 1;
     shared.queue.persist();
     scheduleRetry();
     throw error;
@@ -203,10 +292,38 @@ function collectPeriodicData() {
     const start = Date.now();
     try {
       if (!shared.cachedDeviceInfo) shared.cachedDeviceInfo = ctDeviceInfo.deviceInfo();
-      pushMessage(shared.cachedDeviceInfo);
-      pushMessage(ctRunningCheck.checkSelfApp());
-      if (shared.options.collectionProfile.location) pushMessage(ctRunningCheck.checkLocation());
-      pushMessage(ctRunningCheck.checkRuntime());
+      if (!shared.collectionState.deviceSent) {
+        if (pushMessage(shared.cachedDeviceInfo)) shared.collectionState.deviceSent = true;
+      }
+
+      const selfApp = ctRunningCheck.checkSelfApp();
+      const selfAppFingerprint = messageFingerprint(selfApp);
+      if (selfAppFingerprint !== shared.collectionState.selfAppFingerprint) {
+        if (pushMessage(selfApp)) shared.collectionState.selfAppFingerprint = selfAppFingerprint;
+      }
+
+      const runtime = ctRunningCheck.checkRuntime();
+      const runtimeFingerprint = messageFingerprint(runtime);
+      if (runtimeFingerprint !== shared.collectionState.runtimeFingerprint) {
+        if (pushMessage(runtime)) shared.collectionState.runtimeFingerprint = runtimeFingerprint;
+      }
+
+      if (shared.options.collectionProfile.location) {
+        const location = ctRunningCheck.checkLocation();
+        if (hasMeaningfulLocationChange(location, shared.collectionState.location)) {
+          if (pushMessage(location)) shared.collectionState.location = locationSnapshot(location);
+        }
+      }
+
+      if (shared.options.collectionProfile.integrity) {
+        const integrity = collectIntegrity(shared.options.appKey, shared.policyFingerprint);
+        const integrityFingerprint = messageFingerprint(integrity);
+        if (integrityFingerprint !== shared.collectionState.integrityFingerprint) {
+          if (pushMessage(integrity)) shared.collectionState.integrityFingerprint = integrityFingerprint;
+        }
+      }
+      persistCollectionState();
+      shared.queue.persist();
     } catch (error) {
       shared.metrics.collectionFailures += 1;
       console.warn('SynapAgent collection failed', error);
@@ -214,6 +331,45 @@ function collectPeriodicData() {
       shared.metrics.lastCollectionDurationMs = Date.now() - start;
     }
   });
+}
+
+function loadCollectionState(storageKey) {
+  const storage = safeSessionStorage();
+  if (!storage) return null;
+  try {
+    const value = JSON.parse(storage.getItem(storageKey));
+    return value && typeof value === 'object' ? value : null;
+  } catch (_) { return null; }
+}
+
+function persistCollectionState() {
+  const storage = safeSessionStorage();
+  if (!storage || !shared.collectionStorageKey) return;
+  try { storage.setItem(shared.collectionStorageKey, JSON.stringify(shared.collectionState)); }
+  catch (_) { }
+}
+
+function messageFingerprint(message) {
+  const copy = { ...message };
+  delete copy.buildDate;
+  return JSON.stringify(copy);
+}
+
+function locationSnapshot(message) {
+  const keys = (window.ct_location_config && window.ct_location_config.base) || [];
+  const values = Array.isArray(message && message.base) ? message.base : [];
+  const value = (key) => Number(values[keys.indexOf(key)]) || 0;
+  return { time: value('time'), latitude: value('latitude'), longitude: value('longitude') };
+}
+
+function hasMeaningfulLocationChange(message, previous) {
+  const current = locationSnapshot(message);
+  if (!current.latitude && !current.longitude) return false;
+  if (!previous) return true;
+  const latitudeDistance = (current.latitude - previous.latitude) * 111000;
+  const longitudeDistance = (current.longitude - previous.longitude) * 111000 * Math.cos(current.latitude * Math.PI / 180);
+  const distance = Math.sqrt(latitudeDistance * latitudeDistance + longitudeDistance * longitudeDistance);
+  return distance >= 100 || current.time - previous.time >= 60000;
 }
 
 function registerLifecyclePersistence() {
@@ -236,6 +392,8 @@ function launchProbe(policy) {
 
   registerLifecyclePersistence();
   if (!Number(config.startConfig[0])) return;
+
+  collectPeriodicData();
 
   shared.checkStartedAt = Date.now();
   shared.sendStartedAt = Date.now();
@@ -268,6 +426,13 @@ function launchProbe(policy) {
   shared.cleanups.push(ctIllegalState.monitor(pushMessage));
   if (shared.options.collectionProfile.userBehavior) {
     shared.cleanups.push(ctUserBehavior.eventMonitor(pushMessage));
+    shared.cleanups.push(ctUserBehavior.behaviorMonitor(pushMessage));
+  }
+  if (shared.options.collectionProfile.session) {
+    shared.cleanups.push(sessionMonitor(pushMessage, shared.options.appKey));
+  }
+  if (shared.options.collectionProfile.network) {
+    shared.cleanups.push(networkMonitor(pushMessage, Object.values(shared.endpoints)));
   }
   console.log('synap running:true');
 }
@@ -318,11 +483,27 @@ async function initialize(options) {
   shared.endpoints = createEndpoints(resolved.baseUrl);
   shared.codec = createH5Codec(resolved.appKey);
   shared.cachedDeviceInfo = null;
+  shared.collectionStorageKey = `__synap_collection_${SDK_VERSION}_${resolved.appKey}_${baseData.getStartId()}`;
+  shared.collectionState = loadCollectionState(shared.collectionStorageKey) || {
+    deviceSent: false,
+    selfAppFingerprint: '',
+    runtimeFingerprint: '',
+    location: null,
+    integrityFingerprint: ''
+  };
   window.kk = resolved.appKey;
   window.up = shared.endpoints.upload;
   window.deviceInfoUrl = shared.endpoints.deviceInfo;
   window.labelUrl = shared.endpoints.label;
   window.ratingUrl = shared.endpoints.rating;
+
+  // Common data is used by the policy request itself, so finish the bounded
+  // local-address probe before the first request and reuse its cached result.
+  await baseData.prepareNetworkInfo({
+    enabled: resolved.collectionProfile.webrtc,
+    timeout: Math.min(1500, Math.max(250, resolved.requestTimeout / 5))
+  });
+  if (generation !== shared.generation) throw new Error('SynapAgent initialization was cancelled');
 
   const legacyItems = Array.isArray(window.probeMsgQueue) &&
     (!shared.queue || window.probeMsgQueue !== shared.queue.items)
@@ -334,6 +515,9 @@ async function initialize(options) {
     limit: resolved.queueLimit,
     initialItems: legacyItems
   });
+  shared.nextSequence = shared.queue.items.reduce((max, item) => Math.max(max, Number(item.sequence) || 0), 0);
+  const normalizedPending = shared.queue.items.map((item) => withMessageMetadata(item));
+  shared.queue.items.splice(0, shared.queue.items.length, ...normalizedPending);
   window.probeMsgQueue = shared.queue.items;
 
   try {
@@ -341,6 +525,7 @@ async function initialize(options) {
     const policy = cached ? cached.policy : await fetchPolicy();
     if (generation !== shared.generation) throw new Error('SynapAgent initialization was cancelled');
     shared.policy = filteredPolicy(policy, resolved.collectionProfile);
+    shared.policyFingerprint = JSON.stringify(shared.policy);
     window._polic = shared.policy;
     launchProbe(shared.policy);
     shared.status = 'running';
@@ -374,9 +559,10 @@ async function destroy({ flush = true } = {}) {
   if (flush) {
     try { await flushQueue(); } catch (_) { }
   }
-  if (shared.queue) shared.queue.persist();
   clearRuntimeResources();
+  if (shared.queue) shared.queue.persist();
   shared.policy = null;
+  shared.policyFingerprint = '';
   shared.cachedDeviceInfo = null;
   shared.status = 'destroyed';
 }
@@ -447,7 +633,8 @@ const api = {
   getMetrics: () => ({
     ...shared.metrics,
     status: shared.status,
-    queue: shared.queue ? shared.queue.metrics() : { queued: 0, dropped: 0 }
+    networkInfo: baseData.getNetworkInfo(),
+    queue: shared.queue ? shared.queue.metrics() : { queued: 0, inFlight: 0, dropped: 0 }
   })
 };
 

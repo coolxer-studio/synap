@@ -26,4 +26,16 @@ const eventSource = fs.readFileSync(path.join(root, 'lib/user-behavior/event-lis
 if (/buildTime\s*:/.test(eventSource) || !/buildDate\s*:/.test(eventSource)) {
   throw new Error('EventData must use the server-compatible buildDate field');
 }
+if (/\.value\b/.test(eventSource)) {
+  throw new Error('Event collection must never read input values');
+}
+const behaviorSource = fs.readFileSync(path.join(root, 'lib/user-behavior/behavior-monitor.js'), 'utf8');
+if (!/BehaviorData/.test(behaviorSource) || /event\.target\.value|event\.data\b/.test(behaviorSource)) {
+  throw new Error('Behavior collection must upload aggregates without input content');
+}
+const deviceSource = fs.readFileSync(path.join(root, 'lib/device-info/ct-device-info.js'), 'utf8');
+const runningSource = fs.readFileSync(path.join(root, 'lib/running-check/ct-running-check.js'), 'utf8');
+if (/return\s+['"]0\.0\.0\.0['"]/.test(deviceSource) || /return\s+['"]0\.0\.0\.0['"]/.test(runningSource)) {
+  throw new Error('IP fields must not use 0.0.0.0 placeholders');
+}
 console.log(`Checked ${files.length} source files`);

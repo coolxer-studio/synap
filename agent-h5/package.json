@@ -1,6 +1,6 @@
 {
   "name": "synap-agent-h5",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "synap-agent-h5 monitor sdk",
   "main": "./src/index.js",
   "author": "xiaobai1894",

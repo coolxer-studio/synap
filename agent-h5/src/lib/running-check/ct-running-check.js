@@ -44,7 +44,9 @@ export default {
     return ctLocation.getLocation();
   },
   wanIp: function () {
-    return '0.0.0.0';
+    // The public address is derived from the authenticated HTTP connection by
+    // synap-server. A browser-provided value would be trivial to forge.
+    return '';
   },
   checkSelfApp: function () {
     var data = {
