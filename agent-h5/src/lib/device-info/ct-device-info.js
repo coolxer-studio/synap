@@ -55,14 +55,16 @@ export default {
       'type': 'DeviceData',
       'buildDate':baseData.currentFormatDate()
     };
-    var getMethodValue = function (entryArray, conficArray) {
+    var getMethodValue = function (entryArray, conficArray, invokeFunctions = true) {
       var methodValueArray = [];
       for (var methodKey of conficArray) {
         var methodValue;
         for (var entry of entryArray) {
           var methodValue = entry[methodKey];
-          if (typeof methodValue === 'function') {
+          if (typeof methodValue === 'function' && invokeFunctions) {
             methodValue = entry[methodKey]();
+          } else if (typeof methodValue === 'function') {
+            methodValue = null;
           }
           if (methodValue) {
             break;
@@ -104,13 +106,13 @@ export default {
           data[key] = getMethodValue([ctBaseInfo], config[key]);
           break;
         case 'document':
-          data[key] = getMethodValue([document], config[key]);
+          data[key] = getMethodValue([document], config[key], false);
           break;
         case 'window':
-          data[key] = getMethodValue([window], config[key]);
+          data[key] = getMethodValue([window], config[key], false);
           break;
         case 'navigator':
-          data[key] = getMethodValue([navigator], config[key]);
+          data[key] = getMethodValue([navigator], config[key], false);
           break;
         default:
           console.error('unknown config key:' + key);

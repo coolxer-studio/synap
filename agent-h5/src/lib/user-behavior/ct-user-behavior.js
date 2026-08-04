@@ -12,10 +12,10 @@ window.ct_dev_tool_config = {
 export default {
 
     devToolMonitor: function (msgCallback) {
-        ctDevToolListener(msgCallback);
+        return ctDevToolListener(msgCallback);
     },
     eventMonitor: function (msgCallback) {
-        ctEventListener(msgCallback);
+        return ctEventListener(msgCallback);
     },
     loadConfig: function (config) {
         window.ct_event_config = config['eventConfig'];

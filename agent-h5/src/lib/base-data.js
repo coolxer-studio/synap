@@ -2,6 +2,7 @@ import cookieOperate from './cookie-operate'
 import ctDeviceInfo from './device-info/ct-device-info';
 import ctRunningCheck from './running-check/ct-running-check';
 import agLocalStore from "./ag-localstore";
+import { APP_ID, COMMON_FIELD_COUNT, PLATFORM, SDK_VERSION } from '../config';
 
 function dateFormat(date) {
   var year = date.getFullYear();
@@ -25,10 +26,6 @@ function getOrCreateStartId() {
   return parseInt(startId);
 }
 
-const PLATFORM = 'h5';
-const APP_ID = 1;
-const SDK_VERSION = '1.0.0.240501';
-
 export default (function () {
   class BaseData {
     constructor() {
@@ -40,7 +37,7 @@ export default (function () {
       return `${ctDeviceInfo.guid()}-${PLATFORM}-${APP_ID}-${SDK_VERSION}`;
     }
     getCommonInfo() {
-      const common = new Array(19).fill('');
+      const common = new Array(COMMON_FIELD_COUNT).fill('');
       common[0] = agLocalStore.get('user_id');
       common[1] = ctDeviceInfo.guid();
       common[2] = getOrCreateStartId();
@@ -72,4 +69,3 @@ export default (function () {
 
   return new BaseData();
 })();
-

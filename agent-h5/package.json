@@ -1,6 +1,6 @@
 {
   "name": "synap-agent-h5",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "synap-agent-h5 monitor sdk",
   "main": "./src/index.js",
   "author": "xiaobai1894",
@@ -12,29 +12,38 @@
   ],
   "scripts": {
     "dev": "cross-env NODE_ENV=development webpack --config config/webpack.config.js --progress --watch",
-    "build": "cross-env NODE_ENV=production node config/build.js"
+    "build": "cross-env NODE_ENV=production node config/build.js",
+    "build:prod": "npm run build",
+    "lint": "node test/static-check.cjs",
+    "test": "node --require ./test/register-babel.cjs --test test/*.test.cjs",
+    "test:e2e": "playwright test",
+    "size": "node config/check-size.js dist/probe.min.js",
+    "ci": "npm run lint && npm test && npm run build:prod && npm run size && npm run test:e2e"
   },
   "devDependencies": {
-    "@babel/core": "^7.13.16",
-    "@babel/preset-env": "^7.13.15",
-    "babel-loader": "^8.2.2",
+    "@babel/core": "^8.0.1",
+    "@babel/preset-env": "^8.0.2",
+    "@playwright/test": "^1.62.1",
+    "babel-loader": "^10.1.1",
     "chalk": "^4.1.0",
-    "clean-webpack-plugin": "^3.0.0",
-    "copy-webpack-plugin": "^8.0.0",
-    "cross-env": "^7.0.3",
-    "html-webpack-plugin": "^5.3.1",
+    "cross-env": "^10.1.0",
     "ora": "^5.4.0",
-    "terser-webpack-plugin": "^5.1.1",
-    "webpack": "^5.26.3",
-    "webpack-cli": "^4.5.0"
+    "terser-webpack-plugin": "^5.6.1",
+    "webpack": "^5.109.2",
+    "webpack-cli": "^7.2.2"
   },
   "browser": {
     "crypto": false
   },
   "dependencies": {
-    "@coolxer/secure-communication-js": "file:../../../secure-communication/client/javascript",
-    "babel-polyfill": "^6.26.0",
-    "crypto-browserify": "^3.12.0",
-    "uuid": "^9.0.0"
-  }
+    "@coolxer/secure-communication-js": "file:vendor/coolxer-secure-communication-js-0.2.0.tgz"
+  },
+  "browserslist": [
+    "Chrome >= 90",
+    "Edge >= 90",
+    "Firefox >= 90",
+    "Safari >= 14",
+    "iOS >= 14",
+    "Android >= 90"
+  ]
 }

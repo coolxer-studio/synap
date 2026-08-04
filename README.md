@@ -18,7 +18,7 @@ synap-agent 是 synap 的客户端探针与数据仿真工具集，用来采集�
 3. 解密配置后初始化采集模块。
 4. 按策略周期采集设备信息、环境校验、运行态、异常状态和用户行为。
 5. 将采集结果放入 `window.probeMsgQueue`，定时批量加密上报。
-6. 向页面暴露 `window.userData`、`window.deviceInfo`、`window.ratingInfo`、`window.labelInfo`。
+6. 向页面暴露统一的 `window.SynapAgent` Promise API，并保留旧 `window.*` 兼容接口。
 
 主要采集模块：
 
@@ -29,7 +29,7 @@ synap-agent 是 synap 的客户端探针与数据仿真工具集，用来采集�
 | 异常状态 | `src/lib/illegal-state/ct-illegal-state.js` | 监听 `window.onerror` 和 `console.error` |
 | 用户行为 | `src/lib/user-behavior/ct-user-behavior.js` | 监听页面事件和开发者工具行为 |
 | 基础数据 | `src/lib/base-data.js` | 生成 `common` 数组和 `code` 请求头 |
-| 安全通信 | `src/lib/secure-communication/encrypt-decrypt.js` | 当前默认使用 SM4，保留 AES 分支 |
+| 安全通信 | `src/lib/secure-communication/ajax-http.js` | 独立 XHR、超时和错误分类；报文编解码由固定版本安全通信包提供 |
 
 ### 数据仿真器
 
@@ -54,7 +54,7 @@ synap-agent
 │   ├── demo                    # 本地演示页面
 │   ├── doc/接入-Web.md         # Web 接入说明
 │   ├── package.json
-│   └── yarn.lock
+│   └── package-lock.json
 └── agent-emulator
     ├── main.go                 # 数据加密与模拟发送入口
     ├── data                    # 原始样例报文
@@ -105,23 +105,16 @@ http://127.0.0.1:11099/sc/h5/cross/label_start
 
 ### 环境要求
 
-- Node.js
-- npm 或 Yarn
+- Node.js 18+
+- npm
 
-`agent-h5/package.json` 使用 Webpack 5、Babel、crypto-js、uuid 等依赖。
+`agent-h5/package.json` 使用 Webpack 5、Babel 和统一的安全通信 SDK。
 
 ### 安装依赖
 
 ```bash
 cd agent-h5
-npm install
-```
-
-仓库中包含 `yarn.lock`，也可以使用：
-
-```bash
-cd agent-h5
-yarn install
+npm ci
 ```
 
 ### 开发构建
@@ -144,27 +137,25 @@ npm run build
 dist/probe.min.js
 ```
 
-注意：`config/build.js` 的日志仍会提示 `dist/core.*.js`，但当前 `webpack.config.js` 只有 `probe` 一个 entry，实际主要产物是 `probe.*.js`。
-
 ### 页面接入
 
 把构建产物放到业务页面可访问的位置，然后引入脚本：
 
 ```html
-<script type="text/javascript" src="./js/probe.js"></script>
+<script>
+  window.SynapAgentConfig = {
+    appKey: '申请得到的 APP KEY',
+    baseUrl: 'https://risk.example.com',
+    collectionProfile: 'full'
+  };
+</script>
+<script type="text/javascript" src="./js/probe.min.js"></script>
 ```
 
-当前实现会自动启动探针，不需要再调用旧文档中提到的 `initWithKey(KEY)`。如果需要替换 app key，修改 `agent-h5/src/index.js` 中的：
+SDK 会自动启动，也可使用统一 Promise API 显式、幂等地初始化：
 
 ```js
-var keyString = '2396641245c4fe6ttd041565b3651245'
-```
-
-如果需要替换后端地址，修改 `ctScArray` 对应的编码字符串。可以用 `src/test-encode.js` 生成编码后的地址：
-
-```bash
-cd agent-h5
-node src/test-encode.js
+await window.SynapAgent.init(window.SynapAgentConfig);
 ```
 
 ### 页面可调用 API
@@ -182,30 +173,30 @@ if (typeof window.userData === 'function') {
 }
 ```
 
-当前实现会把用户数据加入上报队列，并把 `user_id` 写入本地存储；函数本身没有显式返回值。
+函数返回 `boolean`。不得上传密码、证件号、支付信息等明文敏感数据。
 
 #### `window.deviceInfo()`
 
-同步查询设备信息。内部会向 `cross/info` 发送请求，并返回解密后的 JSON 对象。
+同步查询接口仅为兼容保留，已废弃。新代码使用：
 
 ```js
-var data = window.deviceInfo();
+var data = await window.SynapAgent.getDeviceInfo();
 ```
 
 #### `window.ratingInfo()`
 
-同步查询风险评级。内部会向 `cross/rating` 发送请求。
+新代码使用 Promise API：
 
 ```js
-var data = window.ratingInfo();
+var data = await window.SynapAgent.getRatingInfo();
 ```
 
 #### `window.labelInfo()`
 
-同步查询本次启动的风险标签。内部会向 `cross/label_start` 发送请求。
+新代码使用 Promise API：
 
 ```js
-var data = window.labelInfo();
+var data = await window.SynapAgent.getLabelInfo();
 ```
 
 ## 数据仿真器使用
@@ -312,9 +303,9 @@ platform=h5 + type=DeviceData
 
 ## 当前注意事项
 
-- `agent-h5` 当前默认自动启动，不再暴露 `initWithKey(KEY)`；旧接入文档中的写法需要按当前实现更新。
+- `agent-h5` 默认自动启动，同时暴露 `SynapAgent.init/destroy`；`initWithKey(KEY)` 作为兼容别名保留。
 - `agent-h5` 默认对请求体做 SM4 加密，并在密文后追加大写 app key；当前 synap-server Controller 代码接收的是 JSON `RequestVO`，因此实际部署时需要确认前置网关或服务端解密链路是否匹配。
-- `agent-h5` 的 `startConfig[1]` 在配置中保留了 `core.dev.js` 路径，但当前入口没有动态加载 core 文件。
+- `agent-h5` 的 `startConfig[1]` 仍作为服务端兼容字段保留，当前单文件构建不会动态加载 core 文件。
 - `agent-emulator` 当前请求头 `code` 的拼接逻辑位于 `sendDataToAPI`，如服务端规则依赖 `Header.platform`，需要确认该 header 与 `common.platform` 是否一致。
 - `agent-emulator` 的样例数据会在发送前被原地修改内存中的 UUID、startId 和时间；一次进程内多设备发送会共享同一份读入的报文对象并逐轮覆盖这些字段。
 

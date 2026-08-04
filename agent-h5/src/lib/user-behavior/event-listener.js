@@ -1,198 +1,153 @@
-// 全局事件监听函数
-import agLocalStore from "../ag-localstore";
+import agLocalStore from '../ag-localstore';
+import baseData from '../base-data';
+import { getTouchXY } from './event-utils';
 
-const mousePosition = (evt) => {
-  evt = evt || window.event;
-  if (evt.pageX || evt.pageY) {
-    return { x: evt.pageX, y: evt.pageY };
+const mousePosition = (event) => {
+  if (event.pageX != null || event.pageY != null) {
+    return { x: event.pageX || 0, y: event.pageY || 0 };
   }
+  const body = document.body || { scrollLeft: 0, scrollTop: 0, clientLeft: 0, clientTop: 0 };
   return {
-    x: evt.clientX + document.body.scrollLeft - document.body.clientLeft,
-    y: evt.clientY + document.body.scrollTop - document.body.clientTop
+    x: (event.clientX || 0) + body.scrollLeft - body.clientLeft,
+    y: (event.clientY || 0) + body.scrollTop - body.clientTop
+  };
+};
+
+const getElementPosition = (element) => {
+  let x = 0;
+  let y = 0;
+  while (element) {
+    x += element.offsetLeft || 0;
+    y += element.offsetTop || 0;
+    element = element.offsetParent;
+  }
+  return { x, y };
+};
+
+function elementData(target) {
+  return {
+    targetId: target && target.id ? target.id : '',
+    nodeName: target && target.nodeName ? target.nodeName : ''
   };
 }
 
-const getElementPosition = function (e) {
-  let x = 0, y = 0;
-  while (e != null) {
-    x += e.offsetLeft;
-    y += e.offsetTop;
-    e = e.offsetParent;
-  }
-  return { x: x, y: y };
-};
-
-
-const getTouchXY = (eve) => {
-  if (eve.changedTouches.length >= 1) {
-    const touch = eve.changedTouches[0]
-    if (touch.pageX || touch.pageY) {
-      return [touch.pageX, touch.pageY]
-    }
-    return {
-      x: touch.clientX + document.body.scrollLeft - document.body.clientLeft,
-      y: touch.clientY + document.body.scrollTop - document.body.clientTop
-    }
-
-  }
+function pointerData(event, target) {
+  const position = mousePosition(event);
+  return {
+    ...elementData(target),
+    x: position.x,
+    y: position.y,
+    scrollLeft: Number(event.scrollLeft) || 0,
+    scrollTop: Number(event.scrollTop) || 0,
+    clientX: Number(event.clientX) || 0,
+    clientY: Number(event.clientY) || 0,
+    offsetX: Number(event.offsetX) || 0,
+    offsetY: Number(event.offsetY) || 0,
+    offsetWidth: target ? Number(target.offsetWidth) || 0 : 0,
+    offsetHeight: target ? Number(target.offsetHeight) || 0 : 0,
+    offsetTop: target ? Number(target.offsetTop) || 0 : 0,
+    offsetLeft: target ? Number(target.offsetLeft) || 0 : 0,
+    screenWidth: window.screen ? window.screen.width || 0 : 0,
+    screenHeight: window.screen ? window.screen.height || 0 : 0
+  };
 }
 
-export default function eventListener(msgCallback) {
-  let eventMsg = {
-    type: 'EventData',
-    href: window.location.href, // href
-    docTitle: document.title, // 标题
-    buildTime: "" + Date.now(), // timestamp
-    online: navigator.onLine ? 1 : 0, //是否在线 // is_online
-    data: {}
-  }
+export default function eventListener(msgCallback, { mousemoveInterval = 500 } = {}) {
+  const listenerTypes = Array.isArray(window.ct_event_config && window.ct_event_config.event)
+    ? window.ct_event_config.event
+    : [];
+  const attached = [];
+  let lastMousemoveAt = 0;
 
-  var eventMsgCallback = function (event) {
-    // 处理事件消息
-    var target = event.target || event.srcElement;
-    eventMsg.data.type = event.type;
+  const callback = function (event) {
+    const now = Date.now();
+    if (event.type === 'mousemove' && now - lastMousemoveAt < mousemoveInterval) return;
+    if (event.type === 'mousemove') lastMousemoveAt = now;
+
+    const target = event.target || event.srcElement;
+    let data = { type: event.type };
     switch (event.type) {
       case 'pageshow':
-        eventMsg.data.href = agLocalStore.get('h_from_href') || '';
+        data.href = agLocalStore.get('h_from_href') || '';
         agLocalStore.set('h_from_href', window.location.href);
         break;
       case 'pagehide':
-      // 穿透到unload
-      case 'unload':
-        eventMsg.data.href = target instanceof HTMLDocument ? (target.activeElement && target.activeElement.href ? target.activeElement.href : '') : '';  // tp
-        eventMsg.data.action = target.activeElement instanceof HTMLBodyElement ? 'close' : 'jump';  // a
-        eventMsg.data.targetId = target instanceof HTMLDocument && target.activeElement ? target.activeElement.id : '';  // loc
-        eventMsg.data.nodeName = target instanceof HTMLDocument && target.activeElement ? target.activeElement.nodeName : ''; // desc
+      case 'unload': {
+        const documentTarget = typeof HTMLDocument !== 'undefined' && target instanceof HTMLDocument;
+        const active = documentTarget ? target.activeElement : null;
+        data = {
+          ...data,
+          href: active && active.href ? active.href : '',
+          action: typeof HTMLBodyElement !== 'undefined' && active instanceof HTMLBodyElement ? 'close' : 'jump',
+          targetId: active && active.id ? active.id : '',
+          nodeName: active && active.nodeName ? active.nodeName : ''
+        };
         break;
-      case "click":
-        eventMsg.data.targetId = target ? target.id : ''; // loc
-        eventMsg.data.nodeName = target ? target.nodeName : ''; // desc
-        var mp = mousePosition(event);
-        eventMsg.data.x = mp.x; // x
-        eventMsg.data.y = mp.y; // y
-        eventMsg.data.scrollLeft = parseInt(event.scrollLeft) || 0;
-        eventMsg.data.scrollTop = parseInt(event.scrollTop) || 0;
-        eventMsg.data.clientX = parseInt(event.clientX) || 0;
-        eventMsg.data.clientY = parseInt(event.clientY) || 0;
-        eventMsg.data.offsetX = parseInt(event.offsetX) || 0;
-        eventMsg.data.offsetY = parseInt(event.offsetY) || 0;
-        eventMsg.data.offsetWidth = parseInt(event.target.offsetWidth) || 0;
-        eventMsg.data.offsetHeight = parseInt(event.target.offsetHeight) || 0;
-        eventMsg.data.offsetTop = parseInt(event.target.offsetTop) || 0;
-        eventMsg.data.offsetLeft = parseInt(event.target.offsetLeft) || 0;
-        eventMsg.data.screenWidth = window.screen.width || 0;
-        eventMsg.data.screenHeight = window.screen.height || 0;
+      }
+      case 'click':
+      case 'mouseup':
+        data = { ...data, ...pointerData(event, target) };
         break;
-      case "mouseup":
-        eventMsg.data.targetId = target ? target.id : ''; // loc
-        eventMsg.data.nodeName = target ? target.nodeName : ''; // desc
-        var mp = mousePosition(event);
-        eventMsg.data.x = mp.x; // x
-        eventMsg.data.y = mp.y; // y
-        eventMsg.data.scrollLeft = parseInt(event.scrollLeft) || 0;
-        eventMsg.data.scrollTop = parseInt(event.scrollTop) || 0;
-        eventMsg.data.clientX = parseInt(event.clientX) || 0;
-        eventMsg.data.clientY = parseInt(event.clientY) || 0;
-        eventMsg.data.offsetX = parseInt(event.offsetX) || 0;
-        eventMsg.data.offsetY = parseInt(event.offsetY) || 0;
-        eventMsg.data.offsetWidth = parseInt(event.target.offsetWidth) || 0;
-        eventMsg.data.offsetHeight = parseInt(event.target.offsetHeight) || 0;
-        eventMsg.data.offsetTop = parseInt(event.target.offsetTop) || 0;
-        eventMsg.data.offsetLeft = parseInt(event.target.offsetLeft) || 0;
-        eventMsg.data.screenWidth = window.screen.width || 0;
-        eventMsg.data.screenHeight = window.screen.height || 0;
+      case 'mousedown':
+      case 'mousemove': {
+        const point = mousePosition(event);
+        data = { ...data, ...elementData(target), x: point.x, y: point.y };
         break;
-      case "mousedown":
-        eventMsg.data.targetId = target ? target.id : ''; // loc
-        eventMsg.data.nodeName = target ? target.nodeName : ''; // desc
-        var mp = mousePosition(event);
-        eventMsg.data.x = mp.x; // x
-        eventMsg.data.y = mp.y; // y
+      }
+      case 'input': {
+        const position = target ? getElementPosition(target) : { x: '', y: '' };
+        data = {
+          ...data,
+          ...elementData(target),
+          inputType: event.inputType || '',
+          x: position.x,
+          y: position.y,
+          clientWidth: target ? target.clientWidth : '',
+          clientHeight: target ? target.clientHeight : ''
+        };
         break;
-      case "input":
-        eventMsg.data.inputType = event.inputType ? event.inputType : '';  // type
-        eventMsg.data.targetId = target ? target.id : '';
-        eventMsg.data.nodeName = target ? target.nodeName : '';
-        eventMsg.data.x = target ? getElementPosition(target).x : '';
-        eventMsg.data.y = target ? getElementPosition(target).y : '';
-        eventMsg.data.clientWidth = target ? target.clientWidth : '';
-        eventMsg.data.clientHeight = target ? target.clientHeight : '';
-        break;
-      case "mousemove":
-        var mp = mousePosition(event);
-        eventMsg.data.x = mp.x; // x
-        eventMsg.data.y = mp.y; // y
-        if(window.mousemove_count){
-          if(window.mousemove_count<50){
-            window.mousemove_count++;
-            return;
-          }else{
-            window.mousemove_count = 1;
-          }
-        }else{
-          window.mousemove_count = 1; 
+      }
+      case 'touchstart':
+      case 'touchend': {
+        const point = getTouchXY(event);
+        const touch = event.changedTouches && event.changedTouches[0];
+        data = { ...data, ...elementData(target), x: point.x, y: point.y };
+        if (event.type === 'touchend' && touch) {
+          Object.assign(data, {
+            clientX: touch.clientX || 0,
+            clientY: touch.clientY || 0,
+            radiusX: touch.radiusX || 0,
+            radiusY: touch.radiusY || 0,
+            rotationAngle: touch.rotationAngle || 0,
+            force: touch.force || 0,
+            screenWidth: window.screen ? window.screen.width || 0 : 0,
+            screenHeight: window.screen ? window.screen.height || 0 : 0
+          });
         }
         break;
-      case "touchstart":
-        var touchXY = getTouchXY(event)
-        eventMsg.data.x = touchXY.x;
-        eventMsg.data.y = touchXY.y;
-        break;
-      case "touchend":
-        touchXY = getTouchXY(event);
-        eventMsg.data.targetId = target ? target.id : '';
-        eventMsg.data.nodeName = target ? target.nodeName : '';
-        eventMsg.data.x = touchXY.x;
-        eventMsg.data.y = touchXY.y;
-
-        var ele = event.changedTouches[0];
-        eventMsg.data.clientX = ele.clientX || 0;
-        eventMsg.data.clientY = ele.clientY || 0;
-        eventMsg.data.radiusX = ele.radiusX || 0;
-        eventMsg.data.radiusY = ele.radiusY || 0;
-        eventMsg.data.rotationAngle = ele.rotationAngle || 0;
-        eventMsg.data.force = ele.force || 0;
-        eventMsg.data.screenWidth = window.screen.width || 0;
-        eventMsg.data.screenHeight = window.screen.height || 0;
-        break;
+      }
       default:
         break;
     }
-    // console.log('UB-event:', event.type, event);
-    msgCallback(eventMsg);
-  }
 
-
-
-
-  var addListener = function (eventMsgCallback) {
-    const listenerTypeArray = window.ct_event_config['event'];
-    listenerTypeArray.forEach(function (listenerType) {
-      if (typeof window['on' + listenerType] !== 'undefined') {
-        window.addEventListener(listenerType, eventMsgCallback);
-      } else {
-        // 不支持处理
-        if ('pagehide' === listenerType) {
-          window.addEventListener("unload", eventMsgCallback);
-        }
-      }
+    msgCallback({
+      type: 'EventData',
+      href: window.location.href,
+      docTitle: document.title,
+      buildDate: baseData.currentFormatDate(),
+      online: navigator.onLine ? 1 : 0,
+      data
     });
-  }
+  };
 
-  addListener(eventMsgCallback);
-  // dom变化处理
-  try {
-    var domObserver = new MutationSummary({
-      callback: function (summaries) {
-        addListener(eventMsgCallback);
-      },
-      queries: [{
-        element: '*'
-      }]
-    });
-  } catch (e) {
-    console.warn('no support observer dom')
-  }
+  listenerTypes.forEach((type) => {
+    const actualType = type === 'pagehide' && typeof window.onpagehide === 'undefined' ? 'unload' : type;
+    if (attached.some((item) => item.type === actualType)) return;
+    window.addEventListener(actualType, callback, { passive: actualType === 'touchstart' || actualType === 'touchend' });
+    attached.push({ type: actualType, callback });
+  });
 
-
+  return function cleanup() {
+    attached.forEach(({ type, callback: listener }) => window.removeEventListener(type, listener));
+  };
 }

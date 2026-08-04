@@ -1,4 +1,18 @@
-const { v4: uuidv4 } = require('uuid');
+function uuidv4() {
+    if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        return window.crypto.randomUUID();
+    }
+    const bytes = new Uint8Array(16);
+    if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+        window.crypto.getRandomValues(bytes);
+    } else {
+        for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+    }
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 
 export default {
 
@@ -7,15 +21,16 @@ export default {
      * @returns UUID
      */
     guid: function () {
-        const storedGuid = localStorage.getItem('_g_d'); // 从本地存储获取 GUID
-        if (storedGuid) {
-            // 如果本地已经存储了 GUID，直接返回
-            return storedGuid;
-        } else {
-            // 如果本地没有存储 GUID，则生成新的 UUID
+        const key = '_g_d';
+        try {
+            const storedGuid = window.localStorage.getItem(key);
+            if (storedGuid) return storedGuid;
             const newGuid = uuidv4();
-            localStorage.setItem('_g_d', newGuid); // 将新生成的 GUID 存储到本地
+            window.localStorage.setItem(key, newGuid);
             return newGuid;
+        } catch (_) {
+            if (!window.__synapMemoryGuid) window.__synapMemoryGuid = uuidv4();
+            return window.__synapMemoryGuid;
         }
     }
 }

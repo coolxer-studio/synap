@@ -1,156 +1,126 @@
-# synap-agent-h5探针
+# synap-agent-h5
 
-## 能力支持
+浏览器风险感知探针 SDK。SDK 获取服务端策略后，按策略采集设备、运行环境和用户行为数据，并通过 `@coolxer/secure-communication-js` 编解码后批量上报。
 
-### 监测场景
+## 浏览器支持
 
-### 性能分析
+- Chrome / Edge 90+
+- Firefox 90+
+- Safari / iOS 14+
+- Android 90+ 及对应 WebView
 
-### 浏览器兼容
+默认构建不再支持 IE。如业务必须支持旧浏览器，应单独维护 legacy 构建。
 
-### 前端框架兼容
+## 安装与构建
 
-## 集成方法
+项目统一使用 npm：
 
-### 准备
-
-初始化KEY：需要申请获取,示例如（1596861234c4ea6ddd041d45b3912345）
-
-### 集成方法
-
-集成探针中的probe.\*.js文件，同时在script标签中在文档加载完成后调用"initWithKey(KEY)"集成函数，函数传递的参数为准备阶段获取的初始化KEY。
-
-```
-<script type="text/javascript" src="./probe.dev.js" onload="initWithKey('1596861234c4ea6ddd041d45b3912345')"></script>
+```bash
+npm ci
+npx playwright install chromium firefox webkit
+npm run ci
 ```
 
-### 其他说明
+常用命令：
 
-#### H5 通信 SDK
-
-探针通过 npm 包 `@coolxer/secure-communication-js` 完成 H5 请求和响应的 SM4 编解码，不再维护项目内的加密算法副本。当前依赖使用本地路径：
-
-```text
-file:../../../secure-communication/client/javascript
+```bash
+npm run dev        # 监听源码并输出 dist/probe.dev.js
+npm test           # 单元测试
+npm run lint       # 源码语法和 CSP 静态检查
+npm run build:prod # 输出 dist/probe.min.js
+npm run size       # gzip 包体积预算（65 KiB）
 ```
 
-因此本地开发和 CI 需要保持以下相对目录：
+安全通信依赖固定为 `vendor/coolxer-secure-communication-js-0.2.0.tgz`，因此干净安装不依赖仓库外目录。正式发布到组织私有 registry 后，可把依赖替换为精确版本 `0.2.0`；tarball 的来源提交和更新方式记录在 `vendor/README.md`。
 
-```text
-cabin/
-├── secure-communication/
-│   └── client/javascript/
-└── synap/synap-agent/agent-h5/
+## 接入
+
+零配置接入仍会使用历史默认 key 和本地服务地址，主要用于开发环境：
+
+```html
+<script src="./probe.min.js"></script>
 ```
 
-安装依赖前应先确认 JavaScript SDK 已包含 `dist/` 构建产物。SDK 的接口和协议说明见 `secure-communication/client/javascript/README.md`。
+生产环境应在加载脚本前提供显式配置，且 HTTPS 页面必须配置 HTTPS 服务地址：
 
-#### 发送自定义数据
-
-全局暴露了userData(userId,data)函数用来发送自定义数据，初始化成功后绑定到window对象上，可以通过window.调用，userId参数建议传递脱敏后的用户标识（比如MD5或者加密处理），data参数是任意的数据对象即可。\
-示例
-
+```html
+<script>
+  window.SynapAgentConfig = {
+    appKey: '申请得到的 APP KEY',
+    baseUrl: 'https://risk.example.com',
+    collectionProfile: 'full'
+  };
+</script>
+<script src="./probe.min.js"></script>
 ```
-// 判断window.userData是否是函数
-if(typeof window.userData === 'function'){
-    // 对用户名提取MD5摘要
-    var userId = MD5(username);
-    // 发送自定义数据
-    window.userData(userId,{username:username,otherInfo:"自定义数据"});
+
+也可以显式、幂等地初始化：
+
+```js
+await window.SynapAgent.init({
+  appKey: '申请得到的 APP KEY',
+  baseUrl: 'https://risk.example.com',
+  collectionProfile: 'minimal'
+});
+```
+
+`collectionProfile` 支持 `full`、`minimal`，或以下布尔开关：
+
+```js
+{
+  canvas: true,
+  webgl: true,
+  fonts: true,
+  webrtc: true,
+  location: true,
+  userBehavior: true,
+  debug: true
 }
 ```
 
-#### 私有部署更改服务器地址
+宿主应用必须在适用法律和自身隐私政策允许的前提下启用设备指纹、地理位置和行为采集。SDK 不应接收密码、证件号、支付信息或其他明文敏感数据。
 
-修改数据服务器地址需要进行重打包
+## API
 
-## 打包发布
+### Promise API
 
-\[可选]修改服务器地址
+```js
+await SynapAgent.init(options);
+await SynapAgent.getDeviceInfo();
+await SynapAgent.getRatingInfo();
+await SynapAgent.getLabelInfo();
+await SynapAgent.flush();
+await SynapAgent.destroy({ flush: true });
 
-node /Users/yaoqi.li/Documents/cabin/coolxer/xiaobai1894/synap-agent/agent-h5/src/test-encode.js
-
-```
-yarn install
-npm run build
-```
-
-## 运行调试
-
-```
-npm run dev
+const accepted = SynapAgent.userData('脱敏用户标识', { scene: 'login' });
+const metrics = SynapAgent.getMetrics();
 ```
 
-### 目录说明
+`userData` 会拒绝空用户标识、超过 256 字符的标识、不可序列化数据以及超过 32 KiB 的数据，并返回 `boolean`。
 
+### 兼容 API
+
+以下 API 至少保留一个兼容版本：
+
+```js
+initWithKey(appKey);                 // 返回 Promise
+window.userData(userId, data);      // 返回 boolean
+window.deviceInfo();                // 同步，已废弃
+window.ratingInfo();                // 同步，已废弃
+window.labelInfo();                 // 同步，已废弃
 ```
-dist/probe.*.js : 集成此调度文件
-dist/core.*.js ： 动态加载的探针文件，需要通过策略配置控制是否动态集成
-```
 
-<br />
+同步查询会阻塞主线程并输出废弃提示，新代码应使用 Promise API。
 
-# 基础信息采集
+## 运行特性
 
-# 用户行为信息采集
+- 策略缓存按 SDK 版本和 app key 隔离，损坏后自动重新获取。
+- 同一时间只发送一个批次；失败批次恢复到队首并指数退避。
+- 页面隐藏时暂停采集并持久化未发送消息，下次加载恢复。
+- 初始化幂等；`destroy()` 会移除 timer、事件监听器和调试检测资源。
+- Canvas、WebGL、字体等静态设备信息每个 SDK 会话只计算一次。
+- `getMetrics()` 提供请求失败、解析失败、采集失败、最近采集耗时和队列丢弃数。
 
-# 非法状态信息采集
+## 数据协议
 
-- console日志采集
-
-# 运行时信息采集
-
-<br />
-
-# API检测风险清单
-
-| 风险名称                   | 风险说明                                             |
-| ---------------------- | ------------------------------------------------ |
-| Cookie缺失               | 客户端请求未携带合法Cookie凭证，存在会话伪造、越权调用接口风险，易被冒用身份访问业务API |
-| IP-API高频访问             | 单个IP短时间密集请求多类API接口，疑似爬虫、暴力枚举、接口探测等异常访问行为         |
-| IP低频持续访问               | 同一IP长时间零散不间断调用接口，大概率为爬虫分批爬取数据、恶意摸底接口逻辑           |
-| IP访问API种类异常            | IP请求接口范围远超正常业务所需接口类目，存在批量探测接口、漏洞扫描特征             |
-| IP高频访问                 | 单IP单位时间请求频次远超正常用户阈值，疑似恶意刷接口、CC试探攻击               |
-| JS探针绕过-H5              | H5端通过篡改前端JS逻辑、屏蔽探针脚本绕过设备环境校验，规避风控识别非法访问          |
-| JS探针绕过-微信小程序           | 篡改小程序前端代码、禁用埋点探针，跳过客户端环境核验进行异常接口调用               |
-| test1                  | 测试类风险标签，用于风控规则调试、临时验证，非线上真实业务风险                  |
-| User-Agent与客户端环境不匹配    | 请求UA标识标注的设备/系统和实际访问环境不符，存在篡改客户端标识伪装访问行为          |
-| User-Agent信息不合规范       | UA字段格式异常、缺失关键信息、随机无效字符，多为爬虫、脚本工具伪造请求头            |
-| 业务中断异常                 | 接口调用出现大批量报错、请求断崖式波动，疑似接口故障、恶意批量破坏调用导致业务异常        |
-| 中间人劫持-H5               | H5请求链路被劫持篡改，请求参数、返回数据遭窃取或篡改，造成数据泄露与业务篡改风险        |
-| 中间人劫持-微信小程序            | 小程序通信链路被劫持，接口报文被截获篡改，存在用户隐私、业务数据被盗隐患             |
-| 代理IP访问                 | 通过代理IP中转发起接口请求，隐藏真实客户端地址，常用于爬虫、恶意薅羊毛、违规攻击        |
-| 单一网段高频访问               | 同一网段内大量IP集中高频请求接口，多为机房肉鸡集群、批量爬虫集中发起访问            |
-| 客户端User-Agent伪造        | 主动篡改请求头UA信息，伪装成正规终端绕过风控策略进行非法接口调用                |
-| 客户端探针数据校验失败            | 客户端上报的设备、环境探针数据篡改或缺失，校验不通过，判定为异常篡改客户端环境          |
-| 客户端调试行为                | 客户端开启调试模式、抓包调试接口参数，存在抓包篡改请求、逆向接口逻辑的风险            |
-| 数据包时间异常                | 接口请求报文时间戳超前或滞后正常值，疑似篡改报文时间规避时效校验，用于异常请求          |
-| 数据包重放                  | 截取合法请求报文重复提交调用接口，绕过单次请求限制，实现重复下单、重复领奖等恶意操作       |
-| 机器人访问                  | 脚本、自动化机器人模拟真人请求接口，批量爬取数据、薅取平台权益                  |
-| 流量与客户端探针中User-Agent不一致 | 探针上报设备UA和实际请求头UA不一致，客户端私自篡改标识，存在伪装访问风险           |
-| 漏洞扫描器行为-IP             | IP行为符合漏洞扫描工具特征，批量遍历接口探测SQL、越权等漏洞隐患               |
-| 漏洞扫描器行为-UA             | 请求UA为各类扫描器专属标识，判定为工具扫描探测接口漏洞                     |
-| 漏洞扫描器行为-设备指纹           | 设备指纹特征匹配漏洞扫描工具，通过多维度探测接口安全缺陷                     |
-| 自动化工具（无头浏览器）           | 使用无头浏览器等自动化工具模拟访问，无真实人机操作行为，多用于批量爬虫              |
-| 设备-API高频访问             | 单台设备短时间频繁调用各类API，设备疑似被恶意脚本控制批量请求接口               |
-| 设备低频持续访问               | 同一设备长期零散不间断调用接口，分批爬取平台数据、持续探测接口规则                |
-| 设备指纹缺失                 | 客户端未上报设备唯一指纹信息，无法锁定真实设备，存在伪装新设备绕过风控风险            |
-| 设备指纹造假                 | 主动伪造设备指纹参数，伪装全新设备反复领取福利、绕过设备限制规则                 |
-| 设备访问API种类异常            | 单设备访问接口范围超出正常使用范畴，存在批量遍历、探测全量接口的恶意行为             |
-| 设备高频切换                 | 短时间内同一客户端频繁切换多组设备指纹，伪装多设备规避平台频次限制                |
-| 设备高频访问                 | 单设备请求速率远超普通用户标准，疑似挂机脚本、批量刷取接口数据                  |
-| 访问序列异常                 | 接口调用顺序不符合正常业务流程逻辑，跳过前置接口直接调用后端核心接口，存在越权风险        |
-| 访问来源异常                 | 请求来源域名、页面不在官方合规渠道内，疑似外链盗用、非法站点调用接口               |
-| 账号-API高频访问             | 单个账号短时间密集请求接口，疑似账号被盗、脚本批量操作刷取业务资源                |
-| 账号低频持续访问               | 账号长期零星不间断调用接口，分批爬取信息、缓慢薅取平台权益                    |
-| 账号高频切换                 | 同一设备频繁切换登录多个账号，批量注册养号、违规批量操作业务                   |
-| 账号高频访问                 | 单账号请求频次超标，存在盗号批量调用、恶意刷量风险                        |
-| 钓鱼网站监测-iframe嵌套攻击      | 钓鱼站点通过iframe嵌套我方页面非法调用接口，窃取用户数据、冒用接口能力           |
-| 钓鱼网站监测-整站盗用            | 恶意站点完整复刻我方业务页面，盗用前端接口窃取用户信息与业务数据                 |
-| 风险浏览器                  | 使用篡改版、破解版高危浏览器访问，自带抓包篡改插件，易篡改请求参数绕过校验            |
-| 黑名单IP                  | IP已标记历史恶意行为，列入黑名单，再次访问存在重复攻击、爬虫风险                |
-| 黑名单用户                  | 账号过往存在违规作弊、恶意攻击记录，黑名单用户调用接口需重点风控拦截               |
-| 黑名单设备                  | 设备曾多次违规作弊、恶意爬取，设备标识列入黑名单，访问接口存在重复作恶隐患            |
-
-社区：
-https、通信加密、控制台检测、debug检测、探针自绕过检测
+现有服务端协议保持不变：请求体仍为 `{ common, data }`，`common` 固定为 24 个位置，采集消息继续使用 `DeviceData`、`SelfAppData`、`LocationData`、`RuntimeData`、`ErrorData`、`EventData`、`DevToolData` 和 `UserData` 等类型。所有新消息统一使用 `buildDate`。

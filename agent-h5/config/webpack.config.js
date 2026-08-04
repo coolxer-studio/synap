@@ -2,10 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const webpack = require('webpack');
 const chalk = require('chalk')
-// const CopyPlugin = require("copy-webpack-plugin");
-// const HtmlWebpackPlugin = require('html-webpack-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
-const CleanWebpackPlugin = require('clean-webpack-plugin');
 const ConsoleLogOnBuildWebpackPlugin = require('./plugins/ConsoleLogOnBuildWebpackPlugin');
 
 // const assetsSubDirectory = 'static';
@@ -48,12 +45,6 @@ const handler = (percentage, message, ...args) => {
 module.exports = {
   devtool: process.env.NODE_ENV === 'production' ? false : 'source-map',
   mode: process.env.NODE_ENV,
-  resolve: {
-    alias: {
-      "crypto": false,
-      "crypto-browserify": require.resolve('crypto-browserify'), //if you want to use this module also don't forget npm i crypto-browserify
-    }
-  },
   entry: {
     probe: './src/index.js'
   },
@@ -61,6 +52,7 @@ module.exports = {
   output: {
     filename: process.env.NODE_ENV === 'production' ? '[name].min.js' : '[name].dev.js',
     path: path.resolve(__dirname, '../dist'),
+    clean: true,
     environment: {
       arrowFunction: false,
       const: false,
@@ -71,7 +63,7 @@ module.exports = {
     minimizer: [new TerserPlugin({
       parallel: true,
       terserOptions: {
-        ecma: undefined,
+        ecma: 2017,
         parse: {},
         compress: {},
         mangle: true, // Note `mangle.properties` is `false` by default.
@@ -81,7 +73,7 @@ module.exports = {
         format: null,
         toplevel: false,
         nameCache: null,
-        ie8: true,
+        ie8: false,
         keep_classnames: undefined,
         keep_fnames: /constructor$/i,
         safari10: true,
@@ -93,13 +85,18 @@ module.exports = {
       {
         test: /\.js$/,
         loader: 'babel-loader',
-        exclude: /node_modules/
+        exclude: /node_modules/,
+        options: {
+          presets: [["@babel/preset-env", {
+            modules: false,
+            useBuiltIns: false
+          }]]
+        }
       }
     ]
   },
   plugins: [
     new webpack.ProgressPlugin(handler),
     new ConsoleLogOnBuildWebpackPlugin(),
-    new CleanWebpackPlugin.CleanWebpackPlugin(),
   ],
 };

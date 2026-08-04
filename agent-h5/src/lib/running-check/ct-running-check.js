@@ -41,7 +41,7 @@ const getMethodValue = function (entryArray, conficArray) {
 export default {
 
   getLocation: function () {
-    return location.getLocation();
+    return ctLocation.getLocation();
   },
   wanIp: function () {
     return '0.0.0.0';
@@ -81,8 +81,12 @@ export default {
   },
   debugMonitor: function (msgCallback) {
     if (window.ct_debug_config) {
-      ctDebugMonitor(msgCallback);
+      return ctDebugMonitor(msgCallback);
     }
+    return function () {};
+  },
+  startLocation: function () {
+    return ctLocation.start();
   },
   loadConfig: function (config) {
     window.ct_self_app_config = config['selfAppConfig'];

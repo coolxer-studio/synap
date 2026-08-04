@@ -6,10 +6,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 dist.zip
+test-results/
+playwright-report/
 # Editor directories and files
 .idea
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
-package-lock.json

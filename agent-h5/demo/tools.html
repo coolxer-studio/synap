@@ -164,7 +164,8 @@
         // 上传用户数据
         if (typeof window.userData === 'function') {
           var userId = username;
-          window.userData(userId, { username: username, password: password });
+          // 永远不要把密码或其他明文敏感信息交给探针。
+          window.userData(userId, { scene: 'demo-login' });
         }
         alert('登录成功！');
         document.getElementById("alert-modal-login").style.display = "none";

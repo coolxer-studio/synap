@@ -1,301 +1,465 @@
-import { createH5Codec } from '@coolxer/secure-communication-js'
-import httpAjax from './lib/secure-communication/ajax-http'
-import cookieOperate from './lib/cookie-operate'
-import agLocalStore from "./lib/ag-localstore";
-import baseData from './lib/base-data'
-import ctDeviceInfo from './lib/device-info/ct-device-info'
+import { createH5Codec } from '@coolxer/secure-communication-js';
+import httpAjax from './lib/secure-communication/ajax-http';
+import baseData from './lib/base-data';
+import ctDeviceInfo from './lib/device-info/ct-device-info';
 import ctRunningCheck from './lib/running-check/ct-running-check';
-import ctIllegalState from './lib/illegal-state/ct-illegal-state'
-import ctUserBehavior from './lib/user-behavior/ct-user-behavior'
+import ctIllegalState from './lib/illegal-state/ct-illegal-state';
+import ctUserBehavior from './lib/user-behavior/ct-user-behavior';
+import agLocalStore from './lib/ag-localstore';
+import MessageQueue from './lib/message-queue';
+import { decodePolicy } from './lib/policy';
+import {
+  DEFAULT_OPTIONS,
+  SDK_VERSION,
+  createEndpoints,
+  policyCacheKey,
+  resolveOptions
+} from './config';
 
+const shared = window.__synapAgentRuntime || {
+  status: 'idle',
+  options: null,
+  endpoints: null,
+  codec: null,
+  policy: null,
+  queue: null,
+  initPromise: null,
+  inFlight: null,
+  retryCount: 0,
+  retryTimer: null,
+  timers: new Set(),
+  idleTasks: new Set(),
+  cleanups: [],
+  checkStartedAt: 0,
+  sendStartedAt: 0,
+  cachedDeviceInfo: null,
+  warnedLegacy: false,
+  metrics: {
+    requestFailures: 0,
+    parseFailures: 0,
+    collectionFailures: 0,
+    lastCollectionDurationMs: 0
+  },
+  generation: 0
+};
+window.__synapAgentRuntime = shared;
 
-// 触发发送消息
-var startSender = function (cancelTime) {
-  var sendStartTime = cookieOperate.getFromSessionCookie('send_start_time');
-  if (sendStartTime) {
-    // 超过发送周期不发送了
-    var currentTime = new Date().getTime();
-    if (currentTime - sendStartTime > cancelTime * 1000) {
-      return;
-    }
-  } else {
-    cookieOperate.setToSessionCookie('send_start_time', new Date().getTime());
+function safeSessionStorage() {
+  try {
+    const storage = window.sessionStorage;
+    const key = '__synap_storage_test';
+    storage.setItem(key, '1');
+    storage.removeItem(key);
+    return storage;
+  } catch (_) {
+    return null;
   }
-  // 开始发送
-  const msgArray = window.probeMsgQueue;
-  if (msgArray.length === 0) {
-    // 队列为空不需要发送数据
+}
+
+function sameOptions(left, right) {
+  if (!left || !right) return false;
+  return left.appKey === right.appKey &&
+    left.baseUrl === right.baseUrl &&
+    left.requestTimeout === right.requestTimeout &&
+    left.queueLimit === right.queueLimit &&
+    left.batchSize === right.batchSize &&
+    JSON.stringify(left.collectionProfile) === JSON.stringify(right.collectionProfile);
+}
+
+function requestHeaders() {
+  return {
+    'Content-Type': 'application/json;charset=UTF-8',
+    code: baseData.getHeaderCode()
+  };
+}
+
+function scheduleIdle(callback) {
+  if (typeof window.requestIdleCallback === 'function') {
+    const id = window.requestIdleCallback(() => {
+      shared.idleTasks.delete(id);
+      callback();
+    }, { timeout: 2000 });
+    shared.idleTasks.add(id);
     return;
   }
-  const body = {
-    "common": baseData.getCommonInfo(),
-    "data": msgArray
-  };
-  var header = {
-    'Content-Type': 'application/json;charset=UTF-8',
-    'code': baseData.getHeaderCode()
-  }
-  const codec = createH5Codec(window.kk);
-  const postData = codec.encodeRequest(JSON.stringify(body));
-  httpAjax.http_post(window.up, header, postData, function (data) {
-    window.probeMsgQueue = [];
-    if (data && data.length > 0) {
-      var responseConfig = JSON.parse(codec.decodeResponse(data));
-    } else {
-      console.warn('触发异常行为,不要进行非法操作!')
-    }
-  }, function (error) {
-    console.error("上报请求失败:(" + error + ")");
-  }, true);
-};
+  const id = setTimeout(() => {
+    shared.idleTasks.delete(id);
+    callback();
+  }, 0);
+  shared.idleTasks.add(id);
+}
 
-function launchProbe() {
-  // 初始化SDK
+function cancelIdleTasks() {
+  shared.idleTasks.forEach((id) => {
+    if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(id);
+    clearTimeout(id);
+  });
+  shared.idleTasks.clear();
+}
+
+function addTimer(callback, interval) {
+  const id = setInterval(callback, Math.max(1000, interval));
+  shared.timers.add(id);
+  return id;
+}
+
+function clearRuntimeResources() {
+  shared.timers.forEach((id) => clearInterval(id));
+  shared.timers.clear();
+  if (shared.retryTimer) clearTimeout(shared.retryTimer);
+  shared.retryTimer = null;
+  cancelIdleTasks();
+  shared.cleanups.splice(0).reverse().forEach((cleanup) => {
+    try { cleanup(); } catch (_) { }
+  });
+}
+
+function filteredPolicy(policy, profile) {
+  const copy = JSON.parse(JSON.stringify(policy));
+  const baseInfo = copy.config.deviceConfig.baseInfo || [];
+  const excluded = new Set();
+  if (!profile.canvas) ['getCanvasFpCRC', 'getCanvasFpCrc', 'getWebglFp'].forEach((key) => excluded.add(key));
+  if (!profile.webgl) ['getWebglVendorAndRenderer', 'getWebglFp'].forEach((key) => excluded.add(key));
+  if (!profile.fonts) excluded.add('getFonts');
+  copy.config.deviceConfig.baseInfo = baseInfo.filter((key) => !excluded.has(key));
+  if (!profile.webrtc && Array.isArray(copy.config.deviceConfig.network)) {
+    copy.config.deviceConfig.network = copy.config.deviceConfig.network.filter((key) => key !== 'lanIp');
+  }
+  return copy;
+}
+
+function pushMessage(message) {
+  if (!shared.queue) return false;
+  const accepted = shared.queue.enqueue(message);
+  if (!accepted && shared.queue.dropped === 1) {
+    console.warn('SynapAgent message queue is full; subsequent messages may be dropped');
+  }
+  return accepted;
+}
+
+function decodeResponse(response) {
+  if (!response) throw new Error('Empty SynapAgent response');
+  try {
+    return JSON.parse(shared.codec.decodeResponse(response));
+  } catch (error) {
+    shared.metrics.parseFailures += 1;
+    throw new Error(`Invalid SynapAgent response: ${error.message || error}`);
+  }
+}
+
+function scheduleRetry() {
+  if (shared.retryTimer || shared.status === 'destroyed') return;
+  const baseDelay = Math.min(30000, 1000 * Math.pow(2, shared.retryCount));
+  const delay = Math.round(baseDelay * (0.8 + Math.random() * 0.4));
+  shared.retryTimer = setTimeout(() => {
+    shared.retryTimer = null;
+    flushQueue().catch(() => {});
+  }, delay);
+}
+
+async function flushQueue() {
+  if (shared.status === 'destroyed') return false;
+  if (shared.inFlight) return shared.inFlight;
+  if (!shared.queue || !shared.codec || !shared.endpoints || shared.queue.items.length === 0) {
+    return false;
+  }
+
+  const batch = shared.queue.takeBatch(shared.options.batchSize);
+  const body = { common: baseData.getCommonInfo(), data: batch };
+  let encoded;
+  try {
+    encoded = shared.codec.encodeRequest(JSON.stringify(body));
+  } catch (error) {
+    shared.queue.restoreBatch(batch);
+    shared.metrics.parseFailures += 1;
+    throw error;
+  }
+
+  shared.inFlight = httpAjax.post(shared.endpoints.upload, encoded, {
+    headers: requestHeaders(),
+    timeout: shared.options.requestTimeout
+  }).then((response) => {
+    shared.retryCount = 0;
+    if (response) {
+      try { decodeResponse(response); } catch (_) { /* upload responses are advisory */ }
+    }
+    return true;
+  }).catch((error) => {
+    shared.queue.restoreBatch(batch);
+    shared.metrics.requestFailures += 1;
+    shared.retryCount += 1;
+    shared.queue.persist();
+    scheduleRetry();
+    throw error;
+  }).finally(() => {
+    shared.inFlight = null;
+  });
+  return shared.inFlight;
+}
+
+function collectPeriodicData() {
+  if (document.visibilityState === 'hidden') return;
+  scheduleIdle(() => {
+    const start = Date.now();
+    try {
+      if (!shared.cachedDeviceInfo) shared.cachedDeviceInfo = ctDeviceInfo.deviceInfo();
+      pushMessage(shared.cachedDeviceInfo);
+      pushMessage(ctRunningCheck.checkSelfApp());
+      if (shared.options.collectionProfile.location) pushMessage(ctRunningCheck.checkLocation());
+      pushMessage(ctRunningCheck.checkRuntime());
+    } catch (error) {
+      shared.metrics.collectionFailures += 1;
+      console.warn('SynapAgent collection failed', error);
+    } finally {
+      shared.metrics.lastCollectionDurationMs = Date.now() - start;
+    }
+  });
+}
+
+function registerLifecyclePersistence() {
+  const persist = () => { if (shared.queue) shared.queue.persist(); };
+  const visibility = () => {
+    if (document.visibilityState === 'hidden') persist();
+  };
+  window.addEventListener('pagehide', persist);
+  document.addEventListener('visibilitychange', visibility);
+  shared.cleanups.push(() => window.removeEventListener('pagehide', persist));
+  shared.cleanups.push(() => document.removeEventListener('visibilitychange', visibility));
+}
+
+function launchProbe(policy) {
+  const config = policy.config;
+  ctDeviceInfo.loadConfig(config);
+  ctRunningCheck.loadConfig(config);
+  ctIllegalState.loadConfig(config);
+  ctUserBehavior.loadConfig(config);
+
+  registerLifecyclePersistence();
+  if (!Number(config.startConfig[0])) return;
+
+  shared.checkStartedAt = Date.now();
+  shared.sendStartedAt = Date.now();
+  const checkInterval = Number(config.startConfig[2]) * 1000;
+  const sendInterval = Number(config.startConfig[4]) * 1000;
+  const checkTimer = addTimer(() => {
+    if (Date.now() - shared.checkStartedAt > Number(config.startConfig[3]) * 1000) {
+      clearInterval(checkTimer);
+      shared.timers.delete(checkTimer);
+      return;
+    }
+    collectPeriodicData();
+  }, checkInterval);
+  const sendTimer = addTimer(() => {
+    if (Date.now() - shared.sendStartedAt > Number(config.startConfig[5]) * 1000) {
+      clearInterval(sendTimer);
+      shared.timers.delete(sendTimer);
+      return;
+    }
+    flushQueue().catch(() => {});
+  }, sendInterval);
+
+  if (shared.options.collectionProfile.location) {
+    shared.cleanups.push(ctRunningCheck.startLocation());
+  }
+  if (shared.options.collectionProfile.debug) {
+    shared.cleanups.push(ctRunningCheck.debugMonitor(pushMessage));
+    shared.cleanups.push(ctUserBehavior.devToolMonitor(pushMessage));
+  }
+  shared.cleanups.push(ctIllegalState.monitor(pushMessage));
+  if (shared.options.collectionProfile.userBehavior) {
+    shared.cleanups.push(ctUserBehavior.eventMonitor(pushMessage));
+  }
   console.log('synap running:true');
-  // 添加事件函数
-  var pushMsg = function (ep) {
-    if (ep) {
-      if (typeof window.probeMsgQueue === 'undefined') {
-        window.probeMsgQueue = [];
-      }
-      if (window.probeMsgQueue.length < 50) {
-        window.probeMsgQueue.push(ep);
-      } else {
-        console.warn('queue is to large:' + window.probeMsgQueue.length);
-      }
-    }
-  };
-  // 配置
-  ctDeviceInfo.loadConfig(window._polic['config']);
-  ctRunningCheck.loadConfig(window._polic['config']);
-  ctIllegalState.loadConfig(window._polic['config']);
-  ctUserBehavior.loadConfig(window._polic['config']);
-  // 周期检测数据
-  setInterval(function (cancelTime) {
-    var checkStartTime = cookieOperate.getFromSessionCookie('check_start_time');
-    if (checkStartTime) {
-      // 超过检测周期不检测了
-      var currentTime = new Date().getTime();
-      if (currentTime - checkStartTime > cancelTime * 1000) {
-        return;
-      }
-    } else {
-      cookieOperate.setToSessionCookie('check_start_time', new Date().getTime());
-    }
-    // 开始
-    pushMsg(ctDeviceInfo.deviceInfo());
-    pushMsg(ctRunningCheck.checkSelfApp());
-    pushMsg(ctRunningCheck.checkLocation());
-    pushMsg(ctRunningCheck.checkRuntime());
-  }, window._polic.config.startConfig[2] * 1000, window._polic.config.startConfig[3])
-
-  // 回调数据
-  // debug
-  ctRunningCheck.debugMonitor(pushMsg);
-  // is
-  ctIllegalState.monitor(pushMsg);
-  // ub
-  ctUserBehavior.devToolMonitor(pushMsg);
-  ctUserBehavior.eventMonitor(pushMsg);
-  // 周期发送数据
-  setInterval(startSender, window._polic.config.startConfig[4] * 1000, window._polic.config.startConfig[5]);
-
-  // 暴露用户数据接口
-  var userData = function (userId, data) {
-    // userId存储
-    agLocalStore.set('user_id', userId, 0);
-    var userDataMsg = {
-      type: 'UserData',
-      userId: userId,
-      data: data
-    }
-    pushMsg(userDataMsg);
-  }
-  window.userData = userData;
 }
 
-
-const startWithPolic = function (dispatch, config) {
-  window._polic = JSON.parse(createH5Codec(dispatch.appId()).decodeResponse(config));
-  window.kk = dispatch.appId();
-  window.up = dispatch.upload();
-  window.deviceInfoUrl = dispatch.deviceInfo();
-  window.labelUrl = dispatch.label();
-  window.ratingUrl = dispatch.rating();
-
-  if (window._polic) {
-    launchProbe()
+function cachedPolicy(appKey) {
+  const storage = safeSessionStorage();
+  if (!storage) return null;
+  const key = policyCacheKey(appKey);
+  const encrypted = storage.getItem(key);
+  if (!encrypted) return null;
+  try {
+    return { encrypted, policy: decodePolicy(shared.codec, encrypted) };
+  } catch (_) {
+    storage.removeItem(key);
+    return null;
   }
 }
 
-class Loader {
-  constructor() {
-  }
-  init(dispatch) {
-    if (dispatch.appId() && dispatch.appId().length > 0) {
-      createH5Codec(dispatch.appId());
-      const exDate = new Date();
-      try {
-        window.sessionStorage.setItem('_t', exDate.getTime());
-      } catch (e) {
-        if (navigator.cookieEnabled) {
-          cookieOperate.setItem('_t', exDate.getTime(), exDate.toGMTString(), '/', [window.location.hostname]);
-        } else {
-          if (window.esl) {
-            window.esl['_t'] = exDate.getTime();
-          } else {
-            window.esl = {};
-            window.esl['_t'] = exDate.getTime();
-          }
-        }
-      }
-      exDate.setDate(exDate.getDate() + 1000);
-      cookieOperate.setItem('accept_hex', escape(dispatch.appId()), exDate.toGMTString(), '/', [window.location.hostname]);
+function storePolicy(appKey, encrypted) {
+  const storage = safeSessionStorage();
+  if (!storage) return;
+  try { storage.setItem(policyCacheKey(appKey), encrypted); } catch (_) { }
+}
 
-    } else {
-      throw 'parameters of the abnormal';
-    }
+async function fetchPolicy() {
+  const body = shared.codec.encodeRequest(JSON.stringify({ common: baseData.getCommonInfo() }));
+  const encrypted = await httpAjax.post(shared.endpoints.start, body, {
+    headers: requestHeaders(),
+    timeout: shared.options.requestTimeout
+  });
+  const policy = decodePolicy(shared.codec, encrypted);
+  storePolicy(shared.options.appKey, encrypted);
+  return policy;
+}
+
+async function initialize(options) {
+  const resolved = resolveOptions(options);
+  if ((shared.status === 'running' || shared.status === 'initializing') && sameOptions(shared.options, resolved)) {
+    return shared.initPromise || api;
   }
-  start(dispatch) {
-    const body = {
-      'common': baseData.getCommonInfo()
-    };
-    var header = {
-      'Content-Type': 'application/json;charset=UTF-8',
-      'code': baseData.getHeaderCode()
-    };
-    const codec = createH5Codec(dispatch.appId());
-    const encBody = codec.encodeRequest(JSON.stringify(body));
-    httpAjax.http_post(dispatch.start(), header, encBody,
-      function (data) {
-        if (data) {
-          startWithPolic(dispatch, data);
-          cookieOperate.setToSessionCookie('_polic', data);
-        }
-      },
-      function (error) {
-        console.error(error);
-      },
-      true);
+  if (shared.status === 'running' || shared.status === 'initializing') {
+    await destroy({ flush: false });
   }
-  indexInfo(type) {
-    var url;
-    switch (type) {
-      case 1:
-        url = window.deviceInfoUrl;
-        break;
-      case 2:
-        url = window.labelUrl;
-        break;
-      case 3:
-        url = window.ratingUrl;
-        break;
-      default:
-        return "error type";
-    }
-    const body = {
-      'common': baseData.getCommonInfo()
-    };
-    const codec = createH5Codec(window.kk);
-    const encBody = codec.encodeRequest(JSON.stringify(body));
-    var header = {
-      'Content-Type': 'application/json;charset=UTF-8',
-      'code': baseData.getHeaderCode()
-    };
-    var requestData;
-    httpAjax.http_post(url, header, encBody,
-      function (data) {
-        if (data) {
-          requestData = JSON.parse(codec.decodeResponse(data));;
-        }
-      },
-      function (error) {
-        console.error(error);
-      },
-      false);
-    return requestData;
+
+  shared.status = 'initializing';
+  const generation = ++shared.generation;
+  shared.options = resolved;
+  shared.endpoints = createEndpoints(resolved.baseUrl);
+  shared.codec = createH5Codec(resolved.appKey);
+  shared.cachedDeviceInfo = null;
+  window.kk = resolved.appKey;
+  window.up = shared.endpoints.upload;
+  window.deviceInfoUrl = shared.endpoints.deviceInfo;
+  window.labelUrl = shared.endpoints.label;
+  window.ratingUrl = shared.endpoints.rating;
+
+  const legacyItems = Array.isArray(window.probeMsgQueue) &&
+    (!shared.queue || window.probeMsgQueue !== shared.queue.items)
+    ? window.probeMsgQueue.slice()
+    : [];
+  shared.queue = new MessageQueue({
+    storage: safeSessionStorage(),
+    storageKey: `__synap_pending_${SDK_VERSION}_${resolved.appKey}`,
+    limit: resolved.queueLimit,
+    initialItems: legacyItems
+  });
+  window.probeMsgQueue = shared.queue.items;
+
+  try {
+    const cached = cachedPolicy(resolved.appKey);
+    const policy = cached ? cached.policy : await fetchPolicy();
+    if (generation !== shared.generation) throw new Error('SynapAgent initialization was cancelled');
+    shared.policy = filteredPolicy(policy, resolved.collectionProfile);
+    window._polic = shared.policy;
+    launchProbe(shared.policy);
+    shared.status = 'running';
+    return api;
+  } catch (error) {
+    if (generation === shared.generation) shared.status = 'idle';
+    clearRuntimeResources();
+    throw error;
   }
 }
 
-
-function encodeString(str) {
-  let encodedStr = '';
-  for (let char of str) {
-    encodedStr += String.fromCharCode(char.charCodeAt(0) + 1);
+async function init(options = {}) {
+  const resolved = resolveOptions(options);
+  if (shared.status === 'initializing' && shared.initPromise) {
+    if (sameOptions(shared.options, resolved)) return shared.initPromise;
+    try { await shared.initPromise; } catch (_) { }
   }
-  return encodedStr;
-}
-
-function decodeString(str) {
-  let decodedStr = '';
-  for (let char of str) {
-    decodedStr += String.fromCharCode(char.charCodeAt(0) - 1);
-  }
-  return decodedStr;
-}
-
-//  let array = ['http://127.0.0.1:11099','/sc/h5/attach/start', '/sc/h5/attach/upload', '/sc/h5/cross/info', '/sc/h5/cross/rating', '/sc/h5/cross/label_start'];
-//  for (let i = 0; i < array.length; i++) {
-//    var original = array[i];
-//    var encoded = encodeString(original);
-//    console.log("Encoded: ", encoded);
-//    var decoded = decodeString(encoded);
-//    console.log("Decoded: ", decoded);
-//  }
-
-const ctScArray = ["iuuq;00238/1/1/2;221::","0td0i60buubdi0tubsu","0td0i60buubdi0vqmpbe","0td0i60dsptt0jogp","0td0i60dsptt0sbujoh","0td0i60dsptt0mbcfm`tubsu"];
-  
-class Dispatch {
-  constructor(keyString) {
-    if (!(this instanceof Dispatch)) {
-      return new Dispatch(keyString);
-    }
-    this.key = keyString;
-  }
-  appId() {
-    return this.key;
-  }
-  start() {
-    return decodeString(ctScArray[0])+decodeString(ctScArray[1]);
-  }
-  upload() {
-    return decodeString(ctScArray[0])+decodeString(ctScArray[2]);
-  }
-  deviceInfo() {
-    return decodeString(ctScArray[0])+decodeString(ctScArray[3]);
-  }
-  rating() {
-    return decodeString(ctScArray[0])+decodeString(ctScArray[4]);
-  }
-  label() {
-    return decodeString(ctScArray[0])+decodeString(ctScArray[5]);
+  const promise = initialize(resolved);
+  shared.initPromise = promise;
+  try {
+    return await promise;
+  } finally {
+    if (shared.initPromise === promise) shared.initPromise = null;
   }
 }
 
-const checkLoader = (function () {
-  return new Loader();
-})();
+async function destroy({ flush = true } = {}) {
+  if (shared.status === 'destroyed' || shared.status === 'idle') return;
+  shared.status = 'destroying';
+  shared.generation += 1;
+  if (flush) {
+    try { await flushQueue(); } catch (_) { }
+  }
+  if (shared.queue) shared.queue.persist();
+  clearRuntimeResources();
+  shared.policy = null;
+  shared.cachedDeviceInfo = null;
+  shared.status = 'destroyed';
+}
 
-// main
-var keyString = '2396641245c4fe6ttd041565b3651245'
-var dispatch = new Dispatch(keyString);
-window.deviceInfo = function () {
-  return checkLoader.indexInfo(1);
-};
-window.ratingInfo = function () {
-  return checkLoader.indexInfo(3);
-};
-window.labelInfo = function () {
-  return checkLoader.indexInfo(2);
+async function ensureReady() {
+  if (shared.status === 'running') return;
+  if (shared.initPromise) await shared.initPromise;
+  else await init(window.SynapAgentConfig || {});
+}
+
+async function requestInfo(endpoint) {
+  await ensureReady();
+  const encoded = shared.codec.encodeRequest(JSON.stringify({ common: baseData.getCommonInfo() }));
+  const response = await httpAjax.post(shared.endpoints[endpoint], encoded, {
+    headers: requestHeaders(),
+    timeout: shared.options.requestTimeout
+  });
+  return decodeResponse(response);
+}
+
+function legacyInfo(endpoint) {
+  if (!shared.warnedLegacy) {
+    shared.warnedLegacy = true;
+    console.warn('SynapAgent synchronous query APIs are deprecated; use window.SynapAgent Promise APIs');
+  }
+  if (shared.status !== 'running') return undefined;
+  try {
+    const encoded = shared.codec.encodeRequest(JSON.stringify({ common: baseData.getCommonInfo() }));
+    const response = httpAjax.requestSync('POST', shared.endpoints[endpoint], {
+      headers: requestHeaders(),
+      data: encoded
+    });
+    return decodeResponse(response);
+  } catch (error) {
+    shared.metrics.requestFailures += 1;
+    console.error(error);
+    return undefined;
+  }
+}
+
+function userData(userId, data) {
+  if (shared.status !== 'running' || !shared.queue || typeof userId !== 'string' || userId.length === 0 || userId.length > 256 || data == null) return false;
+  let serialized;
+  try { serialized = JSON.stringify(data); } catch (_) { return false; }
+  if (serialized === undefined) return false;
+  const bytes = typeof TextEncoder !== 'undefined'
+    ? new TextEncoder().encode(serialized).length
+    : unescape(encodeURIComponent(serialized)).length;
+  if (bytes > shared.options.maxUserDataBytes) return false;
+  agLocalStore.set('user_id', userId, 0);
+  return pushMessage({
+    type: 'UserData',
+    buildDate: baseData.currentFormatDate(),
+    userId,
+    data
+  });
+}
+
+const api = {
+  version: SDK_VERSION,
+  init,
+  destroy,
+  flush: flushQueue,
+  userData,
+  getDeviceInfo: () => requestInfo('deviceInfo'),
+  getRatingInfo: () => requestInfo('rating'),
+  getLabelInfo: () => requestInfo('label'),
+  getMetrics: () => ({
+    ...shared.metrics,
+    status: shared.status,
+    queue: shared.queue ? shared.queue.metrics() : { queued: 0, dropped: 0 }
+  })
 };
 
-var polic = cookieOperate.getFromSessionCookie('_polic');
-if (polic) {
-  // 已经start了
-  if (!window._polic) {
-    startWithPolic(dispatch, polic);
-  }
-} else {
-  checkLoader.init(dispatch);
-  checkLoader.start(dispatch);
-}
+window.SynapAgent = api;
+window.initWithKey = (appKey) => api.init({ ...(window.SynapAgentConfig || {}), appKey });
+window.userData = userData;
+window.deviceInfo = () => legacyInfo('deviceInfo');
+window.ratingInfo = () => legacyInfo('rating');
+window.labelInfo = () => legacyInfo('label');
+
+// Preserve the existing zero-configuration integration while allowing hosts to
+// define window.SynapAgentConfig before loading the script.
+api.init(window.SynapAgentConfig || DEFAULT_OPTIONS).catch((error) => {
+  console.warn('SynapAgent failed to initialize', error);
+});

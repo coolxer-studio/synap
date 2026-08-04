@@ -1,7 +1,3 @@
-const exec = require('child_process').execSync
-
-const fs = require('fs');
-const path = require('path')
 const chalk = require('chalk')
 const webpack = require('webpack')
 const webpackConfig = require('./webpack.config.js')
@@ -23,12 +19,15 @@ webpack(webpackConfig, function (err, stats) {
         chunks: false,
         chunkModules: false
     }) + '\n')
+    if (stats.hasErrors()) {
+        process.exitCode = 1
+        return
+    }
     const bm = process.env.NODE_ENV === 'production' ? 'min' : 'dev';
     console.log(chalk.green(`\n编译完成:)`));
     console.log(chalk.green(
         '\n文件输出目录: \n' +
-        `dist/probe.${bm}.js\n` +
-        `dist/core.${bm}.js\n`
+        `dist/probe.${bm}.js\n`
     ))
 
 })

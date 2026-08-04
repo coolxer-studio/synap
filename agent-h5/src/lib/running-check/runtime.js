@@ -39,7 +39,7 @@ export default {
         currNet[1] = [1, 1, 1]
         agLocalStore.set('_e_c_', JSON.stringify([1, currNet]), 0)
       }
-      if (typeof wx) {
+      if (typeof wx !== 'undefined') {
         var BrR = function () {
           wx.getNetworkType({
             complete: function () {
@@ -63,7 +63,7 @@ export default {
         } catch (e) {
         }
       }
-      if (typeof ap) {
+        if (typeof ap !== 'undefined') {
         try {
           ap.getNetworkType(function () {
             var currNet = JSON.parse(agLocalStore.get('_e_c_'))[1]
@@ -73,7 +73,7 @@ export default {
         } catch (e) {
         }
       } else {
-        if (typeof my) {
+        if (typeof my !== 'undefined') {
           try {
             my.getEnv(function (res) {
               var currNet = JSON.parse(agLocalStore.get('_e_c_'))[1]
@@ -200,6 +200,7 @@ export default {
     for (let i = 0; i < f_l.length; i++) {
       loopF(f_l[i], 1,)
     }
+    return r_l;
   },
 
   /**

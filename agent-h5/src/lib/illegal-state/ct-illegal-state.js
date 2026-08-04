@@ -1,77 +1,74 @@
-window.ct_error_config = {
-    "message": [".*"]
-}
+import baseData from '../base-data';
 
-var data = {
+window.ct_error_config = { message: ['.*'] };
 
+function matchesConfig(message) {
+  const patterns = window.ct_error_config && Array.isArray(window.ct_error_config.message)
+    ? window.ct_error_config.message
+    : [];
+  return patterns.some((expression) => {
+    try { return new RegExp(expression).test(String(message)); } catch (_) { return false; }
+  });
 }
 
 export default {
+  monitor(msgCallback) {
+    const originalOnerror = window.onerror;
+    const originalConsoleError = window.console && window.console.error;
 
-    monitor: function (msgCallback) {
-        let errorMsg = {
-            type: 'ErrorData',
-            from: '',
-            message: '',
-            source: '',
-            lineno: '',
-            colno: ''
+    const emit = (payload) => {
+      if (!matchesConfig(payload.message)) return;
+      msgCallback({
+        type: 'ErrorData',
+        buildDate: baseData.currentFormatDate(),
+        from: payload.from || '',
+        message: String(payload.message || ''),
+        source: payload.source || '',
+        lineno: Number(payload.lineno) || 0,
+        colno: Number(payload.colno) || 0
+      });
+    };
+
+    const onerror = function (message, source, lineno, colno, error) {
+      emit({ from: 'windowOnerror', message, source, lineno, colno });
+      if (typeof originalOnerror === 'function') {
+        return originalOnerror.call(window, message, source, lineno, colno, error);
+      }
+      return false;
+    };
+
+    const consoleError = function (...args) {
+      emit({ from: 'consoleError', message: args.map(String).join(' ') });
+      if (typeof originalConsoleError === 'function') {
+        return originalConsoleError.apply(window.console, args);
+      }
+    };
+
+    let onerrorInstalled = false;
+    let consoleInstalled = false;
+    try {
+      window.onerror = onerror;
+      onerrorInstalled = window.onerror === onerror;
+    } catch (_) { }
+    try {
+      if (window.console) {
+        window.console.error = consoleError;
+        consoleInstalled = window.console.error === consoleError;
+      }
+    } catch (_) { }
+
+    return function cleanup() {
+      try {
+        if (onerrorInstalled && window.onerror === onerror) window.onerror = originalOnerror;
+      } catch (_) { }
+      try {
+        if (consoleInstalled && window.console && window.console.error === consoleError) {
+          window.console.error = originalConsoleError;
         }
-
-        var errorMsgCallback = function (errorMsg) {
-            window.ct_error_config['message'].forEach(regString => {
-                var pattern = new RegExp(regString);
-                if (pattern.test(errorMsg.message)) {
-                    msgCallback(errorMsg);
-                }
-            });
-        }
-
-
-        // onerror 捕获未知异常
-        if (!window.originalOnerror) {
-            // 防治多次初始化，保存原始方法
-            if (window.onerror) {
-                window.originalOnerror = window.onerror;
-            } else {
-                window.originalOnerror = "window.onerror not exist";
-            }
-            // 设置错误处理函数
-            window.onerror = function (message, source, lineno, colno, error) {
-                // 封装错误信息返回
-                errorMsg.from = 'windowOnerror';
-                errorMsg.message = message;
-                errorMsg.source = source;
-                errorMsg.lineno = lineno;
-                errorMsg.colno = colno;
-                errorMsgCallback(errorMsg);
-                if (typeof (window.originalOnerror) === 'function') {
-                    // 执行原始方法
-                    return window.originalOnerror(message, source, lineno, colno, error);
-                } else {
-                    // 放行浏览器默认的错误处理
-                    return false;
-                }
-            };
-        }
-
-        // console.error获取自定义输出的error信息
-        if (!window.originalConsoleError) {
-            window.originalConsoleError = window.console.error;
-            window.console.error = function (message) {
-                // 封装错误信息返回
-                errorMsg.from = 'consoleError';
-                errorMsg.message = message;
-                errorMsgCallback(errorMsg);
-                if (typeof (window.originalConsoleError) === 'function') {
-                    // 执行原始方法
-                    window.originalConsoleError(message);
-                }
-            };
-        }
-    },
-    loadConfig: function (config) {
-        window.ct_error_config = config['errorConfig'];
-    }
-
-}
+      } catch (_) { }
+    };
+  },
+  loadConfig(config) {
+    window.ct_error_config = config.errorConfig;
+  }
+};

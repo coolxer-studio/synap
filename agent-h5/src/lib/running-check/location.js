@@ -1,28 +1,47 @@
-export default {
-  getLocation: function () {
-    // 检查浏览器是否支持 geolocation
-    if ("geolocation" in navigator) {
-      // 获取地理位置信息
-      navigator.geolocation.getCurrentPosition(function (position) {
-        const latitude = position.coords.latitude; // 纬度
-        const longitude = position.coords.longitude; // 经度
-      }, function (error) {
-        console.error("Error getting geolocation:", error);
-      });
-    } else {
-      console.warn("Geolocation is not supported by this browser.");
-    }
-  },
-  // 获取GPS坐标
-  getLbs: function () {
-    const lbs = { "0": '', "1": '' };
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(function (position) {
-        lbs.lat = position.coords.latitude.toString();
-        lbs.lon = position.coords.longitude.toString();
-      });
-      return lbs;
-    }
-  }
+const state = {
+  time: 0,
+  speed: 0,
+  latitude: 0,
+  longitude: 0,
+  country: '',
+  province: '',
+  city: '',
+  county: '',
+  thoroughfare: ''
+};
 
+let requestToken = 0;
+
+function update(position) {
+  state.time = position.timestamp || Date.now();
+  state.speed = Number(position.coords.speed) || 0;
+  state.latitude = Number(position.coords.latitude) || 0;
+  state.longitude = Number(position.coords.longitude) || 0;
 }
+
+const locationInfo = {
+  start() {
+    const token = ++requestToken;
+    if (!navigator.geolocation) return function () {};
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (position) => { if (token === requestToken) update(position); },
+        () => {},
+        { maximumAge: 300000, timeout: 10000, enableHighAccuracy: false }
+      );
+    } catch (_) { }
+    return function cleanup() { requestToken += 1; };
+  },
+  getLocation() {
+    return { ...state };
+  },
+  getLbs() {
+    return { lat: String(state.latitude || ''), lon: String(state.longitude || '') };
+  }
+};
+
+Object.keys(state).forEach((key) => {
+  locationInfo[key] = function () { return state[key]; };
+});
+
+export default locationInfo;

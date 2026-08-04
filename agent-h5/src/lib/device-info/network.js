@@ -60,7 +60,7 @@ export default {
             const {
                 rtt,
                 saveData
-            } = navigator['connection'];
+            } = conn;
 
             info = [effectiveType, downlinkMax, rtt, saveData].join('|');
         }
@@ -91,7 +91,7 @@ export default {
                 if (!o) return;
                 const k = o[1];
                 //remove duplicates
-                if (resultSign[k] !== void 0) result.push(k);
+                if (resultSign[k] === void 0) result.push(k);
                 resultSign[k] = true
             }
             if (!RTC) {

@@ -26,7 +26,8 @@ const cookieOperate = {
       case Date:
         expireStr = "; expires=" + expires.toUTCString();
     }
-    document.cookie = encodeURIComponent(itemName) + "=" + encodeURIComponent(itemValue) + expireStr + (domainName ? "; domain=" + domainName : "") + (path ? "; path=" + path : "") + (secure ? "; secure" : "");
+    var secureCookie = secure || (window.location && window.location.protocol === 'https:');
+    document.cookie = encodeURIComponent(itemName) + "=" + encodeURIComponent(itemValue) + expireStr + (domainName ? "; domain=" + domainName : "") + (path ? "; path=" + path : "") + "; SameSite=Lax" + (secureCookie ? "; Secure" : "");
     return true;
   }, removeItem: function (itemName, path, domain) {
     if (itemName && this.hasItem(itemName)) {
@@ -44,7 +45,12 @@ const cookieOperate = {
     for (var r = 0; keys.length > r; r++) keys[r] = decodeURIComponent(keys[r]);
     return keys;
   }, getFromSessionCookie: function (key) {
-    var value = window.sessionStorage.getItem(key);
+    var value;
+    try {
+      value = window.sessionStorage.getItem(key);
+    } catch (e) {
+      value = undefined;
+    }
     if (value) {
       return value;
     }
@@ -52,6 +58,7 @@ const cookieOperate = {
     if (value) {
       return value;
     }
+    if (window.esl && window.esl[key] !== undefined) return window.esl[key];
     return undefined;
   }, setToSessionCookie: function (key, value) {
     try {
@@ -59,6 +66,9 @@ const cookieOperate = {
     } catch (e) {
       if (navigator.cookieEnabled) {
         cookieOperate.setItem(key, value, 0, '/', [window.location.hostname]);
+      } else {
+        window.esl = window.esl || {};
+        window.esl[key] = value;
       }
     }
   }
