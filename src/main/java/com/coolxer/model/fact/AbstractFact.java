@@ -2,7 +2,6 @@ package com.coolxer.model.fact;
 
 import com.coolxer.config.CheckerConfig;
 import com.coolxer.utils.JacksonUtils;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -17,13 +16,37 @@ import java.util.Map;
  */
 @Slf4j
 @Getter
-@AllArgsConstructor
 public abstract class AbstractFact {
 
     protected String type;
     protected String buildDate;
     protected Header header;
     protected Common common;
+    protected String messageId;
+    protected String batchId;
+    protected Long observedAt;
+    protected Long sequence;
+    protected String requestIp;
+    protected String requestUserAgent;
+
+    protected AbstractFact(String type, String buildDate, Header header, Common common) {
+        this.type = type;
+        this.buildDate = buildDate;
+        this.header = header;
+        this.common = common;
+    }
+
+    public void setTransportContext(String messageId, String batchId, Long observedAt, Long sequence) {
+        this.messageId = messageId;
+        this.batchId = batchId;
+        this.observedAt = observedAt;
+        this.sequence = sequence;
+    }
+
+    public void setRequestContext(String requestIp, String requestUserAgent) {
+        this.requestIp = requestIp;
+        this.requestUserAgent = requestUserAgent;
+    }
 
     protected void build(Map<String,Object> factMap){
         // 获取当前实现类名称

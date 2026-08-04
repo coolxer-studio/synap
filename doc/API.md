@@ -74,6 +74,8 @@ code: g1-g2-g3-g4-g5-android-100-1.0.0
 | 22 | `thoroughfare` |
 | 23 | `clientTime` |
 
+H5 的 `lanIp` 来自浏览器可选的 WebRTC host candidate，可能为 `masked`、`unavailable` 或 `disabled`。`wanIp` 的客户端值不可信，服务端会使用 TCP 来源地址覆盖；仅当直接来源属于配置的可信代理 CIDR 时才解析转发头。
+
 示例：
 
 ```json
@@ -239,7 +241,7 @@ code: g1-g2-g3-g4-g5-android-100-1.0.0
 
 ## POST /attach/upload
 
-agent 数据上报接口。服务端遍历 `data` 数组，为每条数据构造对应 Fact，执行同名 Groovy 规则，将 checkpoint 写入 Kafka，并返回 agenda 和 punish。
+agent 数据上报接口。v1 请求继续兼容；H5 v2 为批次和消息增加稳定标识，服务端先执行幂等检查，再构造 Fact、执行规则并写入 Kafka。
 
 推荐路径：
 
@@ -292,10 +294,20 @@ code: g1-g2-g3-g4-g5-android-100-1.0.0
     "Demo Road",
     "2026-07-03 10:00:00"
   ],
+  "meta": {
+    "protocolVersion": 2,
+    "batchId": "batch-019",
+    "sessionId": "10001",
+    "attempt": 1,
+    "createdAt": 1785885600000
+  },
   "data": [
     {
       "type": "DeviceData",
       "buildDate": "2026-07-03 10:00:00",
+      "messageId": "msg-019",
+      "sequence": 1,
+      "observedAt": 1785885600000,
       "device": [
         "phone",
         "Pixel 7",
@@ -320,6 +332,7 @@ code: g1-g2-g3-g4-g5-android-100-1.0.0
 说明：
 
 - `type` 必填，用于推导 Fact 类名。
+- v2 的 `messageId` 在持久化和重试过程中必须保持不变；服务端去重键由 appId、startId 和 messageId 组成。
 - 其他字段名要与对应平台 checker 配置中的 `<type>Config` 子字段匹配。
 - 数组值顺序必须与 checker 配置中的字段顺序一致。
 - 如果 Fact 构造失败，当前代码会记录错误并跳过该条数据。
@@ -333,9 +346,17 @@ code: g1-g2-g3-g4-g5-android-100-1.0.0
   "agendas": [
     ["小众机型", "Pixel 7", "low"]
   ],
-  "punishes": []
+  "punishes": [],
+  "ack": {
+    "batchId": "batch-019",
+    "acceptedMessageIds": ["msg-019"],
+    "duplicateMessageIds": [],
+    "rejectedItems": []
+  }
 }
 ```
+
+客户端只能删除 `acceptedMessageIds` 和 `duplicateMessageIds` 中的消息；`rejectedItems.retryable=true` 或未出现在 ACK 中的消息需要重试。v2 Agenda 数组第 4 位为同批命中次数。
 
 服务端副作用：
 

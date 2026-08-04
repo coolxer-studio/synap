@@ -1,5 +1,6 @@
 {
   "startConfig": [1, "./core.dev.js", 10.0, 30.0, 10.0, 864000.0],
+  "startConfigUnit": "seconds",
   "deviceConfig": {
     "device": ["systemName", "systemVersion", "modelCode", "language", "timeZone"],
     "screen": ["width", "height", "availWidth", "availHeight", "screenSize"],
@@ -17,12 +18,17 @@
   "selfAppConfig": {
     "base": ["domain"]
   },
+  "selfAppAllowlist": {},
   "locationConfig": {
     "base": ["time","speed","latitude","longitude", "country", "province", "city", "county", "thoroughfare"]
   },
   "runtimeConfig": {
     "custom": ["format", "runType", "getSpider", "unknownFunctions", "infoModify"]
   },
+  "integrityConfig": { "data": ["score", "signals", "platform", "language"] },
+  "behaviorConfig": { "data": ["durationMs", "eventCount", "pointerSamples", "clickCount", "inputCount", "touchCount", "totalDistance", "averageSpeed", "maxSpeed", "averageAcceleration", "directionChangeRatio", "averageClickInterval", "averageInputInterval", "averageForce", "idleRatio"] },
+  "sessionConfig": { "data": ["visibility", "focused", "online", "bfcacheRestores", "focusChanges", "visibilityChanges", "clockRollback", "clockDriftMs", "concurrentTabs", "timeOrigin"] },
+  "networkConfig": { "data": ["endpoints"] },
   "debugConfig": {
     "base": [".*"]
   },

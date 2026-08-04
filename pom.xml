@@ -22,6 +22,10 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>com.coolxer.zenvis</groupId>
 			<artifactId>zenvis-business-service-spring-boot-starter</artifactId>
 			<version>${zenvis-business-service-starter.version}</version>

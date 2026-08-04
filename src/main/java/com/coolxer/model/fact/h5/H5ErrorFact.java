@@ -17,6 +17,7 @@ public class H5ErrorFact extends AbstractFact {
     private String source;
     private Integer lineNo;
     private Integer colNo;
+    private Integer count;
 
     public H5ErrorFact(String type, Header header, Common common, Map<String,Object> factMap) {
         super(type,(String) factMap.get("buildDate"), header, common);
@@ -25,6 +26,7 @@ public class H5ErrorFact extends AbstractFact {
         source = (String)factMap.get("source");
         lineNo = (Integer)factMap.get("lineno");
         colNo = (Integer)factMap.get("colno");
+        count = factMap.get("count") instanceof Number ? ((Number) factMap.get("count")).intValue() : 1;
     }
 
 }

@@ -6,6 +6,7 @@ import com.coolxer.config.TopicDefine;
 import com.coolxer.model.fact.AbstractFact;
 import com.coolxer.model.punish.Punish;
 import com.coolxer.service.PunishConfigService;
+import com.coolxer.service.UploadMetrics;
 import com.coolxer.service.RuleEngine;
 import com.coolxer.utils.JacksonUtils;
 import com.coolxer.utils.StringConvertUtils;
@@ -22,9 +23,11 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.lang.reflect.Field;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 /**
@@ -58,8 +61,14 @@ public class RuleEngineImpl implements RuleEngine {
     @Value("${rule.engine.groovy.path}")
     private String groovyScriptPath;
 
+    @Value("${synap.kafka.publish-timeout:PT5S}")
+    private Duration kafkaPublishTimeout = Duration.ofSeconds(5);
+
     @Autowired
     private KafkaTemplate kafkaTemplate;
+
+    @Autowired(required = false)
+    private UploadMetrics uploadMetrics;
 
     public RuleEngineImpl(PunishConfigService punishConfigService) {
         this.punishConfigService = punishConfigService;
@@ -94,7 +103,15 @@ public class RuleEngineImpl implements RuleEngine {
 
             checkpoint = new Checkpoint(fact,scriptName,agendaList,punishHashSet,FastDateFormat.getInstance("yyyy-MM-dd HH:mm:ss").format(new Date()));
 
-            kafkaTemplate.send(topic,fact.getCommon().getGuid(), JacksonUtils.toJson(checkpoint));
+            var kafkaFuture = kafkaTemplate.send(topic,fact.getCommon().getGuid(), JacksonUtils.toJson(checkpoint));
+            if (kafkaFuture != null) {
+                try {
+                    kafkaFuture.get(kafkaPublishTimeout.toMillis(), TimeUnit.MILLISECONDS);
+                } catch (Exception error) {
+                    if (uploadMetrics != null) uploadMetrics.kafkaFailure();
+                    throw new RuntimeException("Kafka checkpoint publish failed, messageId:" + fact.getMessageId(), error);
+                }
+            }
         } catch (IOException e) {
             log.error("执行Groovy脚本时发生IO异常, factClassName:{}, scriptName:{}", factClassName, scriptName, e);
         } catch (ScriptException e) {

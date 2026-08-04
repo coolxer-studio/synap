@@ -15,6 +15,7 @@ synap-server 是 synap 的请求响应服务，负责接收 agent 数据、下�
 - Spring Boot 3.2.0
 - Spring Web
 - Spring Kafka
+- Spring Data Redis（生产幂等存储）
 - Groovy 3.0.17
 - Jackson
 - Lombok
@@ -44,6 +45,7 @@ src/main/resources
 ```text
 Agent
   -> AttachController
+  -> messageId 幂等检查
   -> FactBuilder / StartFact
   -> RuleEngineImpl
   -> Groovy Rule
@@ -75,6 +77,8 @@ Agent
 - `src/main/resources/checker_config/h5.json`
 - `src/main/resources/checker_config/wechat.json`
 - `src/main/resources/checker_config/host.json`
+
+H5 的 `selfAppAllowlist` 按 appId 配置允许域名；未配置时仅允许 `common.appPackage` 对应的当前站点域名，不再使用硬编码测试域名。
 
 upload 数据中的 Fact 类型通过命名约定反射构造：
 
@@ -132,6 +136,14 @@ msg.api.config.path=src/main/resources/msg_api_config/msg_api_config.json
 spring.kafka.bootstrap-servers=192.168.1.201:9092
 ```
 
+外网 IP 以服务端收到的连接地址为准。只有请求的直接来源匹配 `synap.network.trusted-proxies` 时，才会解析标准 `Forwarded`、`X-Forwarded-For` 或 `X-Real-IP`，并从代理链右侧向左剥离可信节点。例如：
+
+```properties
+synap.network.trusted-proxies=10.20.0.0/16,2001:db8:100::/48
+```
+
+生产环境通过 `SYNAP_TRUSTED_PROXIES` 配置实际网关 CIDR；服务直接暴露时保持为空。不要为省事配置 `0.0.0.0/0`，否则客户端可伪造外网 IP。解析结果会覆盖客户端提交的 `common.wanIp`，并写入 Fact 的 `requestIp`。
+
 注意：当前 `application-dev.properties` 和 `application-prod.properties` 中的 `rule.engine.groovy.path` 指向 `.../rule/groovy/`，但仓库里的 Groovy 文件实际位于 `src/main/java/com/coolxer/rule/`。本地启动或部署前需要确认该路径是否符合实际目录。
 
 ## 本地运行
@@ -141,6 +153,7 @@ spring.kafka.bootstrap-servers=192.168.1.201:9092
 - JDK 17
 - Maven
 - 可访问的 Kafka
+- 生产环境可访问的 Redis；开发 profile 默认使用有界内存去重存储
 - 可访问的外部服务地址，见 `msg_api_config.json`
 
 启动：
@@ -171,4 +184,5 @@ mvn test
 - `FactBuilder` 依赖平台名和 `type` 的命名约定；命名不一致会导致 Fact 构造失败并跳过该条数据。
 - `start` 接口中规则执行失败时，当前代码可能在读取 `checkpoint` 时触发空指针；`upload` 接口已经做了空值判断。
 - `punish` 使用 `HashSet` 去重，返回顺序当前不保证稳定，代码中也保留了按优先级排序的 TODO。
+- H5 v2 使用“至少一次传输 + messageId 幂等消费”；Redis `done` 记录默认保存 14 天，处理中租约为 5 分钟。
 - `cross` 接口找不到配置 id 时会抛出 `IllegalArgumentException`。
