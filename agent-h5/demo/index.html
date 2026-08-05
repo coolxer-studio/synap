@@ -274,8 +274,8 @@
     };
 
     // 设备信息
-    function setDeviceInfoData() {
-      var data = window.deviceInfo();
+    async function setDeviceInfoData() {
+      var data = await window.SynapAgent.getDeviceInfo();
       if (data.code === 0) {
         const deviceInfoMap = {
           "hardware": ["device"],
@@ -305,8 +305,8 @@
     };
 
     // 风险分析
-    function setRatingData() {
-      var data = window.ratingInfo();
+    async function setRatingData() {
+      var data = await window.SynapAgent.getRatingInfo();
       if (data.code === 0) {
         var grade = data.data.grade;
         var score = data.data.score;
@@ -325,8 +325,8 @@
     };
 
     // 威胁识别
-    function setLabelData() {
-      var data = window.labelInfo();
+    async function setLabelData() {
+      var data = await window.SynapAgent.getLabelInfo();
       if (data.code === 0) {
         for (var labelData of data.data) {
           var labelColor = "#20C997";

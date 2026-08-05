@@ -7,8 +7,11 @@ import ctIllegalState from './lib/illegal-state/ct-illegal-state';
 import ctUserBehavior from './lib/user-behavior/ct-user-behavior';
 import agLocalStore from './lib/ag-localstore';
 import MessageQueue from './lib/message-queue';
-import { decodePolicy } from './lib/policy';
-import { collectIntegrity, networkMonitor, sessionMonitor } from './lib/security-monitor';
+import { decodePolicy, validatePolicy } from './lib/policy';
+import {
+  collectIntegrity, collectResourceIntegrity, networkMonitor, prepareIntegrity,
+  resourceReportMonitor, sessionMonitor
+} from './lib/security-monitor';
 import {
   DEFAULT_OPTIONS,
   SDK_VERSION,
@@ -24,6 +27,7 @@ const shared = window.__synapAgentRuntime || {
   codec: null,
   policy: null,
   policyFingerprint: '',
+  appKeyId: '',
   queue: null,
   initPromise: null,
   inFlight: null,
@@ -32,6 +36,7 @@ const shared = window.__synapAgentRuntime || {
   timers: new Set(),
   idleTasks: new Set(),
   cleanups: [],
+  behaviorController: null,
   checkStartedAt: 0,
   sendStartedAt: 0,
   cachedDeviceInfo: null,
@@ -40,11 +45,11 @@ const shared = window.__synapAgentRuntime || {
     selfAppFingerprint: '',
     runtimeFingerprint: '',
     location: null,
-    integrityFingerprint: ''
+    integrityFingerprint: '',
+    resourceFingerprint: ''
   },
   nextSequence: 0,
   collectionStorageKey: '',
-  warnedLegacy: false,
   metrics: {
     requestFailures: 0,
     parseFailures: 0,
@@ -79,6 +84,10 @@ function sameOptions(left, right) {
     left.requestTimeout === right.requestTimeout &&
     left.queueLimit === right.queueLimit &&
     left.batchSize === right.batchSize &&
+    JSON.stringify(left.allowedScriptOrigins) === JSON.stringify(right.allowedScriptOrigins) &&
+    JSON.stringify(left.allowedParentOrigins) === JSON.stringify(right.allowedParentOrigins) &&
+    JSON.stringify(left.allowedServiceWorkerOrigins) === JSON.stringify(right.allowedServiceWorkerOrigins) &&
+    left.expectedScriptIntegrity === right.expectedScriptIntegrity &&
     JSON.stringify(left.collectionProfile) === JSON.stringify(right.collectionProfile);
 }
 
@@ -141,6 +150,9 @@ function filteredPolicy(policy, profile) {
   if (!profile.webrtc && Array.isArray(copy.config.deviceConfig.network)) {
     copy.config.deviceConfig.network = copy.config.deviceConfig.network.filter((key) => key !== 'lanIp');
   }
+  if (!profile.rawEvents && copy.config.eventConfig && Array.isArray(copy.config.eventConfig.event)) {
+    copy.config.eventConfig.event = copy.config.eventConfig.event.filter((type) => ['pageshow', 'pagehide'].includes(type));
+  }
   return copy;
 }
 
@@ -166,6 +178,17 @@ function createId(prefix) {
     }
   } catch (_) { }
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+async function appKeyIdentifier(appKey) {
+  try {
+    const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(appKey)));
+    return Array.from(new Uint8Array(digest).slice(0, 16)).map((value) => value.toString(16).padStart(2, '0')).join('');
+  } catch (_) {
+    let hash = 2166136261;
+    for (const character of String(appKey)) { hash ^= character.charCodeAt(0); hash = Math.imul(hash, 16777619); }
+    return `fallback-${(hash >>> 0).toString(16)}`;
+  }
 }
 
 function withMessageMetadata(message) {
@@ -212,28 +235,26 @@ async function flushQueue() {
   const body = {
     common: baseData.getCommonInfo(),
     meta: {
-      protocolVersion: 2,
+      protocolVersion: 1,
       batchId,
       sessionId: String(baseData.getStartId()),
       attempt: shared.retryCount + 1,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      detectorVersion: SDK_VERSION,
+      appKeyId: shared.appKeyId
     },
     data: batch
   };
-  let encoded;
-  try {
-    encoded = shared.codec.encodeRequest(JSON.stringify(body));
-  } catch (error) {
-    shared.queue.restoreBatch(batch);
-    shared.metrics.parseFailures += 1;
-    throw error;
-  }
+  const uploadRequest = async () => {
+    const encoded = shared.codec.encodeRequest(JSON.stringify(body));
+    const response = await httpAjax.post(shared.endpoints.upload, encoded, {
+      headers: requestHeaders(),
+      timeout: shared.options.requestTimeout
+    });
+    return decodeResponse(response);
+  };
 
-  shared.inFlight = httpAjax.post(shared.endpoints.upload, encoded, {
-    headers: requestHeaders(),
-    timeout: shared.options.requestTimeout
-  }).then((response) => {
-    const decoded = decodeResponse(response);
+  shared.inFlight = uploadRequest().then((decoded) => {
     const ack = decoded && decoded.ack;
     const acknowledgedBatchId = ack && (ack.batchId || ack.batch_id);
     if (!decoded || Number(decoded.status) !== 1 || !ack || acknowledgedBatchId !== batchId) {
@@ -322,6 +343,13 @@ function collectPeriodicData() {
           if (pushMessage(integrity)) shared.collectionState.integrityFingerprint = integrityFingerprint;
         }
       }
+      if (shared.options.collectionProfile.resourceIntegrity) {
+        const resource = collectResourceIntegrity(shared.options);
+        const resourceFingerprint = messageFingerprint(resource);
+        if (resourceFingerprint !== shared.collectionState.resourceFingerprint) {
+          if (pushMessage(resource)) shared.collectionState.resourceFingerprint = resourceFingerprint;
+        }
+      }
       persistCollectionState();
       shared.queue.persist();
     } catch (error) {
@@ -359,7 +387,12 @@ function locationSnapshot(message) {
   const keys = (window.ct_location_config && window.ct_location_config.base) || [];
   const values = Array.isArray(message && message.base) ? message.base : [];
   const value = (key) => Number(values[keys.indexOf(key)]) || 0;
-  return { time: value('time'), latitude: value('latitude'), longitude: value('longitude') };
+  return {
+    timestamp: value('timestamp') || value('time'),
+    latitude: value('latitude'),
+    longitude: value('longitude'),
+    accuracy: value('accuracy')
+  };
 }
 
 function hasMeaningfulLocationChange(message, previous) {
@@ -369,7 +402,8 @@ function hasMeaningfulLocationChange(message, previous) {
   const latitudeDistance = (current.latitude - previous.latitude) * 111000;
   const longitudeDistance = (current.longitude - previous.longitude) * 111000 * Math.cos(current.latitude * Math.PI / 180);
   const distance = Math.sqrt(latitudeDistance * latitudeDistance + longitudeDistance * longitudeDistance);
-  return distance >= 100 || current.time - previous.time >= 60000;
+  const accuracyChanged = Math.abs(current.accuracy - previous.accuracy) >= 50;
+  return distance >= 100 || accuracyChanged || current.timestamp - previous.timestamp >= 60000;
 }
 
 function registerLifecyclePersistence() {
@@ -385,7 +419,7 @@ function registerLifecyclePersistence() {
 
 function launchProbe(policy) {
   const config = policy.config;
-  ctDeviceInfo.loadConfig(config);
+  ctDeviceInfo.loadConfig(config, shared.options.collectionProfile);
   ctRunningCheck.loadConfig(config);
   ctIllegalState.loadConfig(config);
   ctUserBehavior.loadConfig(config);
@@ -426,13 +460,20 @@ function launchProbe(policy) {
   shared.cleanups.push(ctIllegalState.monitor(pushMessage));
   if (shared.options.collectionProfile.userBehavior) {
     shared.cleanups.push(ctUserBehavior.eventMonitor(pushMessage));
-    shared.cleanups.push(ctUserBehavior.behaviorMonitor(pushMessage));
+    shared.behaviorController = ctUserBehavior.behaviorMonitor(pushMessage);
+    shared.cleanups.push(shared.behaviorController);
   }
   if (shared.options.collectionProfile.session) {
     shared.cleanups.push(sessionMonitor(pushMessage, shared.options.appKey));
   }
   if (shared.options.collectionProfile.network) {
     shared.cleanups.push(networkMonitor(pushMessage, Object.values(shared.endpoints)));
+  }
+  if (shared.options.collectionProfile.securityReports) {
+    shared.cleanups.push(resourceReportMonitor(pushMessage));
+  }
+  if (shared.options.collectionProfile.integrity || shared.options.collectionProfile.resourceIntegrity) {
+    addTimer(collectPeriodicData, 60000);
   }
   console.log('synap running:true');
 }
@@ -444,6 +485,7 @@ function cachedPolicy(appKey) {
   const encrypted = storage.getItem(key);
   if (!encrypted) return null;
   try {
+    if (encrypted.startsWith('json:')) return { encrypted, policy: validatePolicy(JSON.parse(encrypted.slice(5))) };
     return { encrypted, policy: decodePolicy(shared.codec, encrypted) };
   } catch (_) {
     storage.removeItem(key);
@@ -458,7 +500,10 @@ function storePolicy(appKey, encrypted) {
 }
 
 async function fetchPolicy() {
-  const body = shared.codec.encodeRequest(JSON.stringify({ common: baseData.getCommonInfo() }));
+  const body = shared.codec.encodeRequest(JSON.stringify({
+    common: baseData.getCommonInfo(),
+    meta: { protocolVersion: 1, appKeyId: shared.appKeyId, detectorVersion: SDK_VERSION }
+  }));
   const encrypted = await httpAjax.post(shared.endpoints.start, body, {
     headers: requestHeaders(),
     timeout: shared.options.requestTimeout
@@ -482,14 +527,17 @@ async function initialize(options) {
   shared.options = resolved;
   shared.endpoints = createEndpoints(resolved.baseUrl);
   shared.codec = createH5Codec(resolved.appKey);
+  shared.appKeyId = await appKeyIdentifier(resolved.appKey);
   shared.cachedDeviceInfo = null;
+  shared.behaviorController = null;
   shared.collectionStorageKey = `__synap_collection_${SDK_VERSION}_${resolved.appKey}_${baseData.getStartId()}`;
   shared.collectionState = loadCollectionState(shared.collectionStorageKey) || {
     deviceSent: false,
     selfAppFingerprint: '',
     runtimeFingerprint: '',
     location: null,
-    integrityFingerprint: ''
+    integrityFingerprint: '',
+    resourceFingerprint: ''
   };
   window.kk = resolved.appKey;
   window.up = shared.endpoints.upload;
@@ -499,13 +547,15 @@ async function initialize(options) {
 
   // Common data is used by the policy request itself, so finish the bounded
   // local-address probe before the first request and reuse its cached result.
-  await baseData.prepareNetworkInfo({
-    enabled: resolved.collectionProfile.webrtc,
+  await baseData.prepareDeviceInfo({
+    collectionProfile: resolved.collectionProfile,
     timeout: Math.min(1500, Math.max(250, resolved.requestTimeout / 5))
   });
+  await prepareIntegrity(resolved.collectionProfile,
+    Math.min(1500, Math.max(250, resolved.requestTimeout / 5)));
   if (generation !== shared.generation) throw new Error('SynapAgent initialization was cancelled');
 
-  const legacyItems = Array.isArray(window.probeMsgQueue) &&
+  const existingItems = Array.isArray(window.probeMsgQueue) &&
     (!shared.queue || window.probeMsgQueue !== shared.queue.items)
     ? window.probeMsgQueue.slice()
     : [];
@@ -513,7 +563,7 @@ async function initialize(options) {
     storage: safeSessionStorage(),
     storageKey: `__synap_pending_${SDK_VERSION}_${resolved.appKey}`,
     limit: resolved.queueLimit,
-    initialItems: legacyItems
+    initialItems: existingItems
   });
   shared.nextSequence = shared.queue.items.reduce((max, item) => Math.max(max, Number(item.sequence) || 0), 0);
   const normalizedPending = shared.queue.items.map((item) => withMessageMetadata(item));
@@ -521,8 +571,14 @@ async function initialize(options) {
   window.probeMsgQueue = shared.queue.items;
 
   try {
-    const cached = cachedPolicy(resolved.appKey);
-    const policy = cached ? cached.policy : await fetchPolicy();
+    let policy;
+    try {
+      policy = await fetchPolicy();
+    } catch (error) {
+      const cached = cachedPolicy(resolved.appKey);
+      if (!cached) throw error;
+      policy = cached.policy;
+    }
     if (generation !== shared.generation) throw new Error('SynapAgent initialization was cancelled');
     shared.policy = filteredPolicy(policy, resolved.collectionProfile);
     shared.policyFingerprint = JSON.stringify(shared.policy);
@@ -563,6 +619,8 @@ async function destroy({ flush = true } = {}) {
   if (shared.queue) shared.queue.persist();
   shared.policy = null;
   shared.policyFingerprint = '';
+  shared.appKeyId = '';
+  shared.behaviorController = null;
   shared.cachedDeviceInfo = null;
   shared.status = 'destroyed';
 }
@@ -575,7 +633,10 @@ async function ensureReady() {
 
 async function requestInfo(endpoint) {
   await ensureReady();
-  const encoded = shared.codec.encodeRequest(JSON.stringify({ common: baseData.getCommonInfo() }));
+  const encoded = shared.codec.encodeRequest(JSON.stringify({
+    common: baseData.getCommonInfo(),
+    meta: { protocolVersion: 1, appKeyId: shared.appKeyId, detectorVersion: SDK_VERSION }
+  }));
   const response = await httpAjax.post(shared.endpoints[endpoint], encoded, {
     headers: requestHeaders(),
     timeout: shared.options.requestTimeout
@@ -583,28 +644,15 @@ async function requestInfo(endpoint) {
   return decodeResponse(response);
 }
 
-function legacyInfo(endpoint) {
-  if (!shared.warnedLegacy) {
-    shared.warnedLegacy = true;
-    console.warn('SynapAgent synchronous query APIs are deprecated; use window.SynapAgent Promise APIs');
-  }
-  if (shared.status !== 'running') return undefined;
-  try {
-    const encoded = shared.codec.encodeRequest(JSON.stringify({ common: baseData.getCommonInfo() }));
-    const response = httpAjax.requestSync('POST', shared.endpoints[endpoint], {
-      headers: requestHeaders(),
-      data: encoded
-    });
-    return decodeResponse(response);
-  } catch (error) {
-    shared.metrics.requestFailures += 1;
-    console.error(error);
-    return undefined;
-  }
-}
-
 function userData(userId, data) {
   if (shared.status !== 'running' || !shared.queue || typeof userId !== 'string' || userId.length === 0 || userId.length > 256 || data == null) return false;
+  const sensitiveKey = /(password|passwd|pwd|token|authorization|cookie|secret|id.?card|credit.?card|card.?number|phone|email)/i;
+  const containsSensitiveKey = (value, depth = 0) => {
+    if (!value || typeof value !== 'object' || depth > 6) return false;
+    if (Array.isArray(value)) return value.some((item) => containsSensitiveKey(item, depth + 1));
+    return Object.keys(value).some((key) => sensitiveKey.test(key) || containsSensitiveKey(value[key], depth + 1));
+  };
+  if (containsSensitiveKey(data)) return false;
   let serialized;
   try { serialized = JSON.stringify(data); } catch (_) { return false; }
   if (serialized === undefined) return false;
@@ -621,18 +669,25 @@ function userData(userId, data) {
   });
 }
 
+function markAction(action) {
+  if (shared.status !== 'running' || !shared.behaviorController || typeof shared.behaviorController.markAction !== 'function') return false;
+  return shared.behaviorController.markAction(action);
+}
+
 const api = {
   version: SDK_VERSION,
   init,
   destroy,
   flush: flushQueue,
   userData,
+  markAction,
   getDeviceInfo: () => requestInfo('deviceInfo'),
   getRatingInfo: () => requestInfo('rating'),
   getLabelInfo: () => requestInfo('label'),
   getMetrics: () => ({
     ...shared.metrics,
     status: shared.status,
+    transportTrust: 'app-key-codec/untrusted',
     networkInfo: baseData.getNetworkInfo(),
     queue: shared.queue ? shared.queue.metrics() : { queued: 0, inFlight: 0, dropped: 0 }
   })
@@ -641,9 +696,6 @@ const api = {
 window.SynapAgent = api;
 window.initWithKey = (appKey) => api.init({ ...(window.SynapAgentConfig || {}), appKey });
 window.userData = userData;
-window.deviceInfo = () => legacyInfo('deviceInfo');
-window.ratingInfo = () => legacyInfo('rating');
-window.labelInfo = () => legacyInfo('label');
 
 // Preserve the existing zero-configuration integration while allowing hosts to
 // define window.SynapAgentConfig before loading the script.

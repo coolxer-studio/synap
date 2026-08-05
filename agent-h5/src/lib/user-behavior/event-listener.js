@@ -1,6 +1,7 @@
 import agLocalStore from '../ag-localstore';
 import baseData from '../base-data';
 import { getTouchXY } from './event-utils';
+import { safeElementId, sanitizeText, urlTemplate } from '../privacy';
 
 const mousePosition = (event) => {
   if (event.pageX != null || event.pageY != null) {
@@ -26,7 +27,7 @@ const getElementPosition = (element) => {
 
 function elementData(target) {
   return {
-    targetId: target && target.id ? target.id : '',
+    targetId: safeElementId(target && target.id),
     nodeName: target && target.nodeName ? target.nodeName : ''
   };
 }
@@ -71,7 +72,7 @@ export default function eventListener(msgCallback, { mousemoveInterval = 500 } =
     switch (event.type) {
       case 'pageshow':
         data.href = agLocalStore.get('h_from_href') || '';
-        agLocalStore.set('h_from_href', window.location.href);
+        agLocalStore.set('h_from_href', urlTemplate(window.location.href));
         break;
       case 'pagehide':
       case 'unload': {
@@ -79,9 +80,9 @@ export default function eventListener(msgCallback, { mousemoveInterval = 500 } =
         const active = documentTarget ? target.activeElement : null;
         data = {
           ...data,
-          href: active && active.href ? active.href : '',
+          href: active && active.href ? urlTemplate(active.href) : '',
           action: typeof HTMLBodyElement !== 'undefined' && active instanceof HTMLBodyElement ? 'close' : 'jump',
-          targetId: active && active.id ? active.id : '',
+          targetId: safeElementId(active && active.id),
           nodeName: active && active.nodeName ? active.nodeName : ''
         };
         break;
@@ -134,8 +135,8 @@ export default function eventListener(msgCallback, { mousemoveInterval = 500 } =
 
     msgCallback({
       type: 'EventData',
-      href: window.location.href,
-      docTitle: document.title,
+      href: urlTemplate(window.location.href),
+      docTitle: sanitizeText(document.title, 128),
       buildDate: baseData.currentFormatDate(),
       online: navigator.onLine ? 1 : 0,
       data

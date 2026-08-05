@@ -2,6 +2,9 @@ const chalk = require('chalk')
 const webpack = require('webpack')
 const webpackConfig = require('./webpack.config.js')
 const ora = require('ora');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 
 
 var spinner = ora('building for production...\n')
@@ -24,6 +27,12 @@ webpack(webpackConfig, function (err, stats) {
         return
     }
     const bm = process.env.NODE_ENV === 'production' ? 'min' : 'dev';
+    const outputFile = path.resolve(__dirname, `../dist/probe.${bm}.js`);
+    if (fs.existsSync(outputFile)) {
+        const sri = `sha384-${crypto.createHash('sha384').update(fs.readFileSync(outputFile)).digest('base64')}`;
+        fs.writeFileSync(`${outputFile}.sha384`, `${sri}\n`, 'utf8');
+        console.log(chalk.green(`SRI: ${sri}`));
+    }
     console.log(chalk.green(`\n编译完成:)`));
     console.log(chalk.green(
         '\n文件输出目录: \n' +

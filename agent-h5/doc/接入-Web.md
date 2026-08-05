@@ -4,6 +4,8 @@
 
 `probe.min.js` 是浏览器风险感知探针。支持 Chrome/Edge 90+、Firefox 90+、Safari/iOS 14+ 和 Android 90+ WebView，不支持 IE。
 
+接入前建议同时阅读 [检测点与测试用例](检测点与测试用例.md)，确认默认采集范围、调试观察、错误脱敏、代码格式化标签和隐私边界。
+
 ## 集成步骤
 
 将 SDK 文件复制到业务站点，在脚本加载前设置 app key 和服务地址：
@@ -13,10 +15,12 @@
   window.SynapAgentConfig = {
     appKey: '申请得到的 APP KEY',
     baseUrl: 'https://risk.example.com',
-    collectionProfile: 'full'
+    collectionProfile: 'low',
+    allowedScriptOrigins: ['https://cdn.example.com'],
+    allowedParentOrigins: ['https://app.example.com']
   };
 </script>
-<script src="./js/probe.min.js"></script>
+<script src="./js/probe.min.js" integrity="sha384-构建生成的摘要" crossorigin="anonymous"></script>
 ```
 
 SDK 仍会自动初始化。生产页面使用 HTTPS 时，`baseUrl` 也必须是 HTTPS，否则初始化会拒绝执行。
@@ -33,28 +37,40 @@ await window.SynapAgent.init({
 
 ## 采集控制与隐私
 
-`collectionProfile` 可以传 `full`、`minimal`，也可以按能力配置：
+默认 `low` 不请求权限、不启用高熵指纹。也可以传 `balanced`、`full`、`minimal`，或按能力配置：
 
 ```js
 {
-  canvas: true,
-  webgl: true,
-  fonts: true,
-  webrtc: true,
+  canvas: false,
+  webgl: false,
+  fonts: false,
+  webrtc: false,
   location: false,
   userBehavior: true,
+  rawEvents: false,
   debug: true,
   integrity: true,
   session: true,
-  network: false
+  network: false,
+  uaHighEntropy: false,
+  securityReports: true,
+  resourceIntegrity: true
 }
 ```
 
 宿主应用负责取得适用的授权并在隐私政策中说明数据用途和保存周期。不得通过 `userData` 上传密码、证件号、支付信息等明文敏感数据。
 
+默认 `low` 档位会开启低权重调试观察（DevTools 快捷键、窗口尺寸边沿变化和主线程长暂停），不会单凭这些信号产生高风险结论。`minimal` 档位仍关闭调试观察。
+
 `webrtc: true` 会执行一次有超时限制的内网地址探测，不访问第三方 STUN 服务。浏览器启用 mDNS 隐藏时结果为 `masked`，无法探测时为 `unavailable`；可通过 `SynapAgent.getMetrics().networkInfo` 查看状态。外网 IP 由服务端从可信 HTTP 代理链识别，客户端不会自行请求第三方“查 IP”接口。
 
 SDK 仅将行为数据用于自动化、会话重放和异常交互识别，上传的是时间窗口统计而非输入内容或完整轨迹。服务端传输幂等记录默认保存 14 天；业务 Fact 的实际保存周期由部署方配置并披露。
+
+错误监听覆盖 JS 运行时异常、未处理 Promise、资源加载失败和 CSP 违规。上报的 `ErrorData` 仅包含脱敏模板、路径模板、行列、摘要和 5 秒窗口计数，不包含完整堆栈、原始 `console.error` 参数或 URL query/fragment。
+
+运行时还会上报 `RuntimeData.custom.format`。值为 `1` 时服务端生成低权重 `H5观察-代码格式化` 标签；该启发式不能替代发布包 SHA-384 SRI，也不保证因 DevTools Pretty print 而触发。
+
+构建会生成 `probe.min.js.sha384`。部署时将其中摘要写入 `integrity` 属性，并同步配置脚本与 iframe 宿主 Origin 白名单。
 
 ## 接口定义
 
@@ -74,11 +90,16 @@ const accepted = SynapAgent.userData('脱敏用户标识', {
   scene: 'login',
   channel: 'web'
 });
+
+const actionId = crypto.randomUUID();
+SynapAgent.markAction({ id: actionId, name: 'login', phase: 'start' });
+// 业务完成时调用 success 或 failure；不要传表单内容。
+SynapAgent.markAction({ id: actionId, name: 'login', phase: 'success' });
 ```
 
 返回 `boolean`。空标识、超过 256 字符的标识、不可序列化数据或超过 32 KiB 的数据返回 `false`。
 
-兼容接口 `window.userData(userId, data)` 行为相同。
+全局接口 `window.userData(userId, data)` 行为相同。
 
 ### 设备、评级和标签查询
 
@@ -90,13 +111,7 @@ const labels = await SynapAgent.getLabelInfo();
 
 返回服务端解密后的 JSON 对象。网络失败、超时、非 2xx、错误密文或错误 JSON 都会拒绝 Promise，并带有错误类型。
 
-以下旧同步接口暂时保留，但会阻塞主线程并输出废弃提示：
-
-```js
-window.deviceInfo();
-window.ratingInfo();
-window.labelInfo();
-```
+不提供同步查询接口；`window.deviceInfo/ratingInfo/labelInfo` 均未定义。
 
 ### 手动上报与运行指标
 
@@ -114,7 +129,7 @@ const metrics = SynapAgent.getMetrics();
 ## 验证
 
 1. 控制台出现 `synap running:true`。
-2. Network 面板中 start 和 upload 请求成功。
+2. Network 面板中请求只使用 `/sc/h5/attach/start`、`/sc/h5/attach/upload`、`/sc/h5/cross/info`、`/sc/h5/cross/rating` 和 `/sc/h5/cross/label_start`。
 3. `SynapAgent.getMetrics().status` 为 `running`。
 4. 管理平台能够查询到对应 app key 的运行数据。
 

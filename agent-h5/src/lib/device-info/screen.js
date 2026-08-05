@@ -19,22 +19,9 @@ export default {
             return r
         }
         try {
-            if (document.readyState === 'complete') {
-                return setScreenDom()
-            } else {
-                if (document.addEventListener) {
-                    document.addEventListener('DOMContentLoaded', function () {
-                        return setScreenDom()
-                    }, false);
-                } else if (document.attachEvent) {
-                    document.attachEvent('onreadystatechange', function () {
-                        if (document.readyState === 'complete') {
-                            return setScreenDom()
-                        }
-                    });
-                }
-            }
-            return r === Infinity ? 0 : r
+            if (!document.body) return 0;
+            const result = setScreenDom();
+            return result === Infinity || !Number.isFinite(result) ? 0 : result;
         } catch (e) {
             return 0
         }

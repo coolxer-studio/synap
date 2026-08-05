@@ -153,7 +153,7 @@ export default {
       isWebKit() ? 1 : 0,
       isDesktopSafari() ? 1 : 0,
       isGecko() ? 1 : 0,
-      isChromium86OrNewer ? 1 : 0,
+      isChromium86OrNewer() ? 1 : 0,
       isWebKit606OrNewer() ? 1 : 0
     ]
   },

@@ -39,6 +39,9 @@ export default (function () {
     getHeaderCode() {
       return `${ctDeviceInfo.guid()}-${PLATFORM}-${APP_ID}-${SDK_VERSION}`;
     }
+    prepareDeviceInfo(options) {
+      return ctDeviceInfo.prepare(options);
+    }
     prepareNetworkInfo(options) {
       return ctDeviceInfo.detectLanIp(options);
     }

@@ -25,8 +25,7 @@ class FakeXMLHttpRequest {
       this.responseText = `response:${this.url}`;
       if (this.onload) this.onload();
     };
-    if (this.async === false) complete();
-    else setTimeout(complete, this.url.includes('slow') ? 10 : 1);
+    setTimeout(complete, this.url.includes('slow') ? 10 : 1);
   }
 }
 
@@ -48,8 +47,4 @@ test('HTTP errors include status and category', async () => {
 
 test('timeouts are reported separately from network and HTTP errors', async () => {
   await assert.rejects(http.post('/timeout', 'x'), (error) => error.type === 'timeout' && error.status === 0);
-});
-
-test('legacy synchronous transport returns before the caller continues', () => {
-  assert.equal(http.requestSync('POST', '/sync', { data: 'x' }), 'response:/sync');
 });

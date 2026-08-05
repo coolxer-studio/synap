@@ -152,7 +152,10 @@
     };
 
     // 模拟登录
+    var demoActionId = '';
     function login() {
+      demoActionId = window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
+      if (window.SynapAgent) SynapAgent.markAction({ id: demoActionId, name: 'login', phase: 'start' });
       document.getElementById("alert-modal-login").style.display = "flex";
     };
 
@@ -161,15 +164,12 @@
       const password = document.getElementById("password-input").value;
       if (username.length > 0 && password.length > 0) {
         // 登录成功
-        // 上传用户数据
-        if (typeof window.userData === 'function') {
-          var userId = username;
-          // 永远不要把密码或其他明文敏感信息交给探针。
-          window.userData(userId, { scene: 'demo-login' });
-        }
+        // 只标记动作阶段，用户名和密码都不会交给探针。
+        if (window.SynapAgent) SynapAgent.markAction({ id: demoActionId, name: 'login', phase: 'success' });
         alert('登录成功！');
         document.getElementById("alert-modal-login").style.display = "none";
       } else {
+        if (window.SynapAgent) SynapAgent.markAction({ id: demoActionId, name: 'login', phase: 'failure' });
         alert('请输入用户名和密码');
       }
     };

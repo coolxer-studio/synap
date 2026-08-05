@@ -24,6 +24,12 @@ window.ct_device_config = {
   "navigator": ["userAgent", "oscpu", "vendor"]
 }
 
+let collectionProfile = {};
+
+function capabilityState(enabled, supported = true, extra = {}) {
+  return { status: enabled ? (supported ? 'available' : 'unavailable') : 'disabled', ...extra };
+}
+
 export default {
 
   guid: function () {
@@ -52,6 +58,15 @@ export default {
   },
   getLanIpState: function () {
     return ctNetwork.getLanIpState();
+  },
+  prepare: async function (options = {}) {
+    collectionProfile = options.collectionProfile || collectionProfile;
+    const timeout = Number(options.timeout) || 1000;
+    await Promise.all([
+      ctNetwork.detectLanIp({ enabled: !!collectionProfile.webrtc, timeout }),
+      ctBattery.prepare(timeout),
+      ctStorage.prepare(timeout)
+    ]);
   },
   /**
    * 设备信息
@@ -125,9 +140,19 @@ export default {
           break;
       }
     }
+    data.capabilities = {
+      battery: ctBattery.capability(),
+      storageEstimate: ctStorage.capability(),
+      localAddress: ctNetwork.getLanIpState(),
+      canvas: capabilityState(!!collectionProfile.canvas, typeof HTMLCanvasElement !== 'undefined'),
+      webgl: capabilityState(!!collectionProfile.webgl, typeof WebGLRenderingContext !== 'undefined'),
+      fonts: capabilityState(!!collectionProfile.fonts, typeof document.fonts !== 'undefined'),
+      geolocation: capabilityState(!!collectionProfile.location, 'geolocation' in navigator)
+    };
     return data;
   },
-  loadConfig: function (config) {
+  loadConfig: function (config, profile) {
     window.ct_device_config = config['deviceConfig'];
+    collectionProfile = profile || collectionProfile;
   }
 }

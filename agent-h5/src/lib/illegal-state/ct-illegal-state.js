@@ -1,11 +1,11 @@
 import baseData from '../base-data';
+import { sanitizeText, textHash, urlTemplate } from '../privacy';
 
 window.ct_error_config = { message: ['.*'] };
 
 function matchesConfig(message) {
   const patterns = window.ct_error_config && Array.isArray(window.ct_error_config.message)
-    ? window.ct_error_config.message
-    : [];
+    ? window.ct_error_config.message : [];
   return patterns.some((expression) => {
     try { return new RegExp(expression).test(String(message)); } catch (_) { return false; }
   });
@@ -13,81 +13,62 @@ function matchesConfig(message) {
 
 export default {
   monitor(msgCallback) {
-    const originalOnerror = window.onerror;
-    const originalConsoleError = window.console && window.console.error;
-
     const pending = new Map();
     const emit = (payload) => {
       if (!matchesConfig(payload.message)) return;
-      const normalized = {
-        type: 'ErrorData',
-        buildDate: baseData.currentFormatDate(),
-        from: payload.from || '',
-        message: String(payload.message || ''),
-        source: payload.source || '',
-        lineno: Number(payload.lineno) || 0,
-        colno: Number(payload.colno) || 0,
-        count: 1
-      };
-      const fingerprint = [normalized.message, normalized.source, normalized.lineno, normalized.colno].join('|');
+      const template = sanitizeText(payload.message, 256);
+      const source = payload.source ? urlTemplate(payload.source) : '';
+      const fingerprint = [payload.category, template, source, payload.lineno, payload.colno].join('|');
       const current = pending.get(fingerprint);
       if (current) {
         current.message.count += 1;
         return;
       }
-      const entry = { message: normalized, timer: null };
-      entry.timer = setTimeout(() => {
-        pending.delete(fingerprint);
-        msgCallback(entry.message);
-      }, 5000);
+      const message = {
+        type: 'ErrorData',
+        buildDate: baseData.currentFormatDate(),
+        from: payload.from || '',
+        category: payload.category || 'script',
+        message: template,
+        templateHash: textHash(fingerprint),
+        source,
+        lineno: Number(payload.lineno) || 0,
+        colno: Number(payload.colno) || 0,
+        count: 1
+      };
+      const entry = { message, timer: null };
+      entry.timer = setTimeout(() => { pending.delete(fingerprint); msgCallback(message); }, 5000);
       pending.set(fingerprint, entry);
     };
 
-    const onerror = function (message, source, lineno, colno, error) {
-      emit({ from: 'windowOnerror', message, source, lineno, colno });
-      if (typeof originalOnerror === 'function') {
-        return originalOnerror.call(window, message, source, lineno, colno, error);
+    const errorListener = (event) => {
+      if (event && event.target && event.target !== window) {
+        const target = event.target;
+        emit({ from: 'resourceError', category: 'resource', message: 'resource-load-failed', source: target.currentSrc || target.src || target.href });
+        return;
       }
-      return false;
+      emit({ from: 'windowError', category: 'script', message: event && event.message, source: event && event.filename, lineno: event && event.lineno, colno: event && event.colno });
     };
-
-    const consoleError = function (...args) {
-      emit({ from: 'consoleError', message: args.map(String).join(' ') });
-      if (typeof originalConsoleError === 'function') {
-        return originalConsoleError.apply(window.console, args);
-      }
+    const rejectionListener = (event) => {
+      const reason = event && event.reason;
+      emit({ from: 'unhandledRejection', category: 'promise', message: reason && reason.message ? reason.message : String(reason || 'unhandled-rejection') });
     };
-
-    let onerrorInstalled = false;
-    let consoleInstalled = false;
-    try {
-      window.onerror = onerror;
-      onerrorInstalled = window.onerror === onerror;
-    } catch (_) { }
-    try {
-      if (window.console) {
-        window.console.error = consoleError;
-        consoleInstalled = window.console.error === consoleError;
-      }
-    } catch (_) { }
+    const cspListener = (event) => emit({
+      from: 'securityPolicyViolation', category: 'csp',
+      message: `${event.effectiveDirective || event.violatedDirective || 'unknown'}:${event.disposition || 'enforce'}`,
+      source: event.blockedURI || event.sourceFile
+    });
+    window.addEventListener('error', errorListener, true);
+    window.addEventListener('unhandledrejection', rejectionListener);
+    document.addEventListener('securitypolicyviolation', cspListener);
 
     return function cleanup() {
-      pending.forEach((entry) => {
-        clearTimeout(entry.timer);
-        msgCallback(entry.message);
-      });
+      pending.forEach((entry) => { clearTimeout(entry.timer); msgCallback(entry.message); });
       pending.clear();
-      try {
-        if (onerrorInstalled && window.onerror === onerror) window.onerror = originalOnerror;
-      } catch (_) { }
-      try {
-        if (consoleInstalled && window.console && window.console.error === consoleError) {
-          window.console.error = originalConsoleError;
-        }
-      } catch (_) { }
+      window.removeEventListener('error', errorListener, true);
+      window.removeEventListener('unhandledrejection', rejectionListener);
+      document.removeEventListener('securitypolicyviolation', cspListener);
     };
   },
-  loadConfig(config) {
-    window.ct_error_config = config.errorConfig;
-  }
+  loadConfig(config) { window.ct_error_config = config.errorConfig; }
 };

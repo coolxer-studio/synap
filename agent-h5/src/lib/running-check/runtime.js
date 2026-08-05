@@ -152,55 +152,13 @@ export default {
   * 遍历系统中未知函数内容
   */
   unknownFunctions: function () {
-    const f_l = [window, navigator]
-    const r_l = []
-    const loopF = function (f, l = 1, p = '') {
-      let pname = ''
-      for (var i in f) {
-        try {
-          if (typeof f[i] === "function" && !/.*\(.*\)\s*{\s*\[native code\]\s*}$/g.test(f[i]) && !/.*\(.*\)\s*{\s*return ..call.apply.*concat.*arguments.*}$/g.test(f[i])) {
-            if (p !== '') {
-              pname = p + '.' + i
-            } else {
-              pname = i
-            }
-            if (pname.indexOf('initSDK') > -1 ||
-              pname.indexOf('sendData') > -1 ||
-              pname.indexOf('getImageHash') > -1 ||
-              pname.indexOf('hash3d') > -1 ||
-              // pname.indexOf('getDeviceType') > -1 ||
-              pname.indexOf('g_h5_key') > -1 ||
-              pname.indexOf('onclick') > -1 ||
-              pname.indexOf('oninput') > -1 ||
-              pname.indexOf('onerror') > -1 ||
-              pname.indexOf('onmousedown') > -1 ||
-              pname.indexOf('onmousemove') > -1 ||
-              pname.indexOf('onmouseup') > -1
-            ) {
-              continue
-            }
-            r_l.indexOf(pname) === -1 && r_l.push(pname);
-            // console.log(i , pname, "| 级别："+ l,[f[i].toString().replace(/\s+/g, ' ').slice(0, 100)]);
-
-          } else if (f[i] && typeof f[i] === "object" && f.toString() !== f[i].toString()) {
-            if (l < 2) {
-              if (p !== '') {
-                pname = p + '.' + i
-              } else {
-                pname = i
-              }
-              loopF(f[i], l + 1, pname)
-            }
-          }
-        } catch (e) {
-          console.error('捕获异常数据:', i);
-        }
-      }
-    }
-    for (let i = 0; i < f_l.length; i++) {
-      loopF(f_l[i], 1,)
-    }
-    return r_l;
+    const knownAutomationGlobals = [
+      '__nightmare', 'callPhantom', '_phantom', '__webdriver_script_fn',
+      '_Selenium_IDE_Recorder', 'callSelenium', '_selenium', 'Cypress'
+    ];
+    return knownAutomationGlobals.filter((name) => {
+      try { return name in window || name in document; } catch (_) { return false; }
+    });
   },
 
   /**
@@ -208,18 +166,9 @@ export default {
   * @type {*[]}
   */
   infoModify: function (b, c, d) {
-    if(!b){
-      return '';
-    }
-    if (b === 'v') {
-      const u1 = c.split(/[)]/);
-      const u2 = d.split(/[)]/);
-      if (u1[0] !== u2[0]) checkL.push({ 'name': b, 'value': c })
-      return d
-    }
-
-    if (c.toString() !== d.toString()) checkL.push({ 'name': b, 'value': c })
-    return d
+    if (!b || c == null || d == null) return [];
+    try { return String(c) === String(d) ? [] : [{ name: String(b).slice(0, 64) }]; }
+    catch (_) { return []; }
   }
 
 
