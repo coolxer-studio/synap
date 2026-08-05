@@ -23,7 +23,6 @@ public class UploadMetrics {
     public void duplicate() { duplicates.increment(); }
     public void rejected() { rejected.increment(); }
     public void kafkaFailure() { kafkaFailures.increment(); }
-
     public Map<String, Object> snapshot() {
         Map<String, Long> factCounts = new ConcurrentHashMap<>();
         facts.forEach((key, value) -> factCounts.put(key, value.sum()));

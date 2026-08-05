@@ -33,6 +33,9 @@ public class FactBuilder {
     }
 
     public static Common buildCommon(List<String> commonList){
+        if (commonList == null || commonList.size() != CheckerConfig.getInstance().getCommonConfig().size()) {
+            throw new IllegalArgumentException("common must contain exactly 24 fields");
+        }
         // 创建一个新的 List<Object> 并将字符串元素添加到其中
         List<Object> commonObjectList = new ArrayList<>();
         for (String str : commonList) {
@@ -56,6 +59,9 @@ public class FactBuilder {
      * @return 合并后的JsonObject
      */
     public static Map<String,Object> mergeValueAndKey(List<String> keyList, List<Object> valueArray) {
+        if (keyList == null || valueArray == null || valueArray.size() < keyList.size()) {
+            throw new IllegalArgumentException("fact values do not match checker configuration");
+        }
         Map<String,Object> mergedData = new LinkedHashMap<String,Object>();
         for (int i = 0; i < keyList.size(); i++) {
             String key = keyList.get(i);

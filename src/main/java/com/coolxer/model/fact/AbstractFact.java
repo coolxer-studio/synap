@@ -28,6 +28,18 @@ public abstract class AbstractFact {
     protected Long sequence;
     protected String requestIp;
     protected String requestUserAgent;
+    protected String requestOrigin;
+    protected String fetchSite;
+    protected String fetchMode;
+    protected String fetchDest;
+    protected String transportTrust = "app-key-codec/untrusted";
+    protected String sequenceObservation;
+    protected Long serverReceivedAt;
+    protected Long clientServerSkewMs;
+    protected String requestAsn;
+    protected String requestNetworkCategory;
+    protected String requestTlsFingerprint;
+    protected String requestIpReputation;
 
     protected AbstractFact(String type, String buildDate, Header header, Common common) {
         this.type = type;
@@ -46,6 +58,23 @@ public abstract class AbstractFact {
     public void setRequestContext(String requestIp, String requestUserAgent) {
         this.requestIp = requestIp;
         this.requestUserAgent = requestUserAgent;
+    }
+
+    public void setSecurityContext(String requestOrigin, String fetchSite, String fetchMode, String fetchDest,
+                                   String transportTrust, String sequenceObservation) {
+        this.requestOrigin = requestOrigin;
+        this.fetchSite = fetchSite;
+        this.fetchMode = fetchMode;
+        this.fetchDest = fetchDest;
+        this.transportTrust = transportTrust;
+        this.sequenceObservation = sequenceObservation;
+        this.serverReceivedAt = System.currentTimeMillis();
+        this.clientServerSkewMs = observedAt == null ? null : serverReceivedAt - observedAt;
+    }
+
+    public void setGatewayContext(String asn, String networkCategory, String tlsFingerprint, String ipReputation) {
+        this.requestAsn = asn; this.requestNetworkCategory = networkCategory;
+        this.requestTlsFingerprint = tlsFingerprint; this.requestIpReputation = ipReputation;
     }
 
     protected void build(Map<String,Object> factMap){

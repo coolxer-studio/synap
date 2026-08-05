@@ -8,6 +8,7 @@ import com.coolxer.model.punish.Punish;
 import com.coolxer.service.PunishConfigService;
 import com.coolxer.service.UploadMetrics;
 import com.coolxer.service.RuleEngine;
+import com.coolxer.service.RiskAssessmentService;
 import com.coolxer.utils.JacksonUtils;
 import com.coolxer.utils.StringConvertUtils;
 import groovy.lang.Binding;
@@ -70,6 +71,9 @@ public class RuleEngineImpl implements RuleEngine {
     @Autowired(required = false)
     private UploadMetrics uploadMetrics;
 
+    @Autowired(required = false)
+    private RiskAssessmentService riskAssessmentService;
+
     public RuleEngineImpl(PunishConfigService punishConfigService) {
         this.punishConfigService = punishConfigService;
     }
@@ -101,7 +105,10 @@ public class RuleEngineImpl implements RuleEngine {
 
             HashSet<Punish> punishHashSet = hitPunishRule(agendaList);
 
-            checkpoint = new Checkpoint(fact,scriptName,agendaList,punishHashSet,FastDateFormat.getInstance("yyyy-MM-dd HH:mm:ss").format(new Date()));
+            checkpoint = new Checkpoint(fact, scriptName, agendaList, punishHashSet,
+                    FastDateFormat.getInstance("yyyy-MM-dd HH:mm:ss").format(new Date()),
+                    riskAssessmentService == null || !"h5".equals(fact.getCommon().getPlatform())
+                            ? null : riskAssessmentService.assess(fact, agendaList));
 
             var kafkaFuture = kafkaTemplate.send(topic,fact.getCommon().getGuid(), JacksonUtils.toJson(checkpoint));
             if (kafkaFuture != null) {

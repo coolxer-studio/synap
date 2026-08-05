@@ -21,10 +21,17 @@ public class Header {
     private String sdkVersion;
 
     public Header(String commonFactCode) {
+        if (StringUtils.isBlank(commonFactCode)) throw new IllegalArgumentException("header code is missing");
         String[] commonFactArray = commonFactCode.split(SEPARATOR);
+        if (commonFactArray.length != 8) throw new IllegalArgumentException("header code must contain 8 segments");
         this.guid = StringUtils.join(ArrayUtils.subarray(commonFactArray, 0, 5), SEPARATOR);
         this.platform = commonFactArray[5];
         this.appId = commonFactArray[6];
         this.sdkVersion = commonFactArray[7];
+    }
+
+    public boolean isConsistentWith(Common common) {
+        return common != null && guid.equals(common.getGuid()) && platform.equals(common.getPlatform())
+                && appId.equals(String.valueOf(common.getAppId())) && sdkVersion.equals(common.getSdkVersion());
     }
 }

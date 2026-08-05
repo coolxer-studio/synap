@@ -442,6 +442,18 @@ public class TopicDefine {
         return TopicBuilder.name(TOPIC_H5_NETWORK_FACT).partitions(partitions).replicas(replicas).compact().build();
     }
 
+    public static final String TOPIC_H5_RESOURCE_INTEGRITY_FACT = "h5_fact_resource_integrity";
+    @Bean(TOPIC_H5_RESOURCE_INTEGRITY_FACT)
+    public NewTopic TopicForH5ResourceIntegrity() {
+        return TopicBuilder.name(TOPIC_H5_RESOURCE_INTEGRITY_FACT).partitions(partitions).replicas(replicas).compact().build();
+    }
+
+    public static final String TOPIC_H5_ACTION_FACT = "h5_fact_action";
+    @Bean(TOPIC_H5_ACTION_FACT)
+    public NewTopic TopicForH5Action() {
+        return TopicBuilder.name(TOPIC_H5_ACTION_FACT).partitions(partitions).replicas(replicas).compact().build();
+    }
+
     public static final String TOPIC_HOST_START_FACT = "host_fact_start";
     @Bean(TOPIC_HOST_START_FACT)
     public NewTopic TopicForHostStart() {

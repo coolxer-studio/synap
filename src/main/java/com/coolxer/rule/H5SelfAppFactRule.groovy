@@ -17,6 +17,8 @@ List<String> allowedDomains = (List<String>) configuredAllowlists.getOrDefault(S
 if (allowedDomains.isEmpty()) allowedDomains = [h5SelfAppFact.getCommon().getAppPackage()]
 boolean allowed = allowedDomains.any { configured -> host.equalsIgnoreCase(configured) }
 if(domain.length() == 0 || !allowed){
-    agendaList.add(new Agenda("域名欺诈",domain, AgendaLevelEnum.HIGH));
+    // Client SelfApp is only observation evidence. RequestValidationService
+    // performs the authoritative Origin/Referer allowlist check before rules.
+    agendaList.add(new Agenda("H5观察-页面域名不一致",domain, AgendaLevelEnum.MEDIUM));
 }
 return agendaList

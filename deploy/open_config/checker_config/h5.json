@@ -1,4 +1,5 @@
 {
+  "policyVersion": "h5-2026-08-05",
   "startConfig": [1, "./core.dev.js", 10.0, 30.0, 10.0, 864000.0],
   "startConfigUnit": "seconds",
   "deviceConfig": {
@@ -20,14 +21,16 @@
   },
   "selfAppAllowlist": {},
   "locationConfig": {
-    "base": ["time","speed","latitude","longitude", "country", "province", "city", "county", "thoroughfare"]
+    "base": ["timestamp","speed","latitude","longitude","accuracy","altitude","heading","permissionState","status", "country", "province", "city", "county", "thoroughfare"]
   },
   "runtimeConfig": {
-    "custom": ["format", "runType", "getSpider", "unknownFunctions", "infoModify"]
+    "custom": ["format", "runType", "getSpider", "unknownFunctions"]
   },
   "integrityConfig": { "data": ["score", "signals", "platform", "language"] },
-  "behaviorConfig": { "data": ["durationMs", "eventCount", "pointerSamples", "clickCount", "inputCount", "touchCount", "totalDistance", "averageSpeed", "maxSpeed", "averageAcceleration", "directionChangeRatio", "averageClickInterval", "averageInputInterval", "averageForce", "idleRatio"] },
-  "sessionConfig": { "data": ["visibility", "focused", "online", "bfcacheRestores", "focusChanges", "visibilityChanges", "clockRollback", "clockDriftMs", "concurrentTabs", "timeOrigin"] },
+  "resourceIntegrityConfig": { "data": ["detectorVersion", "script", "serviceWorker", "embed", "policy", "navigation", "userActivation", "signals", "capabilities", "reports"] },
+  "behaviorConfig": { "data": ["durationMs", "eventCount", "pointerSamples", "clickCount", "inputCount", "touchCount", "trustedEventCount", "untrustedEventCount", "impossibleClickCount", "totalDistance", "averageSpeed", "maxSpeed", "speedVariance", "averageAcceleration", "directionChangeRatio", "straightLineRatio", "averageClickInterval", "averageInputInterval", "averageForce", "pauseRatio", "timingEntropy", "idleRatio"] },
+  "actionConfig": { "data": ["detectorVersion", "actionIdHash", "name", "phase", "durationMs", "behavior"] },
+  "sessionConfig": { "data": ["visibility", "focused", "online", "bfcacheRestores", "focusChanges", "visibilityChanges", "clockRollback", "clockDriftMs", "concurrentTabs", "serverTimeOffsetMs", "timeOrigin"] },
   "networkConfig": { "data": ["endpoints"] },
   "debugConfig": {
     "base": [".*"]

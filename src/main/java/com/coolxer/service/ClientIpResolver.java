@@ -49,6 +49,23 @@ public class ClientIpResolver {
         return current;
     }
 
+    public GatewaySignals gatewaySignals(HttpServletRequest request) {
+        String remoteAddress = normalizeIp(request == null ? null : request.getRemoteAddr());
+        if (remoteAddress == null || !isTrusted(remoteAddress)) return new GatewaySignals("", "", "", "");
+        return new GatewaySignals(safeHeader(request, "X-Synap-Network-ASN", 32),
+                safeHeader(request, "X-Synap-Network-Category", 32),
+                safeHeader(request, "X-Synap-Tls-Fingerprint", 128),
+                safeHeader(request, "X-Synap-Ip-Reputation", 32));
+    }
+
+    private static String safeHeader(HttpServletRequest request, String name, int limit) {
+        String value = request.getHeader(name);
+        if (value == null || !value.matches("[a-zA-Z0-9._:/+-]{1," + limit + "}")) return "";
+        return value;
+    }
+
+    public record GatewaySignals(String asn, String networkCategory, String tlsFingerprint, String ipReputation) { }
+
     private List<String> forwardedChain(HttpServletRequest request) {
         if (request == null) return Collections.emptyList();
         String forwarded = request.getHeader("Forwarded");

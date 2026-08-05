@@ -17,6 +17,7 @@ public class ResponseVO {
     private ArrayList<ArrayList> agendas;
     private ArrayList<ArrayList> punishes;
     private UploadAck ack;
+    private RiskAssessment risk;
 
     public ResponseVO(Integer status, Map<String,Object> config, ArrayList<ArrayList> agendas,
                       ArrayList<ArrayList> punishes) {

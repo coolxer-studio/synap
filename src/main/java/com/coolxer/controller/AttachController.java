@@ -7,6 +7,7 @@ import com.coolxer.model.vo.ResponseVO;
 import com.coolxer.model.vo.RequestMeta;
 import com.coolxer.model.vo.RejectedItem;
 import com.coolxer.model.vo.UploadAck;
+import com.coolxer.model.vo.RiskAssessment;
 import com.coolxer.model.fact.AbstractFact;
 import com.coolxer.model.fact.Common;
 import com.coolxer.model.fact.FactBuilder;
@@ -20,6 +21,9 @@ import com.coolxer.model.punish.Punish;
 import com.coolxer.service.CheckerConfigService;
 import com.coolxer.service.ClientIpResolver;
 import com.coolxer.service.UploadMetrics;
+import com.coolxer.service.RequestValidationService;
+import com.coolxer.service.sequence.MessageSequenceStore;
+import com.coolxer.service.sequence.SequenceObservation;
 import com.coolxer.service.idempotency.ClaimStatus;
 import com.coolxer.service.idempotency.IdempotencyStore;
 import com.coolxer.service.impl.RuleEngineImpl;
@@ -45,20 +49,27 @@ public class AttachController extends AbstractController {
     private final IdempotencyStore idempotencyStore;
     private final UploadMetrics uploadMetrics;
     private final ClientIpResolver clientIpResolver;
+    private final RequestValidationService requestValidationService;
+    private final MessageSequenceStore sequenceStore;
 
     public AttachController(RuleEngineImpl ruleEngineImpl, CheckerConfigService checkerConfigService,
                             IdempotencyStore idempotencyStore, UploadMetrics uploadMetrics,
-                            ClientIpResolver clientIpResolver) {
+                            ClientIpResolver clientIpResolver, RequestValidationService requestValidationService,
+                            MessageSequenceStore sequenceStore) {
         this.ruleEngineImpl = ruleEngineImpl;
         this.checkerConfigService = checkerConfigService;
         this.idempotencyStore = idempotencyStore;
         this.uploadMetrics = uploadMetrics;
         this.clientIpResolver = clientIpResolver;
+        this.requestValidationService = requestValidationService;
+        this.sequenceStore = sequenceStore;
     }
 
     @RequestMapping(value = {"start","/1"}, method =RequestMethod.POST)
     public ResponseVO start(@RequestHeader("code") String code, @RequestBody RequestVO requestVO,
                             HttpServletRequest servletRequest) {
+        String validationError = requestValidationService.validateEnvelope(code, requestVO, servletRequest, false);
+        if (validationError != null) return error(validationError, null);
         Header header = FactBuilder.buildHeader(code);
         Common common = FactBuilder.buildCommon(requestVO.getCommon());
         String clientIp = clientIpResolver.resolve(servletRequest);
@@ -66,6 +77,7 @@ public class AttachController extends AbstractController {
 
         ArrayList<Punish> punishList = new ArrayList<>();
         ArrayList<Agenda> agendaList = new ArrayList<>();
+        RiskAssessment latestRisk = null;
 
         String platform = common.getPlatform();
         // 从服务中获取最新的配置
@@ -91,56 +103,73 @@ public class AttachController extends AbstractController {
 
         if (Objects.nonNull(fact)){
             fact.setRequestContext(clientIp, servletRequest.getHeader("User-Agent"));
+            fact.setSecurityContext(requestValidationService.normalizedOrigin(servletRequest),
+                    servletRequest.getHeader("Sec-Fetch-Site"), servletRequest.getHeader("Sec-Fetch-Mode"),
+                    servletRequest.getHeader("Sec-Fetch-Dest"),
+                    "h5".equals(platform) ? "app-key-codec/untrusted" : "platform-codec/untrusted", "START");
+            setGatewayContext(fact, servletRequest);
             Checkpoint checkpoint = ruleEngineImpl.run(fact);
             agendaList.addAll(checkpoint.getAgendas());
             //TODO :需要对getPunishes的hashset进行优先级排序，客户端按顺序执行即可
             punishList.addAll(checkpoint.getPunishes());
+            latestRisk = checkpoint.getRisk();
         }
-        return succeed(config,agendaList,punishList);
+        ResponseVO response = succeed(config,agendaList,punishList);
+        response.setRisk(latestRisk);
+        return response;
 
     }
 
     @RequestMapping(value = {"upload","/2"}, method = RequestMethod.POST)
     public Object upload(@RequestHeader("code") String code, @RequestBody RequestVO requestVO,
                          HttpServletRequest servletRequest) {
+        boolean h5 = isH5Request(requestVO);
+        RequestMeta meta = requestVO == null ? null : requestVO.getMeta();
+        UploadAck ack = h5 ? new UploadAck(meta == null ? null : meta.getBatchId()) : null;
+        String validationError = requestValidationService.validateEnvelope(code, requestVO, servletRequest, true);
+        if (validationError != null) {
+            if (!h5) return error(validationError, null);
+            rejectAll(requestVO, ack, validationError);
+            return succeedUpload(new ArrayList<>(), new LinkedHashSet<>(), ack, new LinkedHashMap<>());
+        }
         Header header = FactBuilder.buildHeader(code);
         Common common = FactBuilder.buildCommon(requestVO.getCommon());
         String clientIp = clientIpResolver.resolve(servletRequest);
         common.setWanIp(clientIp);
 
-        RequestMeta meta = requestVO.getMeta();
-        boolean v2 = meta != null && meta.isV2();
-        UploadAck ack = v2 ? new UploadAck(meta.getBatchId()) : null;
-
         LinkedHashSet<Punish> punishSet = new LinkedHashSet<>();
         ArrayList<Agenda> agendaList = new ArrayList<>();
         LinkedHashMap<String, Agenda> uniqueAgendas = new LinkedHashMap<>();
         LinkedHashMap<String, Integer> hitCounts = new LinkedHashMap<>();
+        RiskAssessment latestRisk = null;
         uploadMetrics.batch();
 
-        if (v2 && !meta.isValidFor(common.getStartId())) {
+        if (h5 && !meta.isValidFor(common.getStartId())) {
             for (Map<String, Object> item : requestVO.getData() == null ? new ArrayList<Map<String, Object>>() : requestVO.getData()) {
                 String invalidMessageId = item == null ? null : stringValue(item.get("messageId"));
-                ack.getRejectedItems().add(new RejectedItem(invalidMessageId, false, "invalid v2 batch metadata"));
+                ack.getRejectedItems().add(new RejectedItem(invalidMessageId, false, "invalid H5 batch metadata"));
                 uploadMetrics.rejected();
             }
-            return succeedV2(agendaList, punishSet, ack, hitCounts);
+            return succeedUpload(agendaList, punishSet, ack, hitCounts);
         }
 
         for (Map<String,Object> itemMap: requestVO.getData() == null ? new ArrayList<Map<String,Object>>() : requestVO.getData()) {
             if(itemMap == null){
-                if (v2) ack.getRejectedItems().add(new RejectedItem(null, false, "message is null"));
+                if (h5) ack.getRejectedItems().add(new RejectedItem(null, false, "message is null"));
                 uploadMetrics.rejected();
                 continue;
             }
 
             String messageId = stringValue(itemMap.get("messageId"));
             String idempotencyKey = null;
-            if (v2) {
+            SequenceObservation sequenceObservation = null;
+            if (h5) {
+                Long sequence = longValue(itemMap.get("sequence"));
+                Long observedAt = longValue(itemMap.get("observedAt"));
                 if (messageId == null || messageId.isBlank() || messageId.length() > 128
                         || stringValue(itemMap.get("type")) == null
-                        || longValue(itemMap.get("sequence")) == null
-                        || longValue(itemMap.get("observedAt")) == null) {
+                        || sequence == null || sequence <= 0
+                        || observedAt == null || observedAt <= 0) {
                     ack.getRejectedItems().add(new RejectedItem(messageId, false, "invalid message metadata"));
                     uploadMetrics.rejected();
                     continue;
@@ -157,26 +186,33 @@ public class AttachController extends AbstractController {
                     uploadMetrics.rejected();
                     continue;
                 }
+                sequenceObservation = sequenceStore.observe(common, sequence);
             }
 
             try {
                 AbstractFact fact = FactBuilder.buildFact(header,common,itemMap);
                 if (Objects.isNull(fact)) {
-                    if (v2) {
+                    if (h5) {
                         idempotencyStore.complete(idempotencyKey);
                         ack.getRejectedItems().add(new RejectedItem(messageId, false, "unsupported or invalid fact"));
                     }
                     uploadMetrics.rejected();
                     continue;
                 }
-                if (v2) {
+                if (h5) {
                     fact.setTransportContext(messageId, meta.getBatchId(), longValue(itemMap.get("observedAt")),
                             longValue(itemMap.get("sequence")));
                 }
                 fact.setRequestContext(clientIp, servletRequest.getHeader("User-Agent"));
+                fact.setSecurityContext(requestValidationService.normalizedOrigin(servletRequest),
+                        servletRequest.getHeader("Sec-Fetch-Site"), servletRequest.getHeader("Sec-Fetch-Mode"),
+                        servletRequest.getHeader("Sec-Fetch-Dest"),
+                        h5 ? "app-key-codec/untrusted" : "platform-codec/untrusted",
+                        sequenceObservation == null ? "SEQUENCE_NOT_APPLICABLE" : sequenceObservation.reasonCode());
+                setGatewayContext(fact, servletRequest);
                 Checkpoint checkpoint = ruleEngineImpl.run(fact);
                 if (checkpoint == null) {
-                    if (v2) {
+                    if (h5) {
                         idempotencyStore.release(idempotencyKey);
                         ack.getRejectedItems().add(new RejectedItem(messageId, true, "rule is unavailable"));
                     }
@@ -189,25 +225,37 @@ public class AttachController extends AbstractController {
                     hitCounts.merge(key, 1, Integer::sum);
                 }
                 punishSet.addAll(checkpoint.getPunishes());
-                if (v2) {
+                latestRisk = checkpoint.getRisk();
+                if (h5) {
                     idempotencyStore.complete(idempotencyKey);
                     ack.getAcceptedMessageIds().add(messageId);
                 }
                 uploadMetrics.accepted(stringValue(itemMap.get("type")));
             } catch (RuntimeException error) {
-                if (v2) {
+                if (h5) {
                     idempotencyStore.release(idempotencyKey);
                     ack.getRejectedItems().add(new RejectedItem(messageId, true, "rule processing failed"));
                     uploadMetrics.rejected();
-                    log.warn("H5 v2 message processing failed, messageId:{}", messageId, error);
+                    log.warn("H5 message processing failed, messageId:{}", messageId, error);
                     continue;
                 }
                 throw error;
             }
         }
         agendaList.addAll(uniqueAgendas.values());
-        if (v2) return succeedV2(agendaList, punishSet, ack, hitCounts);
-        return succeed(agendaList, new ArrayList<>(punishSet));
+        if (h5) {
+            ResponseVO response = succeedUpload(agendaList, punishSet, ack, hitCounts);
+            response.setRisk(latestRisk);
+            return response;
+        }
+        ResponseVO response = succeed(agendaList, new ArrayList<>(punishSet));
+        response.setRisk(latestRisk);
+        return response;
+    }
+
+    private static boolean isH5Request(RequestVO requestVO) {
+        return requestVO != null && requestVO.getCommon() != null && requestVO.getCommon().size() > 8
+                && "h5".equalsIgnoreCase(requestVO.getCommon().get(8));
     }
 
     private static String stringValue(Object value) {
@@ -218,6 +266,19 @@ public class AttachController extends AbstractController {
         if (value instanceof Number number) return number.longValue();
         try { return value == null ? null : Long.valueOf(String.valueOf(value)); }
         catch (NumberFormatException ignored) { return null; }
+    }
+
+    private void rejectAll(RequestVO requestVO, UploadAck ack, String reason) {
+        if (requestVO == null || requestVO.getData() == null) return;
+        for (Map<String, Object> item : requestVO.getData()) {
+            ack.getRejectedItems().add(new RejectedItem(item == null ? null : stringValue(item.get("messageId")), false, reason));
+            uploadMetrics.rejected();
+        }
+    }
+
+    private void setGatewayContext(AbstractFact fact, HttpServletRequest request) {
+        ClientIpResolver.GatewaySignals signals = clientIpResolver.gatewaySignals(request);
+        fact.setGatewayContext(signals.asn(), signals.networkCategory(), signals.tlsFingerprint(), signals.ipReputation());
     }
 
 

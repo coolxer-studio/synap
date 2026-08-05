@@ -38,10 +38,12 @@ public class H5DeviceFact extends AbstractFact {
     private Map<String,Object> window;
     @ValueSet()
     private Map<String,Object> navigator;
+    private Map<String,Object> capabilities;
 
     public H5DeviceFact(String type, Header header, Common common, Map<String,Object> factMap) {
         super(type,(String) factMap.get("buildDate"), header, common);
         build(factMap);
+        capabilities = factMap.get("capabilities") instanceof Map ? (Map<String, Object>) factMap.get("capabilities") : Map.of();
     }
 
     @Data

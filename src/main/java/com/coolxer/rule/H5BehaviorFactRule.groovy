@@ -14,9 +14,15 @@ int inputCount = ((Number) data.getOrDefault("inputCount", 0)).intValue()
 double directionRatio = ((Number) data.getOrDefault("directionChangeRatio", 0)).doubleValue()
 double clickInterval = ((Number) data.getOrDefault("averageClickInterval", 0)).doubleValue()
 double inputInterval = ((Number) data.getOrDefault("averageInputInterval", 0)).doubleValue()
+int untrustedEvents = ((Number) data.getOrDefault("untrustedEventCount", 0)).intValue()
+int impossibleClicks = ((Number) data.getOrDefault("impossibleClickCount", 0)).intValue()
+double straightRatio = ((Number) data.getOrDefault("straightLineRatio", 0)).doubleValue()
+double timingEntropy = ((Number) data.getOrDefault("timingEntropy", 0)).doubleValue()
 if (pointerSamples >= 20 && directionRatio == 0) anomalies++
 if (clickCount >= 5 && clickInterval > 0 && clickInterval < 80) anomalies++
 if (inputCount >= 5 && inputInterval > 0 && inputInterval < 30) anomalies++
+if (pointerSamples >= 20 && straightRatio > 0.98 && timingEntropy < 0.5) anomalies++
+if (untrustedEvents >= 3 || impossibleClicks >= 2) anomalies++
 if (anomalies >= 2) {
     agendaList.add(new Agenda("H5观察-自动化行为", "anomalies:" + anomalies + ",samples:" + pointerSamples, AgendaLevelEnum.MEDIUM))
 }

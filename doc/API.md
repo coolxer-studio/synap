@@ -2,12 +2,16 @@
 
 本文档基于当前项目代码整理。
 
+H5 各 Fact 的检测用途、规则阈值、风险 reason code 和测试要求见 [H5 检测规则与验收说明](H5检测规则.md)。
+
 ## 基础信息
 
 - 默认服务地址：`http://localhost:11099`
 - 请求格式：`Content-Type: application/json`
 - 主要 Header：`code`
 - 业务响应字段：`status`，`1` 表示成功，`0` 表示失败
+
+H5 的 start、upload 和 cross 请求/响应均使用原 appKey codec。本文 JSON 只展示 codec 处理前的业务对象，网络上传输的是编解码后的报文。
 
 ## Header: code
 
@@ -152,27 +156,20 @@ H5 的 `lanIp` 来自浏览器可选的 WebRTC host candidate，可能为 `maske
 [1, "title", "message", "target"]
 ```
 
-## POST /attach/start
+## POST /sc/h5/attach/start
 
-agent 启动接口。服务端根据 `common.platform` 加载平台 checker 配置，构造对应平台的 `StartFact`，执行启动规则，然后返回配置、agenda、punish。
+H5 agent 启动接口。服务端加载 H5 checker 配置，构造 `H5StartFact`，执行启动规则，然后返回配置、agenda 和 punish。请求与响应均使用原 H5 codec。
 
 推荐路径：
 
 ```http
-POST /attach/start
+POST /sc/h5/attach/start
 ```
-
-代码中存在的别名组合：
-
-- `/attach/start`
-- `/attach/1`
-- `/1/start`
-- `/1/1`
 
 请求 Header：
 
 ```http
-code: g1-g2-g3-g4-g5-android-100-1.0.0
+code: g1-g2-g3-g4-g5-h5-1-1.3.0
 ```
 
 请求 Body：
@@ -183,16 +180,16 @@ code: g1-g2-g3-g4-g5-android-100-1.0.0
     "u001",
     "g1-g2-g3-g4-g5",
     "10001",
-    "1.0.0",
-    "100",
+    "1.3.0",
+    "1",
     "DemoApp",
-    "com.demo.app",
+    "app.example.com",
     "1.0.0",
-    "android",
-    "Google",
-    "Pixel 7",
-    "Android",
-    "14",
+    "h5",
+    "Browser",
+    "Desktop",
+    "macOS",
+    "15",
     "wifi",
     "192.168.1.2",
     "203.0.113.10",
@@ -205,6 +202,11 @@ code: g1-g2-g3-g4-g5-android-100-1.0.0
     "Demo Road",
     "2026-07-03 10:00:00"
   ],
+  "meta": {
+    "protocolVersion": 1,
+    "appKeyId": "8f5c2a4d9b7e1f603ac8d042b97e6c15",
+    "detectorVersion": "1.3.0"
+  },
   "data": []
 }
 ```
@@ -236,35 +238,29 @@ code: g1-g2-g3-g4-g5-android-100-1.0.0
 
 常见失败原因：
 
-- `common.platform` 不在已加载平台配置中。
+- `meta.protocolVersion` 不是 `1`，或缺少 `appKeyId/detectorVersion`。
+- `common.platform` 不是 `h5`，或者 header/common 不一致。
 - Groovy 规则路径配置不正确，导致启动规则加载失败。
 
-## POST /attach/upload
+## POST /sc/h5/attach/upload
 
-agent 数据上报接口。v1 请求继续兼容；H5 v2 为批次和消息增加稳定标识，服务端先执行幂等检查，再构造 Fact、执行规则并写入 Kafka。
+H5 数据上报接口。第一版固定使用 `protocolVersion=1` 和原 H5 codec，服务端先执行消息幂等和 sequence 观察，再构造 Fact、执行规则并写入 Kafka。
 
 推荐路径：
 
 ```http
-POST /attach/upload
+POST /sc/h5/attach/upload
 ```
-
-代码中存在的别名组合：
-
-- `/attach/upload`
-- `/attach/2`
-- `/1/upload`
-- `/1/2`
 
 请求 Header：
 
 ```http
-code: g1-g2-g3-g4-g5-android-100-1.0.0
+code: g1-g2-g3-g4-g5-h5-1-1.3.0
 ```
 
 请求 Body 示例：
 
-下面示例用于说明结构。真实 `DeviceData` 请求需要按 `checker_config/android.json` 中的 `deviceConfig` 补齐对应字段，并保证每个数组长度与配置项一致。
+下面是 H5 `UserData` 示例。其他 Fact 需要按 `checker_config/h5.json` 补齐字段，并保证数组长度与配置项一致。
 
 ```json
 {
@@ -272,16 +268,16 @@ code: g1-g2-g3-g4-g5-android-100-1.0.0
     "u001",
     "g1-g2-g3-g4-g5",
     "10001",
-    "1.0.0",
-    "100",
+    "1.3.0",
+    "1",
     "DemoApp",
-    "com.demo.app",
+    "app.example.com",
     "1.0.0",
-    "android",
-    "Google",
-    "Pixel 7",
-    "Android",
-    "14",
+    "h5",
+    "Browser",
+    "Desktop",
+    "macOS",
+    "15",
     "wifi",
     "192.168.1.2",
     "203.0.113.10",
@@ -295,35 +291,23 @@ code: g1-g2-g3-g4-g5-android-100-1.0.0
     "2026-07-03 10:00:00"
   ],
   "meta": {
-    "protocolVersion": 2,
+    "protocolVersion": 1,
     "batchId": "batch-019",
     "sessionId": "10001",
     "attempt": 1,
-    "createdAt": 1785885600000
+    "createdAt": 1785885600000,
+    "appKeyId": "8f5c2a4d9b7e1f603ac8d042b97e6c15",
+    "detectorVersion": "1.3.0"
   },
   "data": [
     {
-      "type": "DeviceData",
+      "type": "UserData",
       "buildDate": "2026-07-03 10:00:00",
       "messageId": "msg-019",
       "sequence": 1,
       "observedAt": 1785885600000,
-      "device": [
-        "phone",
-        "Pixel 7",
-        "Android",
-        "14",
-        "build-id",
-        "Pixel 7",
-        "CN",
-        "zh",
-        "Asia/Shanghai",
-        "CNY",
-        "2026-07-03 09:58:00",
-        false
-      ],
-      "screen": [1080, 2400, 0.8, 2.75, 0],
-      "cpu": [8, 2, "arm64", "arm64-v8a"]
+      "userId": "user-hash",
+      "data": {"scene": "login"}
     }
   ]
 }
@@ -332,10 +316,13 @@ code: g1-g2-g3-g4-g5-android-100-1.0.0
 说明：
 
 - `type` 必填，用于推导 Fact 类名。
-- v2 的 `messageId` 在持久化和重试过程中必须保持不变；服务端去重键由 appId、startId 和 messageId 组成。
+- H5 的 `meta`、`messageId`、`sequence` 和 `observedAt` 必填；缺失时服务端通过 ACK 永久拒绝。
+- `messageId` 在持久化和重试过程中必须保持不变；服务端去重键由 appId、startId 和 messageId 组成。
 - 其他字段名要与对应平台 checker 配置中的 `<type>Config` 子字段匹配。
 - 数组值顺序必须与 checker 配置中的字段顺序一致。
 - 如果 Fact 构造失败，当前代码会记录错误并跳过该条数据。
+
+H5 接受的 `type` 包括 `DeviceData/SelfAppData/RuntimeData/LocationData/IntegrityData/ResourceIntegrityData/BehaviorData/ActionData/SessionData/NetworkData/ErrorData/EventData/DebugData/DevToolData/UserData`。其中 `ErrorData` 只包含脱敏错误模板、路径模板、行列、摘要和 5 秒窗口计数；`RuntimeData.custom.format=1` 会生成低权重 `H5观察-代码格式化` 标签。完整字段和阈值见 [H5 检测规则与验收说明](H5检测规则.md)。
 
 成功响应示例：
 
@@ -356,7 +343,7 @@ code: g1-g2-g3-g4-g5-android-100-1.0.0
 }
 ```
 
-客户端只能删除 `acceptedMessageIds` 和 `duplicateMessageIds` 中的消息；`rejectedItems.retryable=true` 或未出现在 ACK 中的消息需要重试。v2 Agenda 数组第 4 位为同批命中次数。
+客户端只能删除 `acceptedMessageIds` 和 `duplicateMessageIds` 中的消息；`rejectedItems.retryable=true` 或未出现在 ACK 中的消息需要重试。H5 Agenda 数组第 4 位为同批命中次数。
 
 服务端副作用：
 
@@ -364,20 +351,15 @@ code: g1-g2-g3-g4-g5-android-100-1.0.0
 - `Checkpoint` 会按 Fact 类型发送到对应 Kafka topic。
 - Kafka key 使用 `common.guid`。
 
-## POST /cross/{id}
+## H5 查询接口
 
-跨服务查询接口。服务端根据 `id` 从 `msg_api_config.json` 查找 API 配置，将 URL 中的 `{field}` 占位符替换为 `Header` 或 `Common` 中的字段值，然后发起 GET 请求并返回下游响应字符串。
+跨服务查询请求和响应均使用原 H5 codec。第一版只暴露以下三个 H5 查询地址：
 
-推荐路径：
-
-```http
-POST /cross/{id}
-```
-
-代码中存在的别名：
-
-- `/cross/{id}`
-- `/2/{id}`
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | `/sc/h5/cross/info` | 设备信息查询 |
+| POST | `/sc/h5/cross/rating` | 风险评级查询 |
+| POST | `/sc/h5/cross/label_start` | 当次启动标签查询 |
 
 配置示例：
 
@@ -389,22 +371,11 @@ POST /cross/{id}
 }
 ```
 
-当前配置中的常见 id：
-
-| id | 说明 |
-| --- | --- |
-| `info` | 设备信息查询 |
-| `app` | 设备安装应用信息查询 |
-| `device_id` | 设备指纹查询 |
-| `label_start` | 当次启动标签查询 |
-| `rating` | 风险指数查询 |
-| `label-today` | 今日标签查询示例 |
-
 请求示例：
 
 ```http
-POST /cross/info
-code: g1-g2-g3-g4-g5-android-100-1.0.0
+POST /sc/h5/cross/info
+code: g1-g2-g3-g4-g5-h5-1-1.3.0
 Content-Type: application/json
 ```
 
@@ -414,16 +385,16 @@ Content-Type: application/json
     "u001",
     "g1-g2-g3-g4-g5",
     "10001",
-    "1.0.0",
-    "100",
+    "1.3.0",
+    "1",
     "DemoApp",
-    "com.demo.app",
+    "app.example.com",
     "1.0.0",
-    "android",
-    "Google",
-    "Pixel 7",
-    "Android",
-    "14",
+    "h5",
+    "Browser",
+    "Desktop",
+    "macOS",
+    "15",
     "wifi",
     "192.168.1.2",
     "203.0.113.10",
@@ -436,6 +407,11 @@ Content-Type: application/json
     "Demo Road",
     "2026-07-03 10:00:00"
   ],
+  "meta": {
+    "protocolVersion": 1,
+    "appKeyId": "8f5c2a4d9b7e1f603ac8d042b97e6c15",
+    "detectorVersion": "1.3.0"
+  },
   "data": []
 }
 ```
@@ -459,7 +435,7 @@ Content-Type: application/json
 | --- | --- | --- |
 | checker | `checker.config.path` | 各平台采集配置目录 |
 | punish | `punish.config.path` | agenda 命中后的动作规则 |
-| msg API | `msg.api.config.path` | `/cross/{id}` 外部服务配置 |
+| msg API | `msg.api.config.path` | H5 `info/rating/label_start` 查询的外部服务配置 |
 
 配置变更后，监听线程会自动重新加载对应文件。
 

@@ -30,6 +30,11 @@ public class H5LocationFact extends AbstractFact {
         private double speed;
         private double latitude;
         private double longitude;
+        private double accuracy;
+        private Double altitude;
+        private Double heading;
+        private String permissionState;
+        private String status;
         private String country;
         private String province;
         private String city;

@@ -39,8 +39,8 @@ abstract class AbstractController {
         return succeed(null, agendas, punishes);
     }
 
-    protected ResponseVO succeedV2(ArrayList<Agenda> agendaList, LinkedHashSet<Punish> punishSet,
-                                   UploadAck ack, Map<String, Integer> hitCounts) {
+    protected ResponseVO succeedUpload(ArrayList<Agenda> agendaList, LinkedHashSet<Punish> punishSet,
+                                       UploadAck ack, Map<String, Integer> hitCounts) {
         ArrayList<ArrayList> agendas = new ArrayList<>();
         if (CollectionUtils.isNotEmpty(agendaList)) {
             for (Agenda agenda : agendaList) {

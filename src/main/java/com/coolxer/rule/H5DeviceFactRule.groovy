@@ -8,10 +8,10 @@ H5DeviceFact h5DeviceFact = (H5DeviceFact)fact;
 ArrayList<Agenda> agendaList = new ArrayList<>();
 String userAgent = h5DeviceFact.getNavigator().getOrDefault("userAgent","")
 if(userAgent.length() == 0 || userAgent.toLowerCase().matches(".*(headless|phantomjs).*")){
-    agendaList.add(new Agenda("异常头",userAgent,AgendaLevelEnum.MEDIUM));
+    agendaList.add(new Agenda("H5观察-异常UA",userAgent,AgendaLevelEnum.MEDIUM));
 }
 if(userAgent.length() > 0 && userAgent.toLowerCase().matches(".*(mumu|android[^)]*x86).*")){
-    agendaList.add(new Agenda("模拟器",userAgent, AgendaLevelEnum.MEDIUM));
+    agendaList.add(new Agenda("H5观察-模拟环境UA",userAgent, AgendaLevelEnum.MEDIUM));
 }
 String requestUserAgent = h5DeviceFact.getRequestUserAgent() ?: ""
 if (userAgent.length() > 0 && requestUserAgent.length() > 0 && userAgent != requestUserAgent) {
