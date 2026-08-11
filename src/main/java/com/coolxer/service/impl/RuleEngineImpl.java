@@ -4,6 +4,7 @@ import com.coolxer.model.agenda.Agenda;
 import com.coolxer.model.checkpoint.Checkpoint;
 import com.coolxer.config.TopicDefine;
 import com.coolxer.model.fact.AbstractFact;
+import com.coolxer.model.fact.host.HostAuditFact;
 import com.coolxer.model.punish.Punish;
 import com.coolxer.service.PunishConfigService;
 import com.coolxer.service.UploadMetrics;
@@ -107,10 +108,14 @@ public class RuleEngineImpl implements RuleEngine {
 
             checkpoint = new Checkpoint(fact, scriptName, agendaList, punishHashSet,
                     FastDateFormat.getInstance("yyyy-MM-dd HH:mm:ss").format(new Date()),
-                    riskAssessmentService == null || !"h5".equals(fact.getCommon().getPlatform())
+                    riskAssessmentService == null || !("h5".equals(fact.getCommon().getPlatform())
+                            || "wechat".equals(fact.getCommon().getPlatform()))
                             ? null : riskAssessmentService.assess(fact, agendaList));
 
-            var kafkaFuture = kafkaTemplate.send(topic,fact.getCommon().getGuid(), JacksonUtils.toJson(checkpoint));
+            String kafkaKey = fact instanceof HostAuditFact
+                    ? fact.getCommon().getGuid() + ":" + fact.getBatchId()
+                    : fact.getCommon().getGuid();
+            var kafkaFuture = kafkaTemplate.send(topic,kafkaKey, JacksonUtils.toJson(checkpoint));
             if (kafkaFuture != null) {
                 try {
                     kafkaFuture.get(kafkaPublishTimeout.toMillis(), TimeUnit.MILLISECONDS);

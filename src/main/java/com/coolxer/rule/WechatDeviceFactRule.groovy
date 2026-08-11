@@ -4,11 +4,10 @@ import com.coolxer.model.agenda.Agenda
 import com.coolxer.model.agenda.AgendaLevelEnum
 import com.coolxer.model.fact.wechat.WechatDeviceFact
 
-
 ArrayList<Agenda> agendaList = new ArrayList<>()
-String brand = ((WechatDeviceFact)fact).getDevice().getBrand()
-if("devtools" == brand){
-    agendaList.add(new Agenda("开发模式","devtools", AgendaLevelEnum.HIGH))
-
+WechatDeviceFact deviceFact = (WechatDeviceFact) fact
+String brand = deviceFact.getDevice()?.getBrand()?.toLowerCase() ?: ""
+if ("devtools" == brand) {
+    agendaList.add(new Agenda("微信观察-开发者工具", "brand:devtools", AgendaLevelEnum.LOW))
 }
 return agendaList

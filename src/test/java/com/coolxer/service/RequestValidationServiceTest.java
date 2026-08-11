@@ -4,6 +4,7 @@ import com.coolxer.model.vo.RequestMeta;
 import com.coolxer.model.vo.RequestVO;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,6 +47,33 @@ class RequestValidationServiceTest {
         request.getMeta().setProtocolVersion(2);
         assertEquals("invalid H5 batch metadata",
                 service.validateEnvelope("a-b-c-d-e-h5-1-1.3.0", request, mock(HttpServletRequest.class), true));
+    }
+
+    @Test
+    void validatesWechatMetadataWithoutBrowserOriginRules() {
+        RequestValidationService service = new RequestValidationService("", "", false, 262144, 100, 8192);
+        RequestVO request = request();
+        request.getCommon().set(6, "wx-test-app");
+        request.getCommon().set(8, "wechat");
+        assertNull(service.validateEnvelope("a-b-c-d-e-wechat-1-1.3.0", request, mock(HttpServletRequest.class), true));
+        request.setMeta(null);
+        assertEquals("WeChat metadata is required",
+                service.validateEnvelope("a-b-c-d-e-wechat-1-1.3.0", request, mock(HttpServletRequest.class), true));
+    }
+
+    @Test
+    void enforcesWechatAppIdAllowlistByAppKeyId() {
+        RequestValidationService service = new RequestValidationService("", "", true, 262144, 100, 8192);
+        ReflectionTestUtils.setField(service, "configuredWechatAppIds",
+                "0123456789abcdef0123456789abcdef=wx-allowed|wx-second");
+        ReflectionTestUtils.setField(service, "requireWechatAppId", true);
+        RequestVO request = request();
+        request.getCommon().set(6, "wx-denied");
+        request.getCommon().set(8, "wechat");
+        assertEquals("WeChat appId is not allowed",
+                service.validateEnvelope("a-b-c-d-e-wechat-1-1.3.0", request, mock(HttpServletRequest.class), true));
+        request.getCommon().set(6, "wx-allowed");
+        assertNull(service.validateEnvelope("a-b-c-d-e-wechat-1-1.3.0", request, mock(HttpServletRequest.class), true));
     }
 
     private RequestVO request() {

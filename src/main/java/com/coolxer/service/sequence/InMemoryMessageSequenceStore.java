@@ -54,7 +54,7 @@ public class InMemoryMessageSequenceStore implements MessageSequenceStore {
     }
 
     private static String key(Common common) {
-        return common.getAppId() + ":" + common.getStartId() + ":" + String.valueOf(common.getGuid());
+        return common.getPlatform() + ":" + common.getAppId() + ":" + common.getStartId() + ":" + String.valueOf(common.getGuid());
     }
 
     private static final class Entry {

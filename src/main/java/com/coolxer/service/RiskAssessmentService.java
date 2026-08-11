@@ -40,7 +40,8 @@ public class RiskAssessmentService {
     }
 
     public synchronized RiskAssessment assess(AbstractFact fact, List<Agenda> agendas) {
-        String key = fact.getCommon().getAppId() + ":" + fact.getCommon().getStartId();
+        String platform = fact.getCommon().getPlatform().toLowerCase();
+        String key = platform + ":" + fact.getCommon().getAppId() + ":" + fact.getCommon().getStartId();
         State state = read(key); long now = System.currentTimeMillis();
         double decay = state.updatedAt <= 0 ? 0 : Math.pow(0.5, (double) (now - state.updatedAt) / Math.max(1, halfLife.toMillis()));
         state.score *= decay;
@@ -68,14 +69,17 @@ public class RiskAssessmentService {
         if (Set.of("high-risk", "malicious").contains(reputation)) {
             currentReasons.add("GATEWAY_IP_REPUTATION"); added += 20;
         }
-        if (fact.getTransportTrust() == null || fact.getTransportTrust().endsWith("/untrusted")) currentReasons.add("TRANSPORT_UNAUTHENTICATED");
+        if (fact.getTransportTrust() == null
+                || !fact.getTransportTrust().startsWith("sc1-authenticated/")) {
+            currentReasons.add("TRANSPORT_UNAUTHENTICATED");
+        }
         state.score = Math.min(100, state.score + added);
         state.reasons.addAll(currentReasons); state.evidenceCount = Math.min(1000, state.evidenceCount + currentReasons.size());
         state.updatedAt = now; write(key, state);
         double confidence = Math.round(Math.min(0.99, state.score / 100 * Math.min(1, state.evidenceCount / 2.0)) * 100) / 100.0;
-        return new RiskAssessment("h5-risk-1", "2026-08-05", Math.round(state.score * 100) / 100.0,
+        return new RiskAssessment("wechat".equals(platform) ? "wechat-risk-1" : "h5-risk-1", "2026-08-05", Math.round(state.score * 100) / 100.0,
                 confidence, new ArrayList<>(state.reasons), state.evidenceCount, true,
-                fact.getTransportTrust() == null ? "app-key-codec/untrusted" : fact.getTransportTrust());
+                fact.getTransportTrust() == null ? "unauthenticated" : fact.getTransportTrust());
     }
 
     private State read(String key) {
@@ -92,11 +96,12 @@ public class RiskAssessmentService {
     private double correlateAccount(AbstractFact fact, Set<String> reasons, long now) {
         String userId = fact.getCommon().getUserId();
         if (userId == null || userId.isBlank()) return 0;
+        String platform = fact.getCommon().getPlatform().toLowerCase();
         String accountKey = fact.getCommon().getAppId() + ":" + hash(userId);
         String guid = value(fact.getCommon().getGuid()); String ip = value(fact.getRequestIp()); String asn = value(fact.getRequestAsn());
         int activeSessions;
         if (redisEnabled) {
-            String key = "synap:h5:account:" + accountKey;
+            String key = "synap:" + platform + ":account:" + accountKey;
             Map<Object, Object> previous = redis.opsForHash().entries(key);
             compare(previous.get("guid"), guid, "ACCOUNT_DEVICE_CHANGE", reasons);
             compare(previous.get("ip"), ip, "ACCOUNT_IP_CHANGE", reasons);
@@ -107,7 +112,7 @@ public class RiskAssessmentService {
             redis.opsForZSet().add(sessionsKey, String.valueOf(fact.getCommon().getStartId()), now); redis.expire(sessionsKey, ttl);
             Long count = redis.opsForZSet().zCard(sessionsKey); activeSessions = count == null ? 1 : count.intValue();
         } else {
-            AccountState state = accounts.computeIfAbsent(accountKey, ignored -> new AccountState());
+            AccountState state = accounts.computeIfAbsent(platform + ":" + accountKey, ignored -> new AccountState());
             compare(state.guid, guid, "ACCOUNT_DEVICE_CHANGE", reasons); compare(state.ip, ip, "ACCOUNT_IP_CHANGE", reasons);
             compare(state.asn, asn, "ACCOUNT_ASN_CHANGE", reasons);
             state.guid = guid; state.ip = ip; state.asn = asn; state.updatedAt = now;
@@ -164,14 +169,27 @@ public class RiskAssessmentService {
         if (tag.contains("完整性")) return "INTEGRITY_SIGNALS";
         if (tag.contains("UA")) return "USER_AGENT_MISMATCH";
         if (tag.contains("代码格式化")) return "CODE_FORMATTING_DETECTED";
+        if (tag.contains("enableDebug")) return "WECHAT_DEBUG_ENABLED";
+        if (tag.contains("非Release")) return "WECHAT_NON_RELEASE_ENV";
+        if (tag.contains("启动场景")) return "WECHAT_AUTOMATION_SCENE";
+        if (tag.contains("运行环境")) return "WECHAT_RUNTIME_ENVIRONMENT_SIGNALS";
         if (tag.contains("时钟")) return "CLIENT_CLOCK_ROLLBACK";
         if (tag.contains("标签")) return "CONCURRENT_TABS";
         if (tag.contains("异常")) return "CLIENT_ERROR_BURST";
+        if (tag.contains("开发者工具")) return "WECHAT_DEVTOOLS_DETECTED";
+        if (tag.contains("调试")) return "DEBUG_ACTIVITY_DETECTED";
+        if (tag.contains("网络")) return "NETWORK_FAILURE_BURST";
+        if (tag.contains("位置")) return "LOCATION_SPEED_ANOMALY";
         if (tag.contains("域名")) return "ORIGIN_MISMATCH";
         return "RULE_" + Integer.toHexString(tag.hashCode()).toUpperCase();
     }
 
-    private static String redisKey(String key) { return "synap:h5:risk:" + key; }
+    private static String redisKey(String key) {
+        int separator = key.indexOf(':');
+        String platform = separator < 0 ? "h5" : key.substring(0, separator);
+        String sessionKey = separator < 0 ? key : key.substring(separator + 1);
+        return "synap:" + platform + ":risk:" + sessionKey;
+    }
     private static final class State {
         private double score; private int evidenceCount; private long updatedAt;
         private final Set<String> reasons = new LinkedHashSet<>();

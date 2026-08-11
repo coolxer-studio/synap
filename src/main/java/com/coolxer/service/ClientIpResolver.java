@@ -49,6 +49,16 @@ public class ClientIpResolver {
         return current;
     }
 
+    /**
+     * Keeps a Host probe's independently resolved public address when it is a
+     * valid globally routable IP. The observed TCP/proxy address remains the
+     * fallback and is also stored separately on every fact as requestIp.
+     */
+    public String resolveWanIp(String claimedAddress, String observedAddress) {
+        String claimed = normalizeIp(claimedAddress);
+        return isPublicAddress(claimed) ? claimed : observedAddress;
+    }
+
     public GatewaySignals gatewaySignals(HttpServletRequest request) {
         String remoteAddress = normalizeIp(request == null ? null : request.getRemoteAddr());
         if (remoteAddress == null || !isTrusted(remoteAddress)) return new GatewaySignals("", "", "", "");
@@ -99,6 +109,26 @@ public class ClientIpResolver {
             if (block.contains(bytes)) return true;
         }
         return false;
+    }
+
+    private static boolean isPublicAddress(String address) {
+        byte[] bytes = addressBytes(address);
+        if (bytes == null) return false;
+        try {
+            InetAddress parsed = InetAddress.getByAddress(bytes);
+            if (parsed.isAnyLocalAddress() || parsed.isLoopbackAddress() || parsed.isLinkLocalAddress()
+                    || parsed.isSiteLocalAddress() || parsed.isMulticastAddress()) return false;
+            if (bytes.length == 4) {
+                int first = bytes[0] & 0xff;
+                int second = bytes[1] & 0xff;
+                // RFC 6598 carrier-grade NAT is not publicly routable.
+                return first != 0 && !(first == 100 && second >= 64 && second <= 127);
+            }
+            // IPv6 unique-local addresses (fc00::/7) are private.
+            return (bytes[0] & 0xfe) != 0xfc;
+        } catch (UnknownHostException ignored) {
+            return false;
+        }
     }
 
     static String normalizeIp(String value) {

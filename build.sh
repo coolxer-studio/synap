@@ -1,57 +1,64 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -Eeuo pipefail
 
-IMAGE_NAME="crpi-4pdi7kz96g4v0tg3.cn-beijing.personal.cr.aliyuncs.com/coolxer-studio/synap-server"
-IMAGE_TAG="latest"
-DATE_TAG=$(date +%Y%m%d)
-PUSH_IMAGE="${PUSH_IMAGE:-false}"
+readonly PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly IMAGE_NAME="${IMAGE_NAME:-crpi-4pdi7kz96g4v0tg3.cn-beijing.personal.cr.aliyuncs.com/coolxer-studio/synap-server}"
+readonly IMAGE_TAG="${IMAGE_TAG:-latest}"
+readonly DATE_TAG="${DATE_TAG:-$(date +%Y%m%d)}"
+readonly PUSH_IMAGE="${PUSH_IMAGE:-false}"
+readonly SKIP_TESTS="${SKIP_TESTS:-true}"
+readonly BASE_IMAGE_REPOSITORY="${BASE_IMAGE_REPOSITORY:-crpi-4pdi7kz96g4v0tg3.cn-beijing.personal.cr.aliyuncs.com/coolxer-studio/eclipse-temurin}"
 
-# 检测系统架构
-ARCH=$(uname -m)
-echo "检测到系统架构: ${ARCH}"
+command -v mvn >/dev/null || { echo "未找到 mvn" >&2; exit 1; }
+command -v docker >/dev/null || { echo "未找到 docker" >&2; exit 1; }
 
-# 根据架构确定 vector 下载包名称
-if [ "$ARCH" = "arm64" ]; then
-    BASE_IMAGE_ARCH="arm64"
-elif [ "$ARCH" = "x86_64" ]; then
-    BASE_IMAGE_ARCH="amd64"
-else
-    echo "不支持的架构: ${ARCH}"
-    exit 1
+normalize_arch() {
+  case "$1" in
+    amd64 | x86_64) echo "amd64" ;;
+    arm64 | aarch64) echo "arm64" ;;
+    *) echo "不支持的架构: $1" >&2; return 1 ;;
+  esac
+}
+
+readonly IMAGE_ARCH="$(normalize_arch "${IMAGE_ARCH:-$(uname -m)}")"
+readonly VERSION_TAG="${IMAGE_NAME}:${IMAGE_TAG}-${IMAGE_ARCH}"
+readonly DATED_TAG="${IMAGE_NAME}:${DATE_TAG}-${IMAGE_ARCH}"
+readonly BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+readonly VCS_REF="$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+
+echo "========== 构建 synap-server (${IMAGE_ARCH}) =========="
+
+maven_args=(clean package)
+if [[ "$SKIP_TESTS" == "true" ]]; then
+  maven_args+=(-DskipTests)
 fi
+mvn -f "$PROJECT_DIR/pom.xml" "${maven_args[@]}"
 
-echo "========== 开始构建synap-server项目 =========="
-
-echo "1. 执行 Maven 打包..."
-mvn clean package -DskipTests
-
-if [ $? -ne 0 ]; then
-    echo "Maven 打包失败!"
-    exit 1
-fi
-
-echo "2. Maven 打包成功!"
-
-echo "3. 构建 Docker 镜像 (架构: ${BASE_IMAGE_ARCH})..."
 docker build \
-    --build-arg BASE_IMAGE_ARCH=${BASE_IMAGE_ARCH} \
-    -t ${IMAGE_NAME}:${IMAGE_TAG}-${BASE_IMAGE_ARCH} \
-    -t ${IMAGE_NAME}:${DATE_TAG}-${BASE_IMAGE_ARCH} .
+  --platform "linux/${IMAGE_ARCH}" \
+  --build-arg "BASE_IMAGE_REPOSITORY=${BASE_IMAGE_REPOSITORY}" \
+  --build-arg "BASE_IMAGE_ARCH=${IMAGE_ARCH}" \
+  --build-arg "BUILD_DATE=${BUILD_DATE}" \
+  --build-arg "VCS_REF=${VCS_REF}" \
+  --build-arg "VERSION=${IMAGE_TAG}" \
+  --tag "$VERSION_TAG" \
+  --tag "$DATED_TAG" \
+  "$PROJECT_DIR"
 
-if [ $? -ne 0 ]; then
-    echo "Docker 构建失败!"
+echo "已构建: $VERSION_TAG"
+echo "已构建: $DATED_TAG"
+
+case "$PUSH_IMAGE" in
+  true)
+    docker push "$VERSION_TAG"
+    docker push "$DATED_TAG"
+    echo "镜像推送完成"
+    ;;
+  false)
+    echo "跳过镜像推送 (PUSH_IMAGE=false)"
+    ;;
+  *)
+    echo "PUSH_IMAGE 仅支持 true 或 false，当前值: $PUSH_IMAGE" >&2
     exit 1
-fi
-
-echo "4. Docker 镜像构建成功!"
-echo "镜像名称: ${IMAGE_NAME}:${IMAGE_TAG}-${BASE_IMAGE_ARCH}"
-echo "日期标签: ${IMAGE_NAME}:${DATE_TAG}-${BASE_IMAGE_ARCH}"
-echo "架构: ${BASE_IMAGE_ARCH}"
-
-if [ "${PUSH_IMAGE}" = "true" ]; then
-    echo "5. 推送镜像到 Docker Registry..."
-    docker push ${IMAGE_NAME}:${IMAGE_TAG}-${BASE_IMAGE_ARCH}
-    docker push ${IMAGE_NAME}:${DATE_TAG}-${BASE_IMAGE_ARCH}
-    echo "6. 镜像推送成功!"
-else
-    echo "5. 跳过镜像推送 (PUSH_IMAGE=false)"
-fi
+    ;;
+esac

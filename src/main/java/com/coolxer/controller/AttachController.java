@@ -15,6 +15,7 @@ import com.coolxer.model.fact.Header;
 import com.coolxer.model.fact.android.AndroidStartFact;
 import com.coolxer.model.fact.h5.H5StartFact;
 import com.coolxer.model.fact.host.HostStartFact;
+import com.coolxer.model.fact.host.HostAuditFact;
 import com.coolxer.model.fact.ios.IosStartFact;
 import com.coolxer.model.fact.wechat.WechatStartFact;
 import com.coolxer.model.punish.Punish;
@@ -29,6 +30,8 @@ import com.coolxer.service.idempotency.IdempotencyStore;
 import com.coolxer.service.impl.RuleEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.ArrayList;
@@ -42,7 +45,7 @@ import java.util.Objects;
  */
 @Slf4j
 @RestController
-@RequestMapping(value = {"/attach","1"})
+@RequestMapping(value = {"/attach", "1", "/risk"})
 public class AttachController extends AbstractController {
     private final RuleEngineImpl ruleEngineImpl;
     private final CheckerConfigService checkerConfigService;
@@ -72,14 +75,15 @@ public class AttachController extends AbstractController {
         if (validationError != null) return error(validationError, null);
         Header header = FactBuilder.buildHeader(code);
         Common common = FactBuilder.buildCommon(requestVO.getCommon());
+        String platform = common.getPlatform();
         String clientIp = clientIpResolver.resolve(servletRequest);
-        common.setWanIp(clientIp);
+        common.setWanIp("host".equalsIgnoreCase(platform)
+                ? clientIpResolver.resolveWanIp(common.getWanIp(), clientIp) : clientIp);
 
         ArrayList<Punish> punishList = new ArrayList<>();
         ArrayList<Agenda> agendaList = new ArrayList<>();
         RiskAssessment latestRisk = null;
 
-        String platform = common.getPlatform();
         // 从服务中获取最新的配置
         Map<String,Object> config = checkerConfigService.getConfigByPlatform(platform);
         if (config == null) {
@@ -106,7 +110,7 @@ public class AttachController extends AbstractController {
             fact.setSecurityContext(requestValidationService.normalizedOrigin(servletRequest),
                     servletRequest.getHeader("Sec-Fetch-Site"), servletRequest.getHeader("Sec-Fetch-Mode"),
                     servletRequest.getHeader("Sec-Fetch-Dest"),
-                    "h5".equals(platform) ? "app-key-codec/untrusted" : "platform-codec/untrusted", "START");
+                    transportTrust(servletRequest), "START");
             setGatewayContext(fact, servletRequest);
             Checkpoint checkpoint = ruleEngineImpl.run(fact);
             agendaList.addAll(checkpoint.getAgendas());
@@ -123,19 +127,22 @@ public class AttachController extends AbstractController {
     @RequestMapping(value = {"upload","/2"}, method = RequestMethod.POST)
     public Object upload(@RequestHeader("code") String code, @RequestBody RequestVO requestVO,
                          HttpServletRequest servletRequest) {
-        boolean h5 = isH5Request(requestVO);
+        String requestPlatform = requestPlatform(requestVO);
+        boolean protocolClient = isProtocolRequest(requestPlatform);
         RequestMeta meta = requestVO == null ? null : requestVO.getMeta();
-        UploadAck ack = h5 ? new UploadAck(meta == null ? null : meta.getBatchId()) : null;
+        UploadAck ack = protocolClient ? new UploadAck(meta == null ? null : meta.getBatchId()) : null;
         String validationError = requestValidationService.validateEnvelope(code, requestVO, servletRequest, true);
         if (validationError != null) {
-            if (!h5) return error(validationError, null);
+            if (!protocolClient) return error(validationError, null);
             rejectAll(requestVO, ack, validationError);
             return succeedUpload(new ArrayList<>(), new LinkedHashSet<>(), ack, new LinkedHashMap<>());
         }
         Header header = FactBuilder.buildHeader(code);
         Common common = FactBuilder.buildCommon(requestVO.getCommon());
+        String platform = common.getPlatform();
         String clientIp = clientIpResolver.resolve(servletRequest);
-        common.setWanIp(clientIp);
+        common.setWanIp("host".equalsIgnoreCase(platform)
+                ? clientIpResolver.resolveWanIp(common.getWanIp(), clientIp) : clientIp);
 
         LinkedHashSet<Punish> punishSet = new LinkedHashSet<>();
         ArrayList<Agenda> agendaList = new ArrayList<>();
@@ -144,10 +151,10 @@ public class AttachController extends AbstractController {
         RiskAssessment latestRisk = null;
         uploadMetrics.batch();
 
-        if (h5 && !meta.isValidFor(common.getStartId())) {
+        if (protocolClient && !meta.isValidFor(common.getStartId())) {
             for (Map<String, Object> item : requestVO.getData() == null ? new ArrayList<Map<String, Object>>() : requestVO.getData()) {
                 String invalidMessageId = item == null ? null : stringValue(item.get("messageId"));
-                ack.getRejectedItems().add(new RejectedItem(invalidMessageId, false, "invalid H5 batch metadata"));
+                ack.getRejectedItems().add(new RejectedItem(invalidMessageId, false, "invalid " + platform + " batch metadata"));
                 uploadMetrics.rejected();
             }
             return succeedUpload(agendaList, punishSet, ack, hitCounts);
@@ -155,15 +162,36 @@ public class AttachController extends AbstractController {
 
         for (Map<String,Object> itemMap: requestVO.getData() == null ? new ArrayList<Map<String,Object>>() : requestVO.getData()) {
             if(itemMap == null){
-                if (h5) ack.getRejectedItems().add(new RejectedItem(null, false, "message is null"));
+                if (protocolClient) ack.getRejectedItems().add(new RejectedItem(null, false, "message is null"));
                 uploadMetrics.rejected();
                 continue;
             }
 
             String messageId = stringValue(itemMap.get("messageId"));
             String idempotencyKey = null;
+            String hostAuditKey = null;
             SequenceObservation sequenceObservation = null;
-            if (h5) {
+
+            boolean hostAudit = "host".equalsIgnoreCase(platform) && "AuditData".equals(stringValue(itemMap.get("type")));
+            if (hostAudit) {
+                try {
+                    HostAuditFact.validate(itemMap);
+                } catch (IllegalArgumentException invalid) {
+                    uploadMetrics.rejected();
+                    return error(invalid.getMessage(), common);
+                }
+                String batchId = stringValue(itemMap.get("batchId"));
+                hostAuditKey = "synap:host:audit:batch:" + common.getGuid() + ":" + batchId;
+                ClaimStatus claim = idempotencyStore.claim(hostAuditKey);
+                if (claim == ClaimStatus.DONE) {
+                    uploadMetrics.duplicate();
+                    continue;
+                }
+                if (claim == ClaimStatus.PROCESSING) {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "audit batch is processing");
+                }
+            }
+            if (protocolClient) {
                 Long sequence = longValue(itemMap.get("sequence"));
                 Long observedAt = longValue(itemMap.get("observedAt"));
                 if (messageId == null || messageId.isBlank() || messageId.length() > 128
@@ -174,7 +202,7 @@ public class AttachController extends AbstractController {
                     uploadMetrics.rejected();
                     continue;
                 }
-                idempotencyKey = "synap:h5:message:" + common.getAppId() + ":" + common.getStartId() + ":" + messageId;
+                idempotencyKey = "synap:" + platform.toLowerCase() + ":message:" + common.getAppId() + ":" + common.getStartId() + ":" + messageId;
                 ClaimStatus claim = idempotencyStore.claim(idempotencyKey);
                 if (claim == ClaimStatus.DONE) {
                     ack.getDuplicateMessageIds().add(messageId);
@@ -192,14 +220,15 @@ public class AttachController extends AbstractController {
             try {
                 AbstractFact fact = FactBuilder.buildFact(header,common,itemMap);
                 if (Objects.isNull(fact)) {
-                    if (h5) {
+                    if (hostAudit) idempotencyStore.release(hostAuditKey);
+                    if (protocolClient) {
                         idempotencyStore.complete(idempotencyKey);
                         ack.getRejectedItems().add(new RejectedItem(messageId, false, "unsupported or invalid fact"));
                     }
                     uploadMetrics.rejected();
                     continue;
                 }
-                if (h5) {
+                if (protocolClient) {
                     fact.setTransportContext(messageId, meta.getBatchId(), longValue(itemMap.get("observedAt")),
                             longValue(itemMap.get("sequence")));
                 }
@@ -207,12 +236,16 @@ public class AttachController extends AbstractController {
                 fact.setSecurityContext(requestValidationService.normalizedOrigin(servletRequest),
                         servletRequest.getHeader("Sec-Fetch-Site"), servletRequest.getHeader("Sec-Fetch-Mode"),
                         servletRequest.getHeader("Sec-Fetch-Dest"),
-                        h5 ? "app-key-codec/untrusted" : "platform-codec/untrusted",
+                        transportTrust(servletRequest),
                         sequenceObservation == null ? "SEQUENCE_NOT_APPLICABLE" : sequenceObservation.reasonCode());
                 setGatewayContext(fact, servletRequest);
                 Checkpoint checkpoint = ruleEngineImpl.run(fact);
                 if (checkpoint == null) {
-                    if (h5) {
+                    if (hostAudit) {
+                        idempotencyStore.release(hostAuditKey);
+                        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "audit rule is unavailable");
+                    }
+                    if (protocolClient) {
                         idempotencyStore.release(idempotencyKey);
                         ack.getRejectedItems().add(new RejectedItem(messageId, true, "rule is unavailable"));
                     }
@@ -226,24 +259,26 @@ public class AttachController extends AbstractController {
                 }
                 punishSet.addAll(checkpoint.getPunishes());
                 latestRisk = checkpoint.getRisk();
-                if (h5) {
+                if (protocolClient) {
                     idempotencyStore.complete(idempotencyKey);
                     ack.getAcceptedMessageIds().add(messageId);
                 }
+                if (hostAudit) idempotencyStore.complete(hostAuditKey);
                 uploadMetrics.accepted(stringValue(itemMap.get("type")));
             } catch (RuntimeException error) {
-                if (h5) {
+                if (hostAudit) idempotencyStore.release(hostAuditKey);
+                if (protocolClient) {
                     idempotencyStore.release(idempotencyKey);
                     ack.getRejectedItems().add(new RejectedItem(messageId, true, "rule processing failed"));
                     uploadMetrics.rejected();
-                    log.warn("H5 message processing failed, messageId:{}", messageId, error);
+                    log.warn("{} message processing failed, messageId:{}", platform, messageId, error);
                     continue;
                 }
                 throw error;
             }
         }
         agendaList.addAll(uniqueAgendas.values());
-        if (h5) {
+        if (protocolClient) {
             ResponseVO response = succeedUpload(agendaList, punishSet, ack, hitCounts);
             response.setRisk(latestRisk);
             return response;
@@ -253,9 +288,18 @@ public class AttachController extends AbstractController {
         return response;
     }
 
-    private static boolean isH5Request(RequestVO requestVO) {
+    private static String requestPlatform(RequestVO requestVO) {
         return requestVO != null && requestVO.getCommon() != null && requestVO.getCommon().size() > 8
-                && "h5".equalsIgnoreCase(requestVO.getCommon().get(8));
+                ? String.valueOf(requestVO.getCommon().get(8)) : "";
+    }
+
+    private static boolean isProtocolRequest(String platform) {
+        return "h5".equalsIgnoreCase(platform) || "wechat".equalsIgnoreCase(platform);
+    }
+
+    private static String transportTrust(HttpServletRequest request) {
+        Object trust = request.getAttribute("sc.transportTrust");
+        return trust == null ? "unauthenticated" : String.valueOf(trust);
     }
 
     private static String stringValue(Object value) {

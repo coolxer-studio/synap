@@ -4,6 +4,8 @@
 
 H5 各 Fact 的检测用途、规则阈值、风险 reason code 和测试要求见 [H5 检测规则与验收说明](H5检测规则.md)。
 
+Host 探针使用相同的 24 项 common 与数组 Fact 协议，但不使用 H5 meta/ACK。当前推荐接口为 `/attach/start`、`/attach/upload`、`/cross/info`、`/cross/rating`、`/cross/label_start`；旧 `/1/1`、`/1/2` 和数字查询 `1/6/5` 继续兼容。Host 客户端只在 HTTP 成功且业务 `status=1` 后确认本地落盘记录。
+
 ## 基础信息
 
 - 默认服务地址：`http://localhost:11099`
@@ -78,7 +80,7 @@ code: g1-g2-g3-g4-g5-android-100-1.0.0
 | 22 | `thoroughfare` |
 | 23 | `clientTime` |
 
-H5 的 `lanIp` 来自浏览器可选的 WebRTC host candidate，可能为 `masked`、`unavailable` 或 `disabled`。`wanIp` 的客户端值不可信，服务端会使用 TCP 来源地址覆盖；仅当直接来源属于配置的可信代理 CIDR 时才解析转发头。
+H5 的 `lanIp` 来自浏览器可选的 WebRTC host candidate，可能为 `masked`、`unavailable` 或 `disabled`。H5 等平台的 `wanIp` 客户端值不可信，服务端会使用 TCP 来源地址覆盖；仅当直接来源属于配置的可信代理 CIDR 时才解析转发头。Host 探针例外：它可通过配置的第三方服务查询公网 IP，服务端在该值通过公网 IPv4/IPv6 校验时保留它，同时仍将真实连接来源单独记录为 `requestIp`。
 
 示例：
 
@@ -156,17 +158,18 @@ H5 的 `lanIp` 来自浏览器可选的 WebRTC host candidate，可能为 `maske
 [1, "title", "message", "target"]
 ```
 
-## POST /sc/h5/attach/start
+## POST /attach/start
 
-H5 agent 启动接口。服务端加载 H5 checker 配置，构造 `H5StartFact`，执行启动规则，然后返回配置、agenda 和 punish。请求与响应均使用原 H5 codec。
+H5 agent 启动逻辑路由。服务端从 `/sc/v1/message` 解密后转发该请求，加载 H5
+checker 配置，构造 `H5StartFact`，执行启动规则，并将结果重新加密返回。
 
 推荐路径：
 
 ```http
-POST /sc/h5/attach/start
+POST /attach/start
 ```
 
-请求 Header：
+受保护的内部 Header（位于密文内）：
 
 ```http
 code: g1-g2-g3-g4-g5-h5-1-1.3.0
@@ -242,14 +245,14 @@ code: g1-g2-g3-g4-g5-h5-1-1.3.0
 - `common.platform` 不是 `h5`，或者 header/common 不一致。
 - Groovy 规则路径配置不正确，导致启动规则加载失败。
 
-## POST /sc/h5/attach/upload
+## POST /attach/upload
 
 H5 数据上报接口。第一版固定使用 `protocolVersion=1` 和原 H5 codec，服务端先执行消息幂等和 sequence 观察，再构造 Fact、执行规则并写入 Kafka。
 
 推荐路径：
 
 ```http
-POST /sc/h5/attach/upload
+POST /attach/upload
 ```
 
 请求 Header：
@@ -357,9 +360,9 @@ H5 接受的 `type` 包括 `DeviceData/SelfAppData/RuntimeData/LocationData/Inte
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| POST | `/sc/h5/cross/info` | 设备信息查询 |
-| POST | `/sc/h5/cross/rating` | 风险评级查询 |
-| POST | `/sc/h5/cross/label_start` | 当次启动标签查询 |
+| POST | `/cross/info` | 设备信息查询 |
+| POST | `/cross/rating` | 风险评级查询 |
+| POST | `/cross/label_start` | 当次启动标签查询 |
 
 配置示例：
 
@@ -374,7 +377,7 @@ H5 接受的 `type` 包括 `DeviceData/SelfAppData/RuntimeData/LocationData/Inte
 请求示例：
 
 ```http
-POST /sc/h5/cross/info
+POST /cross/info
 code: g1-g2-g3-g4-g5-h5-1-1.3.0
 Content-Type: application/json
 ```
@@ -477,3 +480,8 @@ return agendaList
   }
 }
 ```
+
+## 微信小程序
+
+安全协议 v1 首发不支持微信小程序。服务端不开放历史小程序别名，构建系统也不会
+生成可连接新版生产服务端的小程序旧协议包。

@@ -1,5 +1,5 @@
 {
-  "startConfig": [1, 10.0, 30.0, 10.0, 864000.0],
+  "startConfig": [1, 10.0, 30.0, 10.0, 86400.0],
   "deviceConfig": {
     "device": ["abi","deviceAbi", "benchmarkLevel", "brand", "model", "system", "platform","cpuType","memorySize"],
     "screen": ["pixelRatio", "screenHeight","screenWidth","windowHeight","windowWidth","statusBarHeight","screenTop"],
@@ -8,8 +8,17 @@
     "appAuthorizeSetting": ["albumAuthorized","bluetoothAuthorized","cameraAuthorized","locationAuthorized","locationReducedAccuracy","microphoneAuthorized","notificationAlertAuthorized","notificationAuthorized","notificationBadgeAuthorized","notificationSoundAuthorized","phoneCalendarAuthorized"],
     "battery": ["level","isCharging"],
     "uuid": ["guid"]
-  }
+  },
+  "selfAppConfig": { "data": ["appId", "version", "envVersion", "sdkVersion", "sdkRuntimeVersion", "scene", "referrerAppId", "path", "extraDataState"] },
+  "runtimeConfig": { "data": ["devtools", "enableDebug", "nonReleaseEnv", "automationScene", "scene", "codeFormatting", "route", "state"] },
+  "integrityConfig": { "data": ["signals", "weights", "evidenceCount", "weightedScore", "state"] },
+  "sessionConfig": { "data": ["reason", "foreground", "showCount", "hideCount", "routeChanges", "networkChanges", "memoryWarnings", "clockRollback", "sessionDuration", "route"] },
+  "errorConfig": { "data": ["category", "message", "source", "fingerprint", "count"] },
+  "behaviorConfig": { "data": ["sampleCount", "clickCount", "touchCount", "inputCount", "trustedCount", "untrustedCount", "impossibleCount", "meanInterval", "intervalVariance", "meanSpeed", "speedVariance", "averagePressure", "stopRatio", "directionChanges"] },
+  "actionConfig": { "data": ["id", "name", "phase", "interactionCount", "clickCount", "inputCount"] },
+  "networkConfig": { "data": ["entries"] },
+  "locationConfig": { "data": ["status", "latitude", "longitude", "accuracy", "speed", "observedAt"] },
+  "debugConfig": { "data": ["longPause", "foreground", "observation"] },
+  "userConfig": { "data": [] }
 }
-
-
 

@@ -23,7 +23,7 @@ public class FactBuilder {
         try {
             return (AbstractFact) Class.forName(factClassName).getDeclaredConstructor(String.class,Header.class,Common.class, Map.class).newInstance(factType,header,common,factMap);
         } catch (Exception e) {
-            log.error("构建fact失败, factClassName:{}, factMap:{}", factClassName, factMap, e);
+            log.error("构建fact失败, factClassName:{}, factType:{}", factClassName, factType, e);
         }
         return null;
     }

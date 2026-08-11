@@ -51,7 +51,8 @@ class AttachControllerContractTest {
         assertEquals("203.0.113.8", factCaptor.getValue().getCommon().getWanIp());
         assertEquals("203.0.113.8", factCaptor.getValue().getRequestIp());
         assertEquals("SEQUENCE_OK", factCaptor.getValue().getSequenceObservation());
-        assertEquals("app-key-codec/untrusted", factCaptor.getValue().getTransportTrust());
+        assertEquals("sc1-authenticated/P256_HKDF_SHA256_AES256_GCM",
+                factCaptor.getValue().getTransportTrust());
     }
 
     @Test
@@ -98,6 +99,29 @@ class AttachControllerContractTest {
         }
     }
 
+    @Test
+    void appliesAckIdempotencyAndSequenceContractToWechat() {
+        RuleEngineImpl ruleEngine = mock(RuleEngineImpl.class);
+        when(ruleEngine.run(any())).thenAnswer(invocation -> new Checkpoint(invocation.getArgument(0),
+                "WechatUserFactRule.groovy", new ArrayList<>(), new HashSet<>(), "now"));
+        AttachController controller = controller(ruleEngine);
+        RequestVO request = request();
+        request.getCommon().set(6, "wx-test-app");
+        request.getCommon().set(8, "wechat");
+
+        ResponseVO first = (ResponseVO) controller.upload("a-b-c-d-e-wechat-1-1.1.0", request, requestContext());
+        ResponseVO duplicate = (ResponseVO) controller.upload("a-b-c-d-e-wechat-1-1.1.0", request, requestContext());
+
+        assertEquals(Arrays.asList("message-1"), first.getAck().getAcceptedMessageIds());
+        assertEquals(Arrays.asList("message-1"), duplicate.getAck().getDuplicateMessageIds());
+        ArgumentCaptor<AbstractFact> facts = ArgumentCaptor.forClass(AbstractFact.class);
+        verify(ruleEngine).run(facts.capture());
+        assertEquals("wechat", facts.getValue().getCommon().getPlatform());
+        assertEquals("sc1-authenticated/P256_HKDF_SHA256_AES256_GCM",
+                facts.getValue().getTransportTrust());
+        assertEquals("SEQUENCE_OK", facts.getValue().getSequenceObservation());
+    }
+
     private AttachController controller(RuleEngineImpl ruleEngine) {
         return new AttachController(ruleEngine, mock(CheckerConfigService.class),
                 new InMemoryIdempotencyStore(Duration.ofMinutes(5), Duration.ofDays(14), 100), new UploadMetrics(),
@@ -110,6 +134,8 @@ class AttachControllerContractTest {
         when(request.getRemoteAddr()).thenReturn("127.0.0.1");
         when(request.getHeader("X-Forwarded-For")).thenReturn("203.0.113.8");
         when(request.getHeader("User-Agent")).thenReturn("test-agent");
+        when(request.getAttribute("sc.transportTrust"))
+                .thenReturn("sc1-authenticated/P256_HKDF_SHA256_AES256_GCM");
         return request;
     }
 

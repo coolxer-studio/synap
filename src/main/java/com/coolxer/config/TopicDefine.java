@@ -1,6 +1,7 @@
 package com.coolxer.config;
 
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.common.config.TopicConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -515,6 +516,17 @@ public class TopicDefine {
                 .build();
     }
 
+    public static final String TOPIC_HOST_AUDIT_FACT = "host_fact_audit";
+    @Bean(TOPIC_HOST_AUDIT_FACT)
+    public NewTopic TopicForHostAudit() {
+        return TopicBuilder.name(TOPIC_HOST_AUDIT_FACT)
+                .partitions(partitions)
+                .replicas(replicas)
+                .config(TopicConfig.CLEANUP_POLICY_CONFIG, TopicConfig.CLEANUP_POLICY_DELETE)
+                .config(TopicConfig.RETENTION_MS_CONFIG, "15552000000")
+                .build();
+    }
+
     public static final String TOPIC_HOST_USER_FACT = "host_fact_user";
     @Bean(TOPIC_HOST_USER_FACT)
     public NewTopic TopicForHostUser() {
@@ -554,4 +566,40 @@ public class TopicDefine {
                 .compact()
                 .build();
     }
+
+    public static final String TOPIC_WECHAT_SELF_APP_FACT = "wechat_fact_self-app";
+    public static final String TOPIC_WECHAT_RUNTIME_FACT = "wechat_fact_runtime";
+    public static final String TOPIC_WECHAT_INTEGRITY_FACT = "wechat_fact_integrity";
+    public static final String TOPIC_WECHAT_SESSION_FACT = "wechat_fact_session";
+    public static final String TOPIC_WECHAT_ERROR_FACT = "wechat_fact_error";
+    public static final String TOPIC_WECHAT_BEHAVIOR_FACT = "wechat_fact_behavior";
+    public static final String TOPIC_WECHAT_ACTION_FACT = "wechat_fact_action";
+    public static final String TOPIC_WECHAT_NETWORK_FACT = "wechat_fact_network";
+    public static final String TOPIC_WECHAT_LOCATION_FACT = "wechat_fact_location";
+    public static final String TOPIC_WECHAT_DEBUG_FACT = "wechat_fact_debug";
+
+    private NewTopic wechatTopic(String name) {
+        return TopicBuilder.name(name).partitions(partitions).replicas(replicas).compact().build();
+    }
+
+    @Bean(TOPIC_WECHAT_SELF_APP_FACT)
+    public NewTopic TopicForWechatSelfApp() { return wechatTopic(TOPIC_WECHAT_SELF_APP_FACT); }
+    @Bean(TOPIC_WECHAT_RUNTIME_FACT)
+    public NewTopic TopicForWechatRuntime() { return wechatTopic(TOPIC_WECHAT_RUNTIME_FACT); }
+    @Bean(TOPIC_WECHAT_INTEGRITY_FACT)
+    public NewTopic TopicForWechatIntegrity() { return wechatTopic(TOPIC_WECHAT_INTEGRITY_FACT); }
+    @Bean(TOPIC_WECHAT_SESSION_FACT)
+    public NewTopic TopicForWechatSession() { return wechatTopic(TOPIC_WECHAT_SESSION_FACT); }
+    @Bean(TOPIC_WECHAT_ERROR_FACT)
+    public NewTopic TopicForWechatError() { return wechatTopic(TOPIC_WECHAT_ERROR_FACT); }
+    @Bean(TOPIC_WECHAT_BEHAVIOR_FACT)
+    public NewTopic TopicForWechatBehavior() { return wechatTopic(TOPIC_WECHAT_BEHAVIOR_FACT); }
+    @Bean(TOPIC_WECHAT_ACTION_FACT)
+    public NewTopic TopicForWechatAction() { return wechatTopic(TOPIC_WECHAT_ACTION_FACT); }
+    @Bean(TOPIC_WECHAT_NETWORK_FACT)
+    public NewTopic TopicForWechatNetwork() { return wechatTopic(TOPIC_WECHAT_NETWORK_FACT); }
+    @Bean(TOPIC_WECHAT_LOCATION_FACT)
+    public NewTopic TopicForWechatLocation() { return wechatTopic(TOPIC_WECHAT_LOCATION_FACT); }
+    @Bean(TOPIC_WECHAT_DEBUG_FACT)
+    public NewTopic TopicForWechatDebug() { return wechatTopic(TOPIC_WECHAT_DEBUG_FACT); }
 }

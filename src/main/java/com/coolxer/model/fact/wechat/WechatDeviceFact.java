@@ -28,10 +28,13 @@ public class WechatDeviceFact extends AbstractFact {
     private Battery battery;
     @ValueSet()
     private Uuid uuid;
+    private Map<String, Object> capabilities;
 
     public WechatDeviceFact(String type, Header header, Common common, Map<String,Object> factMap) {
         super(type,(String) factMap.get("buildDate"), header, common);
         build(factMap);
+        Object capabilityValue = factMap.get("capabilities");
+        capabilities = capabilityValue instanceof Map<?, ?> ? (Map<String, Object>) capabilityValue : Map.of();
     }
 
     @Data

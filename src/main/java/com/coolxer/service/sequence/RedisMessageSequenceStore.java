@@ -45,6 +45,7 @@ public class RedisMessageSequenceStore implements MessageSequenceStore {
     }
 
     private static String key(Common common) {
-        return "synap:h5:sequence:" + common.getAppId() + ":" + common.getStartId() + ":" + String.valueOf(common.getGuid());
+        return "synap:" + common.getPlatform().toLowerCase() + ":sequence:" + common.getAppId() + ":"
+                + common.getStartId() + ":" + String.valueOf(common.getGuid());
     }
 }

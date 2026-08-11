@@ -32,7 +32,7 @@ public abstract class AbstractFact {
     protected String fetchSite;
     protected String fetchMode;
     protected String fetchDest;
-    protected String transportTrust = "app-key-codec/untrusted";
+    protected String transportTrust = "unauthenticated";
     protected String sequenceObservation;
     protected Long serverReceivedAt;
     protected Long clientServerSkewMs;

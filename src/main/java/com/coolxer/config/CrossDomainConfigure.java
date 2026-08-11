@@ -1,16 +1,22 @@
 package com.coolxer.config;
 
-import org.springframework.context.annotation.Configuration;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * 设置允许跨域，js探针需要跨域访问.
  */
 
 @Configuration
-public class CrossDomainConfigure implements WebMvcConfigurer {
+public class CrossDomainConfigure {
 
   private final String[] allowedOrigins;
 
@@ -19,15 +25,25 @@ public class CrossDomainConfigure implements WebMvcConfigurer {
         .map(String::trim).filter(value -> !value.isEmpty()).toArray(String[]::new);
   }
 
-  @Override
-  public void addCorsMappings(CorsRegistry registry) {
-    if (allowedOrigins.length == 0) return;
-    registry.addMapping("/**")
-        .allowedOriginPatterns(allowedOrigins)
-        .allowedMethods("POST", "OPTIONS")
-        .allowCredentials(false)
-        .maxAge(3600)
-        .allowedHeaders("Content-Type", "code");
+  @Bean
+  FilterRegistrationBean<CorsFilter> synapSecureCommunicationCorsFilter() {
+    CorsConfiguration cors = new CorsConfiguration();
+    cors.setAllowedOriginPatterns(Arrays.asList(allowedOrigins));
+    cors.setAllowedMethods(List.of("POST", "OPTIONS"));
+    cors.setAllowedHeaders(List.of("Content-Type", "Accept"));
+    cors.setAllowCredentials(false);
+    cors.setMaxAge(3600L);
+    UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+    source.registerCorsConfiguration("/sc/v1/**", cors);
+
+    FilterRegistrationBean<CorsFilter> registration =
+        new FilterRegistrationBean<>(new CorsFilter(source));
+    registration.setName("synapSecureCommunicationCorsFilter");
+    registration.addUrlPatterns("/sc/v1/*");
+    // Must wrap the secure-message filter (-200), because that filter rewrites
+    // the request to its decrypted logical route before Spring MVC handles it.
+    registration.setOrder(-300);
+    return registration;
   }
 
 }

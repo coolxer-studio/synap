@@ -20,6 +20,10 @@ public class RequestValidationService {
             "DeviceData", "SelfAppData", "RuntimeData", "LocationData", "IntegrityData",
             "BehaviorData", "SessionData", "NetworkData", "ErrorData", "EventData",
             "DebugData", "DevToolData", "UserData", "ResourceIntegrityData", "ActionData");
+    private static final Set<String> WECHAT_FACT_TYPES = Set.of(
+            "DeviceData", "SelfAppData", "RuntimeData", "IntegrityData", "SessionData",
+            "ErrorData", "BehaviorData", "ActionData", "NetworkData", "LocationData",
+            "UserData", "DebugData");
 
     private final String[] globalOrigins;
     private final Map<String, String[]> appOrigins;
@@ -27,6 +31,10 @@ public class RequestValidationService {
     private final int maxBodyBytes;
     private final int maxFacts;
     private final int maxStringLength;
+    @Value("${synap.security.wechat-appids:}")
+    private String configuredWechatAppIds = "";
+    @Value("${synap.security.require-wechat-appid:false}")
+    private boolean requireWechatAppId;
 
     public RequestValidationService(
             @Value("${synap.cors.allowed-origin-patterns:http://localhost:*,http://127.0.0.1:*}") String globalOrigins,
@@ -53,26 +61,53 @@ public class RequestValidationService {
             Header header = new Header(code);
             common = com.coolxer.model.fact.FactBuilder.buildCommon(request.getCommon());
             if (!header.isConsistentWith(common)) return "header and common are inconsistent";
-            if ("h5".equalsIgnoreCase(common.getPlatform())) {
-                if (request.getMeta() == null) return "H5 metadata is required";
+            if (isProtocolPlatform(common.getPlatform())) {
+                String label = "h5".equalsIgnoreCase(common.getPlatform()) ? "H5" : "WeChat";
+                if (request.getMeta() == null) return label + " metadata is required";
                 if (upload ? !request.getMeta().isValidFor(common.getStartId()) : !request.getMeta().isValidStart()) {
-                    return upload ? "invalid H5 batch metadata" : "invalid H5 start metadata";
+                    return upload ? "invalid " + label + " batch metadata" : "invalid " + label + " start metadata";
                 }
-                String browserError = validateBrowserContext(common, request.getMeta().getAppKeyId(), servletRequest);
-                if (browserError != null) return browserError;
+                if ("h5".equalsIgnoreCase(common.getPlatform())) {
+                    String browserError = validateBrowserContext(common, request.getMeta().getAppKeyId(), servletRequest);
+                    if (browserError != null) return browserError;
+                } else {
+                    String appError = validateWechatApp(common, request.getMeta().getAppKeyId());
+                    if (appError != null) return appError;
+                }
             }
         } catch (RuntimeException error) {
             return "invalid header or common";
         }
-        if (upload && "h5".equalsIgnoreCase(common.getPlatform()) && request.getData() != null) {
+        if (upload && isProtocolPlatform(common.getPlatform()) && request.getData() != null) {
+            Set<String> allowedTypes = "h5".equalsIgnoreCase(common.getPlatform()) ? H5_FACT_TYPES : WECHAT_FACT_TYPES;
             for (Map<String, Object> fact : request.getData()) {
                 if (fact == null) return "fact is null";
                 Object type = fact.get("type");
-                if (!(type instanceof String) || !H5_FACT_TYPES.contains(type)) return "unsupported fact type";
+                if (!(type instanceof String) || !allowedTypes.contains(type)) return "unsupported fact type";
                 if (!validValue(fact, 0)) return "fact exceeds structural limits";
+                if ("wechat".equalsIgnoreCase(common.getPlatform()) && "SelfAppData".equals(type)) {
+                    Object data = fact.get("data");
+                    Object appId = data instanceof Map<?, ?> values ? values.get("appId") : null;
+                    if (appId != null && !String.valueOf(appId).equals(common.getAppPackage())) {
+                        return "WeChat fact appId and common appPackage are inconsistent";
+                    }
+                }
             }
         }
         return null;
+    }
+
+    private String validateWechatApp(Common common, String appKeyId) {
+        if (common.getAppPackage() == null || common.getAppPackage().isBlank()) return "WeChat appPackage is required";
+        Map<String, String[]> configured = parseAppOrigins(configuredWechatAppIds);
+        String[] allowed = configured.get(appKeyId);
+        if (allowed == null || allowed.length == 0) return requireWechatAppId ? "WeChat appId is not configured" : null;
+        return java.util.Arrays.stream(allowed).anyMatch(value -> value.equals(common.getAppPackage()))
+                ? null : "WeChat appId is not allowed";
+    }
+
+    private static boolean isProtocolPlatform(String platform) {
+        return "h5".equalsIgnoreCase(platform) || "wechat".equalsIgnoreCase(platform);
     }
 
     public String normalizedOrigin(HttpServletRequest request) {

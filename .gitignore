@@ -44,3 +44,6 @@ gen/
 logs/
 log
 temp/
+
+### 通信密钥
+.local/

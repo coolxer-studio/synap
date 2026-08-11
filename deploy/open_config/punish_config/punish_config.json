@@ -1,5 +1,16 @@
 [
   {"tag":"android-device","sourceRegex":".*","action":{"type":1,"title":"android-device","message":"android-device"}},
   {"tag":"macos","sourceRegex":".*","action":{"type":1,"title":"运行环境异常","message":"运行在macos上"}},
-  {"tag":"root","sourceRegex":".*","action":{"type":1,"title":"运行环境异常","message":"运行在root/越狱设备上"}}
+  {"tag":"root","sourceRegex":".*","action":{"type":1,"title":"运行环境异常","message":"运行在root/越狱设备上"}},
+  {"tag":"host-file-indicator","sourceRegex":".*","action":{"type":1,"title":"主机安全提醒","message":"发现可疑文件指标"}},
+  {"tag":"host-suspicious-process","sourceRegex":".*","action":{"type":1,"title":"主机安全提醒","message":"发现可疑调试或代理进程"}},
+  {"tag":"host-suspicious-port","sourceRegex":".*","action":{"type":1,"title":"主机安全提醒","message":"发现可疑监听端口"}},
+  {"tag":"host-ssh-root-login","sourceRegex":".*","action":{"type":1,"title":"主机登录提醒","message":"检测到 root SSH 登录"}},
+  {"tag":"host-resource-pressure","sourceRegex":".*","action":{"type":1,"title":"主机资源提醒","message":"磁盘或内存使用率过高"}},
+  {"tag":"host-audit-repeated-login-failure","sourceRegex":".*","action":{"type":1,"title":"主机登录审计提醒","message":"检测到连续登录失败"}},
+  {"tag":"host-audit-privileged-account-change","sourceRegex":".*","action":{"type":1,"title":"主机账户审计提醒","message":"检测到特权或权限变更"}},
+  {"tag":"host-audit-critical-config-change","sourceRegex":".*","action":{"type":1,"title":"主机配置审计提醒","message":"检测到关键系统配置变更"}},
+  {"tag":"host-audit-unknown-usb","sourceRegex":".*","action":{"type":1,"title":"主机外设审计提醒","message":"检测到新接入外设"}},
+  {"tag":"host-audit-suspicious-task","sourceRegex":".*","action":{"type":1,"title":"主机计划任务审计提醒","message":"检测到可疑计划任务"}},
+  {"tag":"host-audit-capability-degraded","sourceRegex":".*","action":{"type":1,"title":"主机审计能力提醒","message":"系统审计来源不可用或权限不足"}}
 ]

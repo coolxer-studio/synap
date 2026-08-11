@@ -1,12 +1,12 @@
-name: ${COMPOSE_PROJECT_NAME}
+name: ${COMPOSE_PROJECT_NAME:-synap}
 
 services:
   synap-server:
-    image: ${SYNAP_IMAGE}:${SYNAP_IMAGE_TAG}-${IMAGE_ARCH}
-    platform: linux/${IMAGE_ARCH}
+    image: ${SYNAP_IMAGE}:${SYNAP_IMAGE_TAG:-latest}-${IMAGE_ARCH:-amd64}
+    platform: linux/${IMAGE_ARCH:-amd64}
     init: true
     ports:
-      - "11099:11099"
+      - "${SYNAP_PORT:-11099}:11099"
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./open_config/identify_config:/app/config/identify_config:ro
@@ -14,8 +14,10 @@ services:
       - ./open_config/punish_config:/app/config/punish_config:ro
       - ./open_config/msg_api_config:/app/config/msg_api_config:ro
     environment:
-      TZ: Asia/Shanghai
+      TZ: ${TZ:-Asia/Shanghai}
+      SPRING_PROFILES_ACTIVE: prod
       SERVER_PORT: "11099"
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=25.0 -Dfile.encoding=UTF-8}
 
       RULE_ENGINE_GROOVY_PATH: /app/config/identify_config/
       CHECKER_CONFIG_PATH: /app/config/checker_config/
@@ -23,10 +25,34 @@ services:
       MSG_API_CONFIG_PATH: /app/config/msg_api_config/msg_api_config.json
 
       SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_TOPIC_PARTITIONS: ${KAFKA_TOPIC_PARTITIONS:-1}
+      KAFKA_TOPIC_REPLICAS: ${KAFKA_TOPIC_REPLICAS:-1}
+      KAFKA_PUBLISH_TIMEOUT: ${KAFKA_PUBLISH_TIMEOUT:-PT5S}
       REDIS_HOST: ${REDIS_HOST:-redis-service}
       REDIS_PORT: ${REDIS_PORT:-6379}
       REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+
       SYNAP_TRUSTED_PROXIES: ${SYNAP_TRUSTED_PROXIES:-}
+      SYNAP_CORS_ALLOWED_ORIGINS: ${SYNAP_CORS_ALLOWED_ORIGINS:-}
+      SYNAP_APP_ORIGINS: ${SYNAP_APP_ORIGINS:-}
+      SYNAP_WECHAT_APPIDS: ${SYNAP_WECHAT_APPIDS:-}
+      SYNAP_REQUIRE_WECHAT_APPID: ${SYNAP_REQUIRE_WECHAT_APPID:-true}
+      SYNAP_SEQUENCE_TTL: ${SYNAP_SEQUENCE_TTL:-PT30M}
+      SYNAP_RISK_TTL: ${SYNAP_RISK_TTL:-PT30M}
+      SYNAP_RISK_HALF_LIFE: ${SYNAP_RISK_HALF_LIFE:-PT15M}
+      SYNAP_MAX_BODY_BYTES: ${SYNAP_MAX_BODY_BYTES:-262144}
+      SYNAP_MAX_FACTS: ${SYNAP_MAX_FACTS:-100}
+      SYNAP_MAX_STRING_LENGTH: ${SYNAP_MAX_STRING_LENGTH:-8192}
+
+      SYNAP_SC_ENABLED: ${SYNAP_SC_ENABLED:-false}
+      SYNAP_SC_REQUIRE_TLS: ${SYNAP_SC_REQUIRE_TLS:-true}
+      SYNAP_SC_SERVER_KEY_ID: ${SYNAP_SC_SERVER_KEY_ID:-}
+      SYNAP_SC_SERVER_PRIVATE_KEY: ${SYNAP_SC_SERVER_PRIVATE_KEY:-}
+      SYNAP_SC_SERVER_PUBLIC_KEY: ${SYNAP_SC_SERVER_PUBLIC_KEY:-}
+      SYNAP_SC_SESSION_RECORD_KEY: ${SYNAP_SC_SESSION_RECORD_KEY:-}
+      SYNAP_SC_ALLOWED_APP_IDS: ${SYNAP_SC_ALLOWED_APP_IDS:-}
+      SYNAP_SC_ENROLLMENT_ADMIN_TOKEN: ${SYNAP_SC_ENROLLMENT_ADMIN_TOKEN:-}
+
       SERVICE_ASSET_URL: ${ASSET_SERVICE_URL}
       SERVICE_OPERATION_URL: ${OPERATION_SERVICE_URL}
       SERVICE_RISK_URL: ${RISK_SERVICE_URL}
@@ -39,8 +65,10 @@ services:
       - zenvis-network
     restart: unless-stopped
     stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/11099"]
+      test: ["CMD", "bash", "-ec", "exec 3<>/dev/tcp/127.0.0.1/11099"]
       interval: 30s
       timeout: 5s
       retries: 3

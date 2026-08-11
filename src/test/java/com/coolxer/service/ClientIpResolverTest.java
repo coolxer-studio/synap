@@ -42,6 +42,16 @@ class ClientIpResolverTest {
         assertEquals("127.0.0.1", resolver.resolve(request));
     }
 
+    @Test
+    void preservesOnlyValidClaimedPublicAddresses() {
+        ClientIpResolver resolver = new ClientIpResolver("");
+
+        assertEquals("8.8.8.8", resolver.resolveWanIp("8.8.8.8", "127.0.0.1"));
+        assertEquals("127.0.0.1", resolver.resolveWanIp("192.168.1.8", "127.0.0.1"));
+        assertEquals("127.0.0.1", resolver.resolveWanIp("100.64.1.8", "127.0.0.1"));
+        assertEquals("127.0.0.1", resolver.resolveWanIp("invalid", "127.0.0.1"));
+    }
+
     private HttpServletRequest request(String remote, String xForwardedFor, String forwarded) {
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getRemoteAddr()).thenReturn(remote);
