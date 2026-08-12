@@ -1,7 +1,8 @@
 {
   "appid": "wx9354023cec37e940",
+  "projectname": "synap-agent-miniprogram-demo",
   "compileType": "miniprogram",
-  "libVersion": "2.25.3",
+  "libVersion": "3.17.1",
   "packOptions": {
     "ignore": [],
     "include": []
@@ -18,11 +19,24 @@
       "ignore": [],
       "disablePlugins": [],
       "outputPath": ""
-    }
+    },
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "packNpmManually": false,
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true
   },
   "condition": {},
   "editorSetting": {
     "tabIndent": "insertSpaces",
     "tabSize": 2
-  }
+  },
+  "simulatorPluginLibVersion": {}
 }

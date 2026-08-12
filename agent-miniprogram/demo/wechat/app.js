@@ -1,8 +1,9 @@
-// app.js
 App({
-  onLaunch: function (options) {
-    //引用外部的probe.js文件并且初始化
-    require('./probe.js');
-    wx.init();
+  globalData: {
+    agent: null,
+    agentReady: null
+  },
+  onLaunch() {
+    console.warn('Synap security protocol v1 does not support WeChat Mini Program');
   }
-})
+});

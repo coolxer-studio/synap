@@ -1,14 +1,12 @@
-<!--pages/tool/tool.wxml-->
 <navigation-bar title="测试工具" back="{{false}}" color="black" background="#FFF"></navigation-bar>
 <scroll-view class="scrollarea" scroll-y type="list">
-  <view class="userinfo">
-    <block wx:if="{{!hasUserInfo}}">
-      <button wx:if="{{canIUseGetUserProfile}}" bindtap="getUserProfile"> 获取头像昵称 </button>
-      <button wx:else open-type="getUserInfo" bindgetuserinfo="getUserInfo"> 获取头像昵称 </button>
-    </block>
-    <block wx:else>
-      <image bindtap="bindViewTap" class="userinfo-avatar" src="{{userInfo.avatarUrl}}" mode="cover"></image>
-      <text class="userinfo-nickname">{{userInfo.nickName}}</text>
-    </block>
+  <view class="userinfo" bindtap="trackTap">
+    <button bindtap="sendOpaqueUser">发送虚拟脱敏用户数据</button>
+    <button bindtap="markLogin">记录登录动作窗口</button>
+    <button bindtap="triggerError">触发脱敏错误</button>
+    <button bindtap="retryUpload">离线/重试测试</button>
+    <button bindtap="simulateDebugPause">调试长暂停检测</button>
+    <button bindtap="showMetrics">查看探针指标</button>
+    <text selectable="true">{{output}}</text>
   </view>
 </scroll-view>
