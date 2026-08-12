@@ -1,0 +1,17 @@
+## Deploy with: install -m 0600 99-synap-host.rules /etc/audit/rules.d/
+## Then reload through the host's normal auditd change process. agent-host never
+## installs or reloads this policy by itself.
+
+-a always,exit -F arch=b64 -S execve -k synap_process
+-a always,exit -F arch=b64 -S connect,accept,bind -k synap_network
+-w /etc/passwd -p wa -k synap_account
+-w /etc/group -p wa -k synap_account
+-w /etc/shadow -p wa -k synap_account
+-w /etc/sudoers -p wa -k synap_config
+-w /etc/ssh/sshd_config -p wa -k synap_config
+-w /etc/crontab -p wa -k synap_task
+-w /etc/cron.d/ -p wa -k synap_task
+-w /etc/systemd/system/ -p wa -k synap_task
+
+## Add deployment-specific business paths, for example:
+## -w /opt/my-service/ -p wa -k synap_business_file

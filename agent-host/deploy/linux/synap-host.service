@@ -1,0 +1,21 @@
+[Unit]
+Description=Synap Host audit probe
+After=network-online.target auditd.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/x-probe --server https://synap.example.invalid --data-dir /var/lib/synap-host
+User=root
+Group=root
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=/var/lib/synap-host
+ReadOnlyPaths=/var/log /proc /sys /etc
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+<Sysmon schemaversion="4.90">
+  <!-- Install/update this policy through the organization's Sysmon process.
+       agent-host only reads the resulting event channels. -->
+  <HashAlgorithms>sha256</HashAlgorithms>
+  <EventFiltering>
+    <ProcessCreate onmatch="include" />
+    <ProcessTerminate onmatch="include" />
+    <NetworkConnect onmatch="include" />
+    <FileCreate onmatch="include" />
+    <FileCreateStreamHash onmatch="include" />
+    <FileDelete onmatch="include" />
+    <RegistryEvent onmatch="include">
+      <TargetObject condition="contains">\Schedule\TaskCache\</TargetObject>
+    </RegistryEvent>
+  </EventFiltering>
+</Sysmon>
