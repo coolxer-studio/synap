@@ -45,6 +45,12 @@ public class JacksonUtils {
         return JacksonConfig.DESERIALIZATION_OBJECT_MAPPER.readValue(content, type);
     }
 
+    /** Deserialize JSON emitted by the public snake-case serializer. */
+    public static <T> T fromSerializedJson(String content, Class<T> type) throws JsonProcessingException {
+        if (!StringUtils.hasLength(content)) return null;
+        return JacksonConfig.SERIALIZATION_OBJECT_MAPPER.readValue(content, type);
+    }
+
     /**
      * 将JSON字符串转换为指定类型的List集合
      * 

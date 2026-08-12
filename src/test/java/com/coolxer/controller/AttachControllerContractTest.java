@@ -10,11 +10,14 @@ import com.coolxer.service.ClientIpResolver;
 import com.coolxer.service.RequestValidationService;
 import com.coolxer.service.UploadMetrics;
 import com.coolxer.service.idempotency.InMemoryIdempotencyStore;
+import com.coolxer.service.idempotency.IdempotencyStore;
+import com.coolxer.service.idempotency.ClaimStatus;
 import com.coolxer.service.impl.RuleEngineImpl;
 import com.coolxer.service.sequence.InMemoryMessageSequenceStore;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -26,12 +29,116 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 class AttachControllerContractTest {
+    @Test
+    void tracksAndReplaysStartOnceForEveryPlatform() {
+        for (String platform : Arrays.asList("ios", "android", "h5", "wechat", "host")) {
+            RuleEngineImpl ruleEngine = mock(RuleEngineImpl.class);
+            when(ruleEngine.run(any())).thenAnswer(invocation -> new Checkpoint(invocation.getArgument(0),
+                    "StartRule.groovy", new ArrayList<>(), new HashSet<>(), "now"));
+            AttachController controller = controller(ruleEngine);
+            RequestVO request = startRequest(platform, true);
+
+            ResponseVO first = controller.start(header(platform), request, requestContext());
+            ResponseVO duplicate = controller.start(header(platform), request, requestContext());
+
+            assertEquals(first, duplicate, platform);
+            ArgumentCaptor<AbstractFact> facts = ArgumentCaptor.forClass(AbstractFact.class);
+            verify(ruleEngine, times(1)).run(facts.capture());
+            AbstractFact fact = facts.getValue();
+            assertEquals("start-message-1", fact.getMessageId(), platform);
+            assertEquals("start-batch-1", fact.getBatchId(), platform);
+            assertEquals(1L, fact.getSequence(), platform);
+            assertTrue(fact.getObservedAt() > 0, platform);
+            assertEquals("SEQUENCE_OK", fact.getSequenceObservation(), platform);
+        }
+    }
+
+    @Test
+    void acceptsLegacyStartWithoutTracking() {
+        RuleEngineImpl ruleEngine = mock(RuleEngineImpl.class);
+        when(ruleEngine.run(any())).thenAnswer(invocation -> new Checkpoint(invocation.getArgument(0),
+                "H5StartFactRule.groovy", new ArrayList<>(), new HashSet<>(), "now"));
+        AttachController controller = controller(ruleEngine);
+
+        ResponseVO response = controller.start(header("h5"), startRequest("h5", false), requestContext());
+
+        assertEquals(1, response.getStatus());
+        ArgumentCaptor<AbstractFact> facts = ArgumentCaptor.forClass(AbstractFact.class);
+        verify(ruleEngine).run(facts.capture());
+        assertEquals("START_LEGACY", facts.getValue().getSequenceObservation());
+    }
+
+    @Test
+    void startSequenceOneMakesFirstUploadSequenceTwoContiguous() {
+        RuleEngineImpl ruleEngine = mock(RuleEngineImpl.class);
+        when(ruleEngine.run(any())).thenAnswer(invocation -> new Checkpoint(invocation.getArgument(0),
+                "Rule.groovy", new ArrayList<>(), new HashSet<>(), "now"));
+        AttachController controller = controller(ruleEngine);
+        controller.start(header("h5"), startRequest("h5", true), requestContext());
+        RequestVO upload = request();
+        upload.getData().get(0).put("sequence", 2);
+
+        controller.upload(header("h5"), upload, requestContext());
+
+        ArgumentCaptor<AbstractFact> facts = ArgumentCaptor.forClass(AbstractFact.class);
+        verify(ruleEngine, times(2)).run(facts.capture());
+        assertEquals("SEQUENCE_OK", facts.getAllValues().get(0).getSequenceObservation());
+        assertEquals("SEQUENCE_OK", facts.getAllValues().get(1).getSequenceObservation());
+    }
+
+    @Test
+    void hostStartSequenceOneMakesFirstUploadSequenceTwoContiguous() {
+        RuleEngineImpl ruleEngine = mock(RuleEngineImpl.class);
+        when(ruleEngine.run(any())).thenAnswer(invocation -> new Checkpoint(invocation.getArgument(0),
+                "HostRule.groovy", new ArrayList<>(), new HashSet<>(), "now"));
+        AttachController controller = controller(ruleEngine);
+        controller.start(header("host"), startRequest("host", true), requestContext());
+        RequestVO upload = request();
+        upload.getCommon().set(8, "host");
+        upload.getData().get(0).put("sequence", 2);
+
+        ResponseVO response = (ResponseVO) controller.upload(header("host"), upload, requestContext());
+
+        assertEquals(java.util.List.of("message-1"), response.getAck().getAcceptedMessageIds());
+        ArgumentCaptor<AbstractFact> facts = ArgumentCaptor.forClass(AbstractFact.class);
+        verify(ruleEngine, times(2)).run(facts.capture());
+        assertEquals("SEQUENCE_OK", facts.getAllValues().get(0).getSequenceObservation());
+        assertEquals("SEQUENCE_OK", facts.getAllValues().get(1).getSequenceObservation());
+        assertEquals("message-1", facts.getAllValues().get(1).getMessageId());
+    }
+
+    @Test
+    void startProcessingIsRetryableAndFailuresReleaseTheClaim() {
+        RuleEngineImpl blockedRule = mock(RuleEngineImpl.class);
+        IdempotencyStore blockedStore = mock(IdempotencyStore.class);
+        when(blockedStore.claim(any())).thenReturn(ClaimStatus.PROCESSING);
+        ResponseStatusException processing = assertThrows(ResponseStatusException.class,
+                () -> controller(blockedRule, blockedStore).start(header("h5"),
+                        startRequest("h5", true), requestContext()));
+        assertEquals(503, processing.getStatusCode().value());
+        verify(blockedRule, never()).run(any());
+
+        RuleEngineImpl retryRule = mock(RuleEngineImpl.class);
+        when(retryRule.run(any())).thenThrow(new RuntimeException("kafka unavailable"))
+                .thenAnswer(invocation -> new Checkpoint(invocation.getArgument(0),
+                        "H5StartFactRule.groovy", new ArrayList<>(), new HashSet<>(), "now"));
+        AttachController retryController = controller(retryRule);
+        RequestVO tracked = startRequest("h5", true);
+        assertThrows(RuntimeException.class,
+                () -> retryController.start(header("h5"), tracked, requestContext()));
+        assertEquals(1, retryController.start(header("h5"), tracked, requestContext()).getStatus());
+        verify(retryRule, times(2)).run(any());
+    }
+
     @Test
     void acknowledgesOnceAndMarksRetryAsDuplicate() {
         RuleEngineImpl ruleEngine = mock(RuleEngineImpl.class);
@@ -123,10 +230,44 @@ class AttachControllerContractTest {
     }
 
     private AttachController controller(RuleEngineImpl ruleEngine) {
-        return new AttachController(ruleEngine, mock(CheckerConfigService.class),
-                new InMemoryIdempotencyStore(Duration.ofMinutes(5), Duration.ofDays(14), 100), new UploadMetrics(),
+        return controller(ruleEngine,
+                new InMemoryIdempotencyStore(Duration.ofMinutes(5), Duration.ofDays(14), 100));
+    }
+
+    private AttachController controller(RuleEngineImpl ruleEngine, IdempotencyStore idempotencyStore) {
+        CheckerConfigService checker = mock(CheckerConfigService.class);
+        when(checker.getConfigByPlatform(any())).thenReturn(Map.of("startConfig", Arrays.asList(1, 1, 1, 1, 1, 1)));
+        return new AttachController(ruleEngine, checker,
+                idempotencyStore, new UploadMetrics(),
                 new ClientIpResolver("127.0.0.1/32"), validator(),
                 new InMemoryMessageSequenceStore(Duration.ofMinutes(30), 100));
+    }
+
+    private RequestVO startRequest(String platform, boolean tracked) {
+        RequestVO request = new RequestVO();
+        ArrayList<String> common = common();
+        common.set(8, platform);
+        if ("wechat".equals(platform)) common.set(6, "wx-test-app");
+        request.setCommon(common);
+        RequestMeta meta = new RequestMeta();
+        meta.setProtocolVersion(1);
+        meta.setAppKeyId("0123456789abcdef0123456789abcdef");
+        meta.setDetectorVersion("1.3.0");
+        if (tracked) {
+            meta.setMessageId("start-message-1");
+            meta.setBatchId("start-batch-1");
+            meta.setSessionId("100");
+            meta.setAttempt(1);
+            meta.setCreatedAt(System.currentTimeMillis());
+            meta.setObservedAt(System.currentTimeMillis());
+            meta.setSequence(1L);
+        }
+        request.setMeta(meta);
+        return request;
+    }
+
+    private String header(String platform) {
+        return "a-b-c-d-e-" + platform + "-1-1.1.0";
     }
 
     private HttpServletRequest requestContext() {

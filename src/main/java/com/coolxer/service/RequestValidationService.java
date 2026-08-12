@@ -3,6 +3,7 @@ package com.coolxer.service;
 import com.coolxer.model.fact.Common;
 import com.coolxer.model.fact.Header;
 import com.coolxer.model.vo.RequestVO;
+import com.coolxer.model.vo.RequestMeta;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -24,6 +25,8 @@ public class RequestValidationService {
             "DeviceData", "SelfAppData", "RuntimeData", "IntegrityData", "SessionData",
             "ErrorData", "BehaviorData", "ActionData", "NetworkData", "LocationData",
             "UserData", "DebugData");
+    private static final Set<String> HOST_FACT_TYPES = Set.of(
+            "DeviceData", "FileData", "RuntimeData", "NetData", "EventData", "UserData", "AuditData");
 
     private final String[] globalOrigins;
     private final Map<String, String[]> appOrigins;
@@ -35,6 +38,8 @@ public class RequestValidationService {
     private String configuredWechatAppIds = "";
     @Value("${synap.security.require-wechat-appid:false}")
     private boolean requireWechatAppId;
+    @Value("${synap.start-tracking.required-platforms:}")
+    private String requiredStartTrackingPlatforms = "";
 
     public RequestValidationService(
             @Value("${synap.cors.allowed-origin-patterns:http://localhost:*,http://127.0.0.1:*}") String globalOrigins,
@@ -61,8 +66,18 @@ public class RequestValidationService {
             Header header = new Header(code);
             common = com.coolxer.model.fact.FactBuilder.buildCommon(request.getCommon());
             if (!header.isConsistentWith(common)) return "header and common are inconsistent";
+            if (!upload) {
+                RequestMeta meta = request.getMeta();
+                boolean hasTracking = meta != null && meta.hasStartTracking();
+                if (requiresStartTracking(common.getPlatform()) && !hasTracking) {
+                    return "start tracking metadata is required";
+                }
+                if (hasTracking && !meta.isValidStartTracking(common.getStartId())) {
+                    return "invalid start tracking metadata";
+                }
+            }
             if (isProtocolPlatform(common.getPlatform())) {
-                String label = "h5".equalsIgnoreCase(common.getPlatform()) ? "H5" : "WeChat";
+                String label = protocolLabel(common.getPlatform());
                 if (request.getMeta() == null) return label + " metadata is required";
                 if (upload ? !request.getMeta().isValidFor(common.getStartId()) : !request.getMeta().isValidStart()) {
                     return upload ? "invalid " + label + " batch metadata" : "invalid " + label + " start metadata";
@@ -70,7 +85,7 @@ public class RequestValidationService {
                 if ("h5".equalsIgnoreCase(common.getPlatform())) {
                     String browserError = validateBrowserContext(common, request.getMeta().getAppKeyId(), servletRequest);
                     if (browserError != null) return browserError;
-                } else {
+                } else if ("wechat".equalsIgnoreCase(common.getPlatform())) {
                     String appError = validateWechatApp(common, request.getMeta().getAppKeyId());
                     if (appError != null) return appError;
                 }
@@ -79,7 +94,7 @@ public class RequestValidationService {
             return "invalid header or common";
         }
         if (upload && isProtocolPlatform(common.getPlatform()) && request.getData() != null) {
-            Set<String> allowedTypes = "h5".equalsIgnoreCase(common.getPlatform()) ? H5_FACT_TYPES : WECHAT_FACT_TYPES;
+            Set<String> allowedTypes = allowedFactTypes(common.getPlatform());
             for (Map<String, Object> fact : request.getData()) {
                 if (fact == null) return "fact is null";
                 Object type = fact.get("type");
@@ -107,7 +122,28 @@ public class RequestValidationService {
     }
 
     private static boolean isProtocolPlatform(String platform) {
-        return "h5".equalsIgnoreCase(platform) || "wechat".equalsIgnoreCase(platform);
+        return "h5".equalsIgnoreCase(platform) || "wechat".equalsIgnoreCase(platform)
+                || "host".equalsIgnoreCase(platform);
+    }
+
+    private static Set<String> allowedFactTypes(String platform) {
+        if ("h5".equalsIgnoreCase(platform)) return H5_FACT_TYPES;
+        if ("wechat".equalsIgnoreCase(platform)) return WECHAT_FACT_TYPES;
+        return HOST_FACT_TYPES;
+    }
+
+    private static String protocolLabel(String platform) {
+        if ("h5".equalsIgnoreCase(platform)) return "H5";
+        if ("wechat".equalsIgnoreCase(platform)) return "WeChat";
+        return "Host";
+    }
+
+    private boolean requiresStartTracking(String platform) {
+        if (platform == null || requiredStartTrackingPlatforms == null) return false;
+        for (String configured : requiredStartTrackingPlatforms.split(",")) {
+            if (platform.equalsIgnoreCase(configured.trim())) return true;
+        }
+        return false;
     }
 
     public String normalizedOrigin(HttpServletRequest request) {

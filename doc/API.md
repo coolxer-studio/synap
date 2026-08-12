@@ -160,8 +160,9 @@ H5 的 `lanIp` 来自浏览器可选的 WebRTC host candidate，可能为 `maske
 
 ## POST /attach/start
 
-H5 agent 启动逻辑路由。服务端从 `/sc/v1/message` 解密后转发该请求，加载 H5
-checker 配置，构造 `H5StartFact`，执行启动规则，并将结果重新加密返回。
+各平台 agent 的启动逻辑路由。服务端从 `/sc/v1/message` 解密后转发该请求，按
+`common.platform` 加载 checker 配置、构造对应 StartFact、执行启动规则，并将结果
+重新加密返回。
 
 推荐路径：
 
@@ -208,11 +209,24 @@ code: g1-g2-g3-g4-g5-h5-1-1.3.0
   "meta": {
     "protocolVersion": 1,
     "appKeyId": "8f5c2a4d9b7e1f603ac8d042b97e6c15",
-    "detectorVersion": "1.3.0"
+    "detectorVersion": "1.3.0",
+    "messageId": "start-msg-019",
+    "batchId": "start-batch-019",
+    "sessionId": "10001",
+    "attempt": 1,
+    "createdAt": 1785885600000,
+    "observedAt": 1785885600000,
+    "sequence": 1
   },
   "data": []
 }
 ```
+
+StartData 是每个 `startId` 会话的第一条逻辑消息，固定使用 `sequence=1`。重试时除
+`attempt` 递增外，其余追踪字段必须保持不变；服务端只执行一次规则和 Kafka 发布，
+并原样重放首次响应。兼容期内完全不带追踪字段的旧客户端仍可启动，但只要出现任一
+追踪字段就必须提交完整元组。可通过
+`synap.start-tracking.required-platforms=h5,wechat,ios,android,host` 分平台启用强制校验。
 
 成功响应示例：
 
@@ -247,7 +261,8 @@ code: g1-g2-g3-g4-g5-h5-1-1.3.0
 
 ## POST /attach/upload
 
-H5 数据上报接口。第一版固定使用 `protocolVersion=1` 和原 H5 codec，服务端先执行消息幂等和 sequence 观察，再构造 Fact、执行规则并写入 Kafka。
+H5、微信和 Host 数据上报接口。固定使用 `protocolVersion=1`，服务端先执行消息幂等和
+sequence 观察，再构造 Fact、执行规则并写入 Kafka。
 
 推荐路径：
 
@@ -319,13 +334,19 @@ code: g1-g2-g3-g4-g5-h5-1-1.3.0
 说明：
 
 - `type` 必填，用于推导 Fact 类名。
-- H5 的 `meta`、`messageId`、`sequence` 和 `observedAt` 必填；缺失时服务端通过 ACK 永久拒绝。
+- H5、微信和 Host 的 `meta`、`messageId`、`sequence` 和 `observedAt` 必填；缺失时服务端拒绝。
+- Host 采用一消息一批次，StartData 固定 sequence 1，第一条普通消息使用 sequence 2。
+- 缺少 batch meta 的旧 Host 会收到 HTTP 426，必须协调升级服务端和全部 Host 客户端。
 - `messageId` 在持久化和重试过程中必须保持不变；服务端去重键由 appId、startId 和 messageId 组成。
 - 其他字段名要与对应平台 checker 配置中的 `<type>Config` 子字段匹配。
 - 数组值顺序必须与 checker 配置中的字段顺序一致。
 - 如果 Fact 构造失败，当前代码会记录错误并跳过该条数据。
 
 H5 接受的 `type` 包括 `DeviceData/SelfAppData/RuntimeData/LocationData/IntegrityData/ResourceIntegrityData/BehaviorData/ActionData/SessionData/NetworkData/ErrorData/EventData/DebugData/DevToolData/UserData`。其中 `ErrorData` 只包含脱敏错误模板、路径模板、行列、摘要和 5 秒窗口计数；`RuntimeData.custom.format=1` 会生成低权重 `H5观察-代码格式化` 标签。完整字段和阈值见 [H5 检测规则与验收说明](H5检测规则.md)。
+
+Host 接受 `DeviceData/FileData/RuntimeData/NetData/EventData/UserData/AuditData`。AuditData
+Fact 内的 `batchId` 是业务审计批次，`meta.batchId` 是传输批次；服务端同时执行 messageId
+和审计批次幂等，并始终以传输 batchId 返回 ACK。
 
 成功响应示例：
 

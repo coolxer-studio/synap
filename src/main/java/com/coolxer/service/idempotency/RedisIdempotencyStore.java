@@ -7,13 +7,17 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.Collections;
+import java.util.Optional;
 
 @Component
 @ConditionalOnProperty(name = "synap.idempotency.store", havingValue = "redis")
 public class RedisIdempotencyStore implements IdempotencyStore {
     private static final String PROCESSING = "processing";
     private static final String DONE = "done";
+    private static final String DONE_WITH_PAYLOAD = "done:";
     private static final DefaultRedisScript<Long> RELEASE_SCRIPT = new DefaultRedisScript<>(
             "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
             Long.class);
@@ -34,12 +38,28 @@ public class RedisIdempotencyStore implements IdempotencyStore {
     public ClaimStatus claim(String key) {
         Boolean acquired = redis.opsForValue().setIfAbsent(key, PROCESSING, processingTtl);
         if (Boolean.TRUE.equals(acquired)) return ClaimStatus.ACQUIRED;
-        return DONE.equals(redis.opsForValue().get(key)) ? ClaimStatus.DONE : ClaimStatus.PROCESSING;
+        String current = redis.opsForValue().get(key);
+        return current != null && (DONE.equals(current) || current.startsWith(DONE_WITH_PAYLOAD))
+                ? ClaimStatus.DONE : ClaimStatus.PROCESSING;
     }
 
     @Override
-    public void complete(String key) {
-        redis.opsForValue().set(key, DONE, doneTtl);
+    public void complete(String key, String completedPayload) {
+        String value = completedPayload == null ? DONE : DONE_WITH_PAYLOAD
+                + Base64.getEncoder().encodeToString(completedPayload.getBytes(StandardCharsets.UTF_8));
+        redis.opsForValue().set(key, value, doneTtl);
+    }
+
+    @Override
+    public Optional<String> completedPayload(String key) {
+        String value = redis.opsForValue().get(key);
+        if (value == null || !value.startsWith(DONE_WITH_PAYLOAD)) return Optional.empty();
+        try {
+            return Optional.of(new String(Base64.getDecoder().decode(value.substring(DONE_WITH_PAYLOAD.length())),
+                    StandardCharsets.UTF_8));
+        } catch (IllegalArgumentException invalid) {
+            return Optional.empty();
+        }
     }
 
     @Override

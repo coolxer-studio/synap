@@ -62,6 +62,23 @@ class RequestValidationServiceTest {
     }
 
     @Test
+    void validatesTrackedHostWithoutBrowserOrWechatRules() {
+        RequestValidationService service = new RequestValidationService("", "", false, 262144, 100, 8192);
+        RequestVO request = request();
+        request.getCommon().set(3, "2.0.0");
+        request.getCommon().set(6, "agent-host");
+        request.getCommon().set(8, "host");
+        request.getMeta().setAppKeyId("1");
+        request.getMeta().setDetectorVersion("2.0.0");
+        request.getData().get(0).put("type", "UserData");
+        assertNull(service.validateEnvelope("a-b-c-d-e-host-1-2.0.0", request,
+                mock(HttpServletRequest.class), true));
+        request.setMeta(null);
+        assertEquals("Host metadata is required", service.validateEnvelope(
+                "a-b-c-d-e-host-1-2.0.0", request, mock(HttpServletRequest.class), true));
+    }
+
+    @Test
     void enforcesWechatAppIdAllowlistByAppKeyId() {
         RequestValidationService service = new RequestValidationService("", "", true, 262144, 100, 8192);
         ReflectionTestUtils.setField(service, "configuredWechatAppIds",
@@ -74,6 +91,38 @@ class RequestValidationServiceTest {
                 service.validateEnvelope("a-b-c-d-e-wechat-1-1.3.0", request, mock(HttpServletRequest.class), true));
         request.getCommon().set(6, "wx-allowed");
         assertNull(service.validateEnvelope("a-b-c-d-e-wechat-1-1.3.0", request, mock(HttpServletRequest.class), true));
+    }
+
+    @Test
+    void validatesCompleteStartTrackingAndRejectsPartialMetadata() {
+        RequestValidationService service = new RequestValidationService("", "", true, 262144, 100, 8192);
+        RequestVO request = request();
+        request.getMeta().setMessageId("start-message-1");
+        request.getMeta().setObservedAt(System.currentTimeMillis());
+        request.getMeta().setSequence(1L);
+        assertNull(service.validateEnvelope("a-b-c-d-e-h5-1-1.3.0", request,
+                mock(HttpServletRequest.class), false));
+
+        request.getMeta().setSequence(2L);
+        assertEquals("invalid start tracking metadata", service.validateEnvelope(
+                "a-b-c-d-e-h5-1-1.3.0", request, mock(HttpServletRequest.class), false));
+        request.getMeta().setSequence(1L);
+        request.getMeta().setMessageId(null);
+        assertEquals("invalid start tracking metadata", service.validateEnvelope(
+                "a-b-c-d-e-h5-1-1.3.0", request, mock(HttpServletRequest.class), false));
+    }
+
+    @Test
+    void canRequireStartTrackingByPlatformAfterCompatibilityRollout() {
+        RequestValidationService service = new RequestValidationService("", "", true, 262144, 100, 8192);
+        ReflectionTestUtils.setField(service, "requiredStartTrackingPlatforms", "h5,wechat");
+        RequestVO request = request();
+        request.getMeta().setBatchId(null);
+        request.getMeta().setSessionId(null);
+        request.getMeta().setAttempt(null);
+        request.getMeta().setCreatedAt(null);
+        assertEquals("start tracking metadata is required", service.validateEnvelope(
+                "a-b-c-d-e-h5-1-1.3.0", request, mock(HttpServletRequest.class), false));
     }
 
     private RequestVO request() {

@@ -9,6 +9,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
@@ -47,13 +48,20 @@ public class InMemoryIdempotencyStore implements IdempotencyStore {
             entries.entrySet().stream().min(Comparator.comparingLong(entry -> entry.getValue().expiresAt))
                     .ifPresent(entry -> entries.remove(entry.getKey(), entry.getValue()));
         }
-        entries.put(key, new Entry(PROCESSING, clock.millis() + processingTtlMillis));
+        entries.put(key, new Entry(PROCESSING, clock.millis() + processingTtlMillis, null));
         return ClaimStatus.ACQUIRED;
     }
 
     @Override
-    public synchronized void complete(String key) {
-        entries.put(key, new Entry(DONE, clock.millis() + doneTtlMillis));
+    public synchronized void complete(String key, String completedPayload) {
+        entries.put(key, new Entry(DONE, clock.millis() + doneTtlMillis, completedPayload));
+    }
+
+    @Override
+    public synchronized Optional<String> completedPayload(String key) {
+        evictExpired();
+        Entry entry = entries.get(key);
+        return entry != null && DONE.equals(entry.state) ? Optional.ofNullable(entry.payload) : Optional.empty();
     }
 
     @Override
@@ -67,5 +75,5 @@ public class InMemoryIdempotencyStore implements IdempotencyStore {
         entries.entrySet().removeIf(entry -> entry.getValue().expiresAt <= now);
     }
 
-    private record Entry(String state, long expiresAt) { }
+    private record Entry(String state, long expiresAt, String payload) { }
 }

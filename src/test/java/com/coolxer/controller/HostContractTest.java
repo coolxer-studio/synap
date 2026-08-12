@@ -13,6 +13,7 @@ import com.coolxer.model.fact.host.HostFileFact;
 import com.coolxer.model.fact.host.HostNetFact;
 import com.coolxer.model.fact.host.HostRuntimeFact;
 import com.coolxer.model.vo.RequestVO;
+import com.coolxer.model.vo.RequestMeta;
 import com.coolxer.model.vo.ResponseVO;
 import com.coolxer.service.CheckerConfigService;
 import com.coolxer.service.ClientIpResolver;
@@ -47,6 +48,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 
 class HostContractTest {
     private static Map<String, Object> hostConfig;
@@ -91,27 +95,33 @@ class HostContractTest {
                 "HostFactRule.groovy", new ArrayList<>(), new HashSet<>(), "now"));
         CheckerConfigService checker = mock(CheckerConfigService.class);
         when(checker.getConfigByPlatform("host")).thenReturn(hostConfig);
+        InMemoryMessageSequenceStore sequences = new InMemoryMessageSequenceStore(Duration.ofMinutes(30), 100);
+        sequences.observe(FactBuilder.buildCommon(common()), 1);
         AttachController controller = new AttachController(ruleEngine, checker,
                 new InMemoryIdempotencyStore(Duration.ofMinutes(5), Duration.ofDays(14), 100), new UploadMetrics(),
                 new ClientIpResolver(""), new RequestValidationService("", "", true, 262144, 100, 8192),
-                new InMemoryMessageSequenceStore(Duration.ofMinutes(30), 100));
+                sequences);
         HttpServletRequest servletRequest = mock(HttpServletRequest.class);
         when(servletRequest.getRemoteAddr()).thenReturn("203.0.113.9");
 
-        RequestVO request = new RequestVO();
         ArrayList<String> uploadCommon = common();
         uploadCommon.set(15, "8.8.8.8");
-        request.setCommon(uploadCommon);
-        request.setData(new ArrayList<>(facts()));
+        RequestVO request = trackedRequest(uploadCommon, facts(), "batch-all");
         ResponseVO response = (ResponseVO) controller.upload("a-b-c-d-e-host-1-2.0.0", request, servletRequest);
 
         assertEquals(1, response.getStatus());
+        assertEquals(6, response.getAck().getAcceptedMessageIds().size());
         ArgumentCaptor<AbstractFact> captor = ArgumentCaptor.forClass(AbstractFact.class);
         verify(ruleEngine, org.mockito.Mockito.times(6)).run(captor.capture());
         captor.getAllValues().forEach(value -> {
             assertEquals("8.8.8.8", value.getCommon().getWanIp());
             assertEquals("203.0.113.9", value.getRequestIp());
+            assertNotNull(value.getMessageId());
+            assertEquals("batch-all", value.getBatchId());
+            assertNotNull(value.getObservedAt());
+            assertNotNull(value.getSequence());
         });
+        assertEquals("SEQUENCE_OK", captor.getAllValues().get(0).getSequenceObservation());
     }
 
     @Test
@@ -126,12 +136,15 @@ class HostContractTest {
                 new InMemoryMessageSequenceStore(Duration.ofMinutes(30), 100));
         HttpServletRequest servletRequest = mock(HttpServletRequest.class);
         when(servletRequest.getRemoteAddr()).thenReturn("203.0.113.9");
-        RequestVO request = new RequestVO();
-        request.setCommon(common());
-        request.setData(new ArrayList<>(List.of(facts().get(5))));
+        RequestVO request = trackedRequest(common(), List.of(facts().get(5)), "batch-audit-transport");
+        RequestVO sameAuditDifferentMessage = trackedRequest(common(), List.of(facts().get(5)), "batch-audit-transport-2");
+        sameAuditDifferentMessage.getData().get(0).put("messageId", "host-message-3");
+        sameAuditDifferentMessage.getData().get(0).put("sequence", 3);
 
-        assertEquals(1, ((ResponseVO) controller.upload("a-b-c-d-e-host-1-2.0.0", request, servletRequest)).getStatus());
-        assertEquals(1, ((ResponseVO) controller.upload("a-b-c-d-e-host-1-2.0.0", request, servletRequest)).getStatus());
+        ResponseVO first = (ResponseVO) controller.upload("a-b-c-d-e-host-1-2.0.0", request, servletRequest);
+        ResponseVO duplicate = (ResponseVO) controller.upload("a-b-c-d-e-host-1-2.0.0", sameAuditDifferentMessage, servletRequest);
+        assertEquals(List.of("host-message-2"), first.getAck().getAcceptedMessageIds());
+        assertEquals(List.of("host-message-3"), duplicate.getAck().getDuplicateMessageIds());
         verify(ruleEngine, org.mockito.Mockito.times(1)).run(any());
     }
 
@@ -147,12 +160,49 @@ class HostContractTest {
                 new InMemoryMessageSequenceStore(Duration.ofMinutes(30), 100));
         HttpServletRequest servletRequest = mock(HttpServletRequest.class);
         when(servletRequest.getRemoteAddr()).thenReturn("203.0.113.9");
-        RequestVO request = new RequestVO(); request.setCommon(common());
-        request.setData(new ArrayList<>(List.of(facts().get(5))));
+        RequestVO request = trackedRequest(common(), List.of(facts().get(5)), "batch-audit-retry");
 
-        assertThrows(RuntimeException.class, () -> controller.upload("a-b-c-d-e-host-1-2.0.0", request, servletRequest));
-        assertEquals(1, ((ResponseVO) controller.upload("a-b-c-d-e-host-1-2.0.0", request, servletRequest)).getStatus());
+        ResponseVO failed = (ResponseVO) controller.upload("a-b-c-d-e-host-1-2.0.0", request, servletRequest);
+        assertTrue(failed.getAck().getRejectedItems().get(0).isRetryable());
+        ResponseVO retried = (ResponseVO) controller.upload("a-b-c-d-e-host-1-2.0.0", request, servletRequest);
+        assertEquals(List.of("host-message-2"), retried.getAck().getAcceptedMessageIds());
         verify(ruleEngine, org.mockito.Mockito.times(2)).run(any());
+    }
+
+    @Test
+    void rejectsLegacyHostUploadWithUpgradeRequiredBeforeRuleExecution() {
+        RuleEngineImpl ruleEngine = mock(RuleEngineImpl.class);
+        AttachController controller = new AttachController(ruleEngine, mock(CheckerConfigService.class),
+                new InMemoryIdempotencyStore(Duration.ofMinutes(5), Duration.ofDays(14), 100), new UploadMetrics(),
+                new ClientIpResolver(""), new RequestValidationService("", "", true, 262144, 100, 8192),
+                new InMemoryMessageSequenceStore(Duration.ofMinutes(30), 100));
+        RequestVO legacy = new RequestVO(); legacy.setCommon(common()); legacy.setData(new ArrayList<>(facts()));
+
+        ResponseStatusException error = assertThrows(ResponseStatusException.class,
+                () -> controller.upload("a-b-c-d-e-host-1-2.0.0", legacy, mock(HttpServletRequest.class)));
+        assertEquals(HttpStatus.UPGRADE_REQUIRED, error.getStatusCode());
+        verify(ruleEngine, never()).run(any());
+    }
+
+    @Test
+    void rejectsPartialAndWrongSessionHostTrackingBeforeRuleExecution() {
+        RuleEngineImpl ruleEngine = mock(RuleEngineImpl.class);
+        AttachController controller = new AttachController(ruleEngine, mock(CheckerConfigService.class),
+                new InMemoryIdempotencyStore(Duration.ofMinutes(5), Duration.ofDays(14), 100), new UploadMetrics(),
+                new ClientIpResolver(""), new RequestValidationService("", "", true, 262144, 100, 8192),
+                new InMemoryMessageSequenceStore(Duration.ofMinutes(30), 100));
+        RequestVO partial = trackedRequest(common(), List.of(facts().get(0)), "batch-partial");
+        partial.getData().get(0).remove("observedAt");
+        ResponseVO partialResponse = (ResponseVO) controller.upload(
+                "a-b-c-d-e-host-1-2.0.0", partial, mock(HttpServletRequest.class));
+        assertEquals("invalid message metadata", partialResponse.getAck().getRejectedItems().get(0).getReason());
+
+        RequestVO wrongSession = trackedRequest(common(), List.of(facts().get(0)), "batch-session");
+        wrongSession.getMeta().setSessionId("wrong");
+        ResponseVO sessionResponse = (ResponseVO) controller.upload(
+                "a-b-c-d-e-host-1-2.0.0", wrongSession, mock(HttpServletRequest.class));
+        assertTrue(sessionResponse.getAck().getRejectedItems().get(0).getReason().contains("batch metadata"));
+        verify(ruleEngine, never()).run(any());
     }
 
     @Test
@@ -165,6 +215,23 @@ class HostContractTest {
     private static ArrayList<String> common() {
         return new ArrayList<>(Arrays.asList("user", "a-b-c-d-e", "1700000000000", "2.0.0", "1", "x-probe", "agent-host", "2.0.0",
                 "host", "vendor", "model", "linux", "6.1", "ethernet", "192.0.2.2", "", "0", "0", "", "", "", "", "", "2026-08-05 10:00:00"));
+    }
+
+    private static RequestVO trackedRequest(ArrayList<String> common, List<Map<String, Object>> facts, String batchId) {
+        RequestMeta meta = new RequestMeta();
+        meta.setProtocolVersion(1); meta.setAppKeyId("1"); meta.setDetectorVersion("2.0.0");
+        meta.setBatchId(batchId); meta.setSessionId(common.get(2)); meta.setAttempt(1);
+        meta.setCreatedAt(System.currentTimeMillis());
+        ArrayList<Map<String, Object>> tracked = new ArrayList<>();
+        for (int index = 0; index < facts.size(); index++) {
+            Map<String, Object> fact = mutableMap(facts.get(index));
+            fact.put("messageId", "host-message-" + (index + 2));
+            fact.put("observedAt", System.currentTimeMillis());
+            fact.put("sequence", index + 2);
+            tracked.add(fact);
+        }
+        RequestVO request = new RequestVO(); request.setCommon(common); request.setMeta(meta); request.setData(tracked);
+        return request;
     }
 
     private static List<Map<String, Object>> facts() {

@@ -26,6 +26,11 @@ readonly DATED_TAG="${IMAGE_NAME}:${DATE_TAG}-${IMAGE_ARCH}"
 readonly BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 readonly VCS_REF="$(git -C "$PROJECT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
+echo "========== 更新identify_config 配置=========="
+
+rm -rf deploy/open_config/identify_config/*
+cp src/main/java/com/coolxer/rule/* deploy/open_config/identify_config/
+
 echo "========== 构建 synap-server (${IMAGE_ARCH}) =========="
 
 maven_args=(clean package)

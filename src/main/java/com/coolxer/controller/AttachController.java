@@ -28,6 +28,7 @@ import com.coolxer.service.sequence.SequenceObservation;
 import com.coolxer.service.idempotency.ClaimStatus;
 import com.coolxer.service.idempotency.IdempotencyStore;
 import com.coolxer.service.impl.RuleEngineImpl;
+import com.coolxer.utils.JacksonUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpStatus;
@@ -72,7 +73,10 @@ public class AttachController extends AbstractController {
     public ResponseVO start(@RequestHeader("code") String code, @RequestBody RequestVO requestVO,
                             HttpServletRequest servletRequest) {
         String validationError = requestValidationService.validateEnvelope(code, requestVO, servletRequest, false);
-        if (validationError != null) return error(validationError, null);
+        if (validationError != null) {
+            uploadMetrics.startRejected();
+            return error(validationError, null);
+        }
         Header header = FactBuilder.buildHeader(code);
         Common common = FactBuilder.buildCommon(requestVO.getCommon());
         String platform = common.getPlatform();
@@ -80,48 +84,68 @@ public class AttachController extends AbstractController {
         common.setWanIp("host".equalsIgnoreCase(platform)
                 ? clientIpResolver.resolveWanIp(common.getWanIp(), clientIp) : clientIp);
 
-        ArrayList<Punish> punishList = new ArrayList<>();
-        ArrayList<Agenda> agendaList = new ArrayList<>();
-        RiskAssessment latestRisk = null;
-
-        // 从服务中获取最新的配置
-        Map<String,Object> config = checkerConfigService.getConfigByPlatform(platform);
-        if (config == null) {
-            return error("未找到平台配置: " + platform, common);
+        RequestMeta meta = requestVO.getMeta();
+        boolean tracked = meta != null && meta.hasStartTracking();
+        String idempotencyKey = null;
+        SequenceObservation startSequence = null;
+        if (tracked) {
+            idempotencyKey = "synap:" + platform.toLowerCase() + ":message:" + common.getAppId() + ":"
+                    + common.getStartId() + ":" + meta.getMessageId();
+            ClaimStatus claim = idempotencyStore.claim(idempotencyKey);
+            if (claim == ClaimStatus.DONE) {
+                uploadMetrics.startDuplicate();
+                String completed = idempotencyStore.completedPayload(idempotencyKey)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                                "start response is unavailable"));
+                return deserializeStartResponse(completed);
+            }
+            if (claim == ClaimStatus.PROCESSING) {
+                uploadMetrics.startProcessing();
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "start request is processing");
+            }
+            uploadMetrics.startTracked();
+            startSequence = sequenceStore.observe(common, meta.getSequence());
+        } else {
+            uploadMetrics.startLegacy();
         }
-        
-        AbstractFact fact = null;
-        if("ios".equals(platform)){
-            fact = new IosStartFact("StartData",header,common,config);
-        }else if("android".equals(platform)){
-            fact = new AndroidStartFact("StartData",header,common,config);
-        }else if("h5".equals(platform)){
-            fact = new H5StartFact("StartData",header,common,config);
-        }else if("wechat".equals(platform)){
-            fact = new WechatStartFact("StartData",header,common,config);
-        }else if("host".equals(platform)){
-            fact = new HostStartFact("StartData",header,common,config);
-        }else {
-            return error("unknow platform:"+platform,common);
-        }
 
-        if (Objects.nonNull(fact)){
+        try {
+            ArrayList<Punish> punishList = new ArrayList<>();
+            ArrayList<Agenda> agendaList = new ArrayList<>();
+            Map<String,Object> config = checkerConfigService.getConfigByPlatform(platform);
+            if (config == null) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "未找到平台配置: " + platform);
+
+            AbstractFact fact;
+            if("ios".equals(platform)) fact = new IosStartFact("StartData",header,common,config);
+            else if("android".equals(platform)) fact = new AndroidStartFact("StartData",header,common,config);
+            else if("h5".equals(platform)) fact = new H5StartFact("StartData",header,common,config);
+            else if("wechat".equals(platform)) fact = new WechatStartFact("StartData",header,common,config);
+            else if("host".equals(platform)) fact = new HostStartFact("StartData",header,common,config);
+            else throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown platform:" + platform);
+
+            if (tracked) {
+                fact.setTransportContext(meta.getMessageId(), meta.getBatchId(), meta.getObservedAt(), meta.getSequence());
+            }
             fact.setRequestContext(clientIp, servletRequest.getHeader("User-Agent"));
             fact.setSecurityContext(requestValidationService.normalizedOrigin(servletRequest),
                     servletRequest.getHeader("Sec-Fetch-Site"), servletRequest.getHeader("Sec-Fetch-Mode"),
                     servletRequest.getHeader("Sec-Fetch-Dest"),
-                    transportTrust(servletRequest), "START");
+                    transportTrust(servletRequest), tracked ? startSequence.reasonCode() : "START_LEGACY");
             setGatewayContext(fact, servletRequest);
             Checkpoint checkpoint = ruleEngineImpl.run(fact);
+            if (checkpoint == null) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "start rule is unavailable");
             agendaList.addAll(checkpoint.getAgendas());
-            //TODO :需要对getPunishes的hashset进行优先级排序，客户端按顺序执行即可
             punishList.addAll(checkpoint.getPunishes());
-            latestRisk = checkpoint.getRisk();
+            ResponseVO response = succeed(config,agendaList,punishList);
+            response.setRisk(checkpoint.getRisk());
+            if (tracked) idempotencyStore.complete(idempotencyKey, serializeStartResponse(response));
+            return response;
+        } catch (RuntimeException error) {
+            if (tracked) idempotencyStore.release(idempotencyKey);
+            throw error;
         }
-        ResponseVO response = succeed(config,agendaList,punishList);
-        response.setRisk(latestRisk);
-        return response;
-
     }
 
     @RequestMapping(value = {"upload","/2"}, method = RequestMethod.POST)
@@ -130,6 +154,10 @@ public class AttachController extends AbstractController {
         String requestPlatform = requestPlatform(requestVO);
         boolean protocolClient = isProtocolRequest(requestPlatform);
         RequestMeta meta = requestVO == null ? null : requestVO.getMeta();
+        if ("host".equalsIgnoreCase(requestPlatform) && meta == null) {
+            throw new ResponseStatusException(HttpStatus.UPGRADE_REQUIRED,
+                    "Host upload tracking metadata is required; upgrade agent-host");
+        }
         UploadAck ack = protocolClient ? new UploadAck(meta == null ? null : meta.getBatchId()) : null;
         String validationError = requestValidationService.validateEnvelope(code, requestVO, servletRequest, true);
         if (validationError != null) {
@@ -171,6 +199,7 @@ public class AttachController extends AbstractController {
             String idempotencyKey = null;
             String hostAuditKey = null;
             SequenceObservation sequenceObservation = null;
+            Long messageSequence = null;
 
             boolean hostAudit = "host".equalsIgnoreCase(platform) && "AuditData".equals(stringValue(itemMap.get("type")));
             if (hostAudit) {
@@ -182,21 +211,13 @@ public class AttachController extends AbstractController {
                 }
                 String batchId = stringValue(itemMap.get("batchId"));
                 hostAuditKey = "synap:host:audit:batch:" + common.getGuid() + ":" + batchId;
-                ClaimStatus claim = idempotencyStore.claim(hostAuditKey);
-                if (claim == ClaimStatus.DONE) {
-                    uploadMetrics.duplicate();
-                    continue;
-                }
-                if (claim == ClaimStatus.PROCESSING) {
-                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "audit batch is processing");
-                }
             }
             if (protocolClient) {
-                Long sequence = longValue(itemMap.get("sequence"));
+                messageSequence = longValue(itemMap.get("sequence"));
                 Long observedAt = longValue(itemMap.get("observedAt"));
                 if (messageId == null || messageId.isBlank() || messageId.length() > 128
                         || stringValue(itemMap.get("type")) == null
-                        || sequence == null || sequence <= 0
+                        || messageSequence == null || messageSequence <= 0
                         || observedAt == null || observedAt <= 0) {
                     ack.getRejectedItems().add(new RejectedItem(messageId, false, "invalid message metadata"));
                     uploadMetrics.rejected();
@@ -214,9 +235,31 @@ public class AttachController extends AbstractController {
                     uploadMetrics.rejected();
                     continue;
                 }
-                sequenceObservation = sequenceStore.observe(common, sequence);
             }
-
+            if (hostAudit) {
+                ClaimStatus claim = idempotencyStore.claim(hostAuditKey);
+                if (claim == ClaimStatus.DONE) {
+                    if (protocolClient) {
+                        sequenceStore.observe(common, messageSequence);
+                        idempotencyStore.complete(idempotencyKey);
+                        ack.getDuplicateMessageIds().add(messageId);
+                    }
+                    uploadMetrics.duplicate();
+                    continue;
+                }
+                if (claim == ClaimStatus.PROCESSING) {
+                    if (protocolClient) {
+                        idempotencyStore.release(idempotencyKey);
+                        ack.getRejectedItems().add(new RejectedItem(messageId, true, "audit batch is processing"));
+                        uploadMetrics.rejected();
+                        continue;
+                    }
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "audit batch is processing");
+                }
+            }
+            if (protocolClient) {
+                sequenceObservation = sequenceStore.observe(common, messageSequence);
+            }
             try {
                 AbstractFact fact = FactBuilder.buildFact(header,common,itemMap);
                 if (Objects.isNull(fact)) {
@@ -294,7 +337,8 @@ public class AttachController extends AbstractController {
     }
 
     private static boolean isProtocolRequest(String platform) {
-        return "h5".equalsIgnoreCase(platform) || "wechat".equalsIgnoreCase(platform);
+        return "h5".equalsIgnoreCase(platform) || "wechat".equalsIgnoreCase(platform)
+                || "host".equalsIgnoreCase(platform);
     }
 
     private static String transportTrust(HttpServletRequest request) {
@@ -323,6 +367,17 @@ public class AttachController extends AbstractController {
     private void setGatewayContext(AbstractFact fact, HttpServletRequest request) {
         ClientIpResolver.GatewaySignals signals = clientIpResolver.gatewaySignals(request);
         fact.setGatewayContext(signals.asn(), signals.networkCategory(), signals.tlsFingerprint(), signals.ipReputation());
+    }
+
+    private static String serializeStartResponse(ResponseVO response) {
+        try { return JacksonUtils.toJson(response); }
+        catch (Exception error) { throw new IllegalStateException("start response serialization failed", error); }
+    }
+
+    private static ResponseVO deserializeStartResponse(String payload) {
+        try { return JacksonUtils.fromSerializedJson(payload, ResponseVO.class); }
+        catch (Exception error) { throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                "start response replay failed", error); }
     }
 
 
