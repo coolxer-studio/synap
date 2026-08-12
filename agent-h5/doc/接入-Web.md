@@ -8,13 +8,16 @@
 
 ## 集成步骤
 
-将 SDK 文件复制到业务站点，在脚本加载前设置 app key 和服务地址：
+将 SDK 文件复制到业务站点，在脚本加载前设置公开 appId、服务地址和服务端信任锚：
 
 ```html
 <script>
   window.SynapAgentConfig = {
-    appKey: '申请得到的 APP KEY',
+    appId: '申请得到的 APP ID',
     baseUrl: 'https://risk.example.com',
+    serverTrustAnchors: {
+      'server-key-2026': '<P-256 SPKI Base64URL>'
+    },
     collectionProfile: 'low',
     allowedScriptOrigins: ['https://cdn.example.com'],
     allowedParentOrigins: ['https://app.example.com']
@@ -23,17 +26,25 @@
 <script src="./js/probe.min.js" integrity="sha384-构建生成的摘要" crossorigin="anonymous"></script>
 ```
 
-SDK 仍会自动初始化。生产页面使用 HTTPS 时，`baseUrl` 也必须是 HTTPS，否则初始化会拒绝执行。
+配置完整时 SDK 会自动初始化。生产页面使用 HTTPS 时，`baseUrl` 也必须是 HTTPS，否则初始化会拒绝执行。
 
 如需由应用控制启动时机，可调用幂等初始化接口：
 
 ```js
 await window.SynapAgent.init({
-  appKey: '申请得到的 APP KEY',
+  appId: '申请得到的 APP ID',
   baseUrl: 'https://risk.example.com',
+  serverTrustAnchors: {
+    'server-key-2026': '<P-256 SPKI Base64URL>'
+  },
   collectionProfile: 'minimal'
 });
 ```
+
+`appId` 和 `serverTrustAnchors` 是安全协议 v1 必需的公开配置，必须在
+`probe.js` 加载前设置；如果由 `synap-build` 生成探针，它们已被编译进制品。
+直接从源码构建时，缺少这两项会跳过自动初始化，宿主可在配置就绪后
+显式调用 `SynapAgent.init(config)`。
 
 ## 采集控制与隐私
 
@@ -99,7 +110,7 @@ SynapAgent.markAction({ id: actionId, name: 'login', phase: 'success' });
 
 返回 `boolean`。空标识、超过 256 字符的标识、不可序列化数据或超过 32 KiB 的数据返回 `false`。
 
-全局接口 `window.userData(userId, data)` 行为相同。
+只使用 `window.SynapAgent.userData(userId, data)`；不再暴露独立上传全局函数。
 
 ### 设备、评级和标签查询
 
@@ -129,7 +140,8 @@ const metrics = SynapAgent.getMetrics();
 ## 验证
 
 1. 控制台出现 `synap running:true`。
-2. Network 面板中请求只使用 `/sc/h5/attach/start`、`/sc/h5/attach/upload`、`/sc/h5/cross/info`、`/sc/h5/cross/rating` 和 `/sc/h5/cross/label_start`。
+2. Network 面板中只出现 `/sc/v1/handshake`、`/sc/v1/handshake/finish` 和
+   `/sc/v1/message`；`/attach/start`、`/attach/upload`、`/cross/*` 仅存在于密文内。
 3. `SynapAgent.getMetrics().status` 为 `running`。
 4. 管理平台能够查询到对应 app key 的运行数据。
 

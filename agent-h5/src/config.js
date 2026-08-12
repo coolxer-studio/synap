@@ -2,15 +2,16 @@ export const PLATFORM = 'h5';
 export const APP_ID = 1;
 export const SDK_VERSION = '1.3.0';
 export const COMMON_FIELD_COUNT = 24;
-export const DEFAULT_APP_KEY = '2396641245c4fe6ttd041565b3651245';
+export const DEFAULT_APP_ID = '';
 export const DEFAULT_BASE_URL = 'http://127.0.0.1:11099';
+export const DEFAULT_SERVER_TRUST_ANCHORS = Object.freeze({});
 
 export const ENDPOINT_PATHS = Object.freeze({
-  start: '/sc/h5/attach/start',
-  upload: '/sc/h5/attach/upload',
-  deviceInfo: '/sc/h5/cross/info',
-  rating: '/sc/h5/cross/rating',
-  label: '/sc/h5/cross/label_start'
+  start: '/attach/start',
+  upload: '/attach/upload',
+  deviceInfo: '/cross/info',
+  rating: '/cross/rating',
+  label: '/cross/label_start'
 });
 
 export const DEFAULT_COLLECTION_PROFILE = Object.freeze({
@@ -34,7 +35,7 @@ export const FULL_COLLECTION_PROFILE = Object.freeze(Object.keys(DEFAULT_COLLECT
   .reduce((profile, key) => ({ ...profile, [key]: true }), {}));
 
 export const DEFAULT_OPTIONS = Object.freeze({
-  appKey: DEFAULT_APP_KEY,
+  appId: DEFAULT_APP_ID,
   baseUrl: DEFAULT_BASE_URL,
   collectionProfile: DEFAULT_COLLECTION_PROFILE,
   requestTimeout: 15000,
@@ -44,8 +45,20 @@ export const DEFAULT_OPTIONS = Object.freeze({
   allowedScriptOrigins: [],
   allowedParentOrigins: [],
   allowedServiceWorkerOrigins: [],
-  expectedScriptIntegrity: ''
+  expectedScriptIntegrity: '',
+  serverTrustAnchors: DEFAULT_SERVER_TRUST_ANCHORS
 });
+
+export function isLoopbackHttpUrl(baseUrl) {
+  try {
+    const parsed = new URL(String(baseUrl));
+    const host = parsed.hostname.toLowerCase();
+    return parsed.protocol === 'http:' &&
+      (host === 'localhost' || host === '127.0.0.1' || host === '[::1]');
+  } catch (_) {
+    return false;
+  }
+}
 
 export function normalizeBaseUrl(baseUrl) {
   const normalized = String(baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
@@ -55,6 +68,9 @@ export function normalizeBaseUrl(baseUrl) {
   if (typeof window !== 'undefined' && window.location &&
       window.location.protocol === 'https:' && /^http:\/\//i.test(normalized)) {
     throw new Error('SynapAgent refuses an insecure HTTP endpoint on an HTTPS page');
+  }
+  if (/^http:\/\//i.test(normalized) && !isLoopbackHttpUrl(normalized)) {
+    throw new Error('SynapAgent baseUrl must use HTTPS outside local development');
   }
   return normalized;
 }
@@ -95,11 +111,14 @@ export function resolveOptions(options = {}) {
   const resolved = {
     ...DEFAULT_OPTIONS,
     ...options,
-    appKey: String(options.appKey || DEFAULT_APP_KEY),
+    appId: String(options.appId || DEFAULT_APP_ID),
     baseUrl: normalizeBaseUrl(options.baseUrl || DEFAULT_BASE_URL),
     collectionProfile: normalizeCollectionProfile(options.collectionProfile)
   };
-  if (!resolved.appKey) throw new Error('SynapAgent appKey is required');
+  if (!resolved.appId) throw new Error('SynapAgent appId is required');
+  if (!resolved.serverTrustAnchors || Object.keys(resolved.serverTrustAnchors).length === 0) {
+    throw new Error('SynapAgent serverTrustAnchors is required');
+  }
   ['allowedScriptOrigins', 'allowedParentOrigins', 'allowedServiceWorkerOrigins'].forEach((key) => {
     if (!Array.isArray(resolved[key])) throw new TypeError(`${key} must be an array`);
     resolved[key] = resolved[key].map(String).slice(0, 20);
@@ -108,14 +127,21 @@ export function resolveOptions(options = {}) {
   return resolved;
 }
 
+export function hasSecurityBootstrap(options = {}) {
+  const appId = String(options.appId || DEFAULT_APP_ID).trim();
+  const anchors = options.serverTrustAnchors || DEFAULT_SERVER_TRUST_ANCHORS;
+  return appId.length > 0 && anchors && typeof anchors === 'object' &&
+    Object.keys(anchors).length > 0;
+}
+
 export function createEndpoints(baseUrl) {
   const endpoints = {};
   Object.keys(ENDPOINT_PATHS).forEach((key) => {
-    endpoints[key] = baseUrl + ENDPOINT_PATHS[key];
+    endpoints[key] = ENDPOINT_PATHS[key];
   });
   return endpoints;
 }
 
-export function policyCacheKey(appKey) {
-  return `__synap_policy_${SDK_VERSION}_${appKey}`;
+export function policyCacheKey(appId) {
+  return `__synap_policy_${SDK_VERSION}_${appId}`;
 }

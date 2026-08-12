@@ -8,6 +8,7 @@ import ctStorage from './storage'
 import ctScreen from './screen'
 import ctBattery from './battery'
 import baseData from '../base-data'
+import { collectConfiguredValues } from './collection-policy'
 
 window.ct_device_config = {
   "device": ["systemName", "systemVersion", "modelCode", "language", "timeZone"],
@@ -76,64 +77,51 @@ export default {
       'type': 'DeviceData',
       'buildDate':baseData.currentFormatDate()
     };
-    var getMethodValue = function (entryArray, conficArray, invokeFunctions = true) {
-      var methodValueArray = [];
-      for (var methodKey of conficArray) {
-        var methodValue;
-        for (var entry of entryArray) {
-          var methodValue = entry[methodKey];
-          if (typeof methodValue === 'function' && invokeFunctions) {
-            methodValue = entry[methodKey]();
-          } else if (typeof methodValue === 'function') {
-            methodValue = null;
-          }
-          if (methodValue) {
-            break;
-          }
-        }
-        methodValueArray.push(methodValue);
-      }
-      return methodValueArray;
-    }
-
     var config = window.ct_device_config;
+    var getMethodValue = function (entryArray, section, invokeFunctions = true) {
+      return collectConfiguredValues(entryArray, config[section], {
+        section,
+        profile: collectionProfile,
+        invokeFunctions
+      });
+    }
     for (var key of Object.keys(config)) {
       switch (key) {
         case 'device':
-          data[key] = getMethodValue([ctDevice], config[key]);
+          data[key] = getMethodValue([ctDevice], key);
           break;
         case 'browser':
-          data[key] = getMethodValue([ctBrowser], config[key]);
+          data[key] = getMethodValue([ctBrowser], key);
           break;
         case 'screen':
-          data[key] = getMethodValue([ctScreen, screen], config[key]);
+          data[key] = getMethodValue([ctScreen, screen], key);
           break;
         case 'cpu':
-          data[key] = getMethodValue([ctCpu], config[key]);
+          data[key] = getMethodValue([ctCpu], key);
           break;
         case 'battery':
-          data[key] = getMethodValue([ctBattery], config[key]);
+          data[key] = getMethodValue([ctBattery], key);
           break;
         case 'uuid':
-          data[key] = getMethodValue([ctUuid], config[key]);
+          data[key] = getMethodValue([ctUuid], key);
           break;
         case 'network':
-          data[key] = getMethodValue([ctNetwork], config[key]);
+          data[key] = getMethodValue([ctNetwork], key);
           break;
         case 'storage':
-          data[key] = getMethodValue([ctStorage], config[key]);
+          data[key] = getMethodValue([ctStorage], key);
           break;
         case 'baseInfo':
-          data[key] = getMethodValue([ctBaseInfo], config[key]);
+          data[key] = getMethodValue([ctBaseInfo], key);
           break;
         case 'document':
-          data[key] = getMethodValue([document], config[key], false);
+          data[key] = getMethodValue([document], key, false);
           break;
         case 'window':
-          data[key] = getMethodValue([window], config[key], false);
+          data[key] = getMethodValue([window], key, false);
           break;
         case 'navigator':
-          data[key] = getMethodValue([navigator], config[key], false);
+          data[key] = getMethodValue([navigator], key, false);
           break;
         default:
           console.error('unknown config key:' + key);

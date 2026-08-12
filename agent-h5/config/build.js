@@ -31,6 +31,8 @@ webpack(webpackConfig, function (err, stats) {
     if (fs.existsSync(outputFile)) {
         const sri = `sha384-${crypto.createHash('sha384').update(fs.readFileSync(outputFile)).digest('base64')}`;
         fs.writeFileSync(`${outputFile}.sha384`, `${sri}\n`, 'utf8');
+        const demoFile = path.resolve(__dirname, '../demo/js/probe.js');
+        fs.copyFileSync(outputFile, demoFile);
         console.log(chalk.green(`SRI: ${sri}`));
     }
     console.log(chalk.green(`\n编译完成:)`));

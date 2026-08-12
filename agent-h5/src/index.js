@@ -1,13 +1,13 @@
-import { createH5Codec } from '@coolxer/secure-communication-js';
-import httpAjax from './lib/secure-communication/ajax-http';
+import { createSecureClient } from '@coolxer/secure-communication-js';
 import baseData from './lib/base-data';
 import ctDeviceInfo from './lib/device-info/ct-device-info';
+import { applyCollectionProfile } from './lib/device-info/collection-policy';
 import ctRunningCheck from './lib/running-check/ct-running-check';
 import ctIllegalState from './lib/illegal-state/ct-illegal-state';
 import ctUserBehavior from './lib/user-behavior/ct-user-behavior';
 import agLocalStore from './lib/ag-localstore';
 import MessageQueue from './lib/message-queue';
-import { decodePolicy, validatePolicy } from './lib/policy';
+import { validatePolicy } from './lib/policy';
 import {
   collectIntegrity, collectResourceIntegrity, networkMonitor, prepareIntegrity,
   resourceReportMonitor, sessionMonitor
@@ -16,15 +16,17 @@ import {
   DEFAULT_OPTIONS,
   SDK_VERSION,
   createEndpoints,
+  hasSecurityBootstrap,
+  isLoopbackHttpUrl,
   policyCacheKey,
   resolveOptions
 } from './config';
 
-const shared = window.__synapAgentRuntime || {
+const shared = {
   status: 'idle',
   options: null,
   endpoints: null,
-  codec: null,
+  secureClient: null,
   policy: null,
   policyFingerprint: '',
   appKeyId: '',
@@ -33,6 +35,10 @@ const shared = window.__synapAgentRuntime || {
   inFlight: null,
   retryCount: 0,
   retryTimer: null,
+  startRetryTimer: null,
+  startRetryCount: 0,
+  startTracking: null,
+  startAcknowledged: false,
   timers: new Set(),
   idleTasks: new Set(),
   cleanups: [],
@@ -63,7 +69,6 @@ const shared = window.__synapAgentRuntime || {
   },
   generation: 0
 };
-window.__synapAgentRuntime = shared;
 
 function safeSessionStorage() {
   try {
@@ -79,7 +84,7 @@ function safeSessionStorage() {
 
 function sameOptions(left, right) {
   if (!left || !right) return false;
-  return left.appKey === right.appKey &&
+  return left.appId === right.appId &&
     left.baseUrl === right.baseUrl &&
     left.requestTimeout === right.requestTimeout &&
     left.queueLimit === right.queueLimit &&
@@ -88,14 +93,8 @@ function sameOptions(left, right) {
     JSON.stringify(left.allowedParentOrigins) === JSON.stringify(right.allowedParentOrigins) &&
     JSON.stringify(left.allowedServiceWorkerOrigins) === JSON.stringify(right.allowedServiceWorkerOrigins) &&
     left.expectedScriptIntegrity === right.expectedScriptIntegrity &&
-    JSON.stringify(left.collectionProfile) === JSON.stringify(right.collectionProfile);
-}
-
-function requestHeaders() {
-  return {
-    'Content-Type': 'application/json;charset=UTF-8',
-    code: baseData.getHeaderCode()
-  };
+    JSON.stringify(left.collectionProfile) === JSON.stringify(right.collectionProfile) &&
+    JSON.stringify(left.serverTrustAnchors) === JSON.stringify(right.serverTrustAnchors);
 }
 
 function scheduleIdle(callback) {
@@ -133,6 +132,8 @@ function clearRuntimeResources() {
   shared.timers.clear();
   if (shared.retryTimer) clearTimeout(shared.retryTimer);
   shared.retryTimer = null;
+  if (shared.startRetryTimer) clearTimeout(shared.startRetryTimer);
+  shared.startRetryTimer = null;
   cancelIdleTasks();
   shared.cleanups.splice(0).reverse().forEach((cleanup) => {
     try { cleanup(); } catch (_) { }
@@ -140,20 +141,7 @@ function clearRuntimeResources() {
 }
 
 function filteredPolicy(policy, profile) {
-  const copy = JSON.parse(JSON.stringify(policy));
-  const baseInfo = copy.config.deviceConfig.baseInfo || [];
-  const excluded = new Set();
-  if (!profile.canvas) ['getCanvasFpCRC', 'getCanvasFpCrc', 'getWebglFp'].forEach((key) => excluded.add(key));
-  if (!profile.webgl) ['getWebglVendorAndRenderer', 'getWebglFp'].forEach((key) => excluded.add(key));
-  if (!profile.fonts) excluded.add('getFonts');
-  copy.config.deviceConfig.baseInfo = baseInfo.filter((key) => !excluded.has(key));
-  if (!profile.webrtc && Array.isArray(copy.config.deviceConfig.network)) {
-    copy.config.deviceConfig.network = copy.config.deviceConfig.network.filter((key) => key !== 'lanIp');
-  }
-  if (!profile.rawEvents && copy.config.eventConfig && Array.isArray(copy.config.eventConfig.event)) {
-    copy.config.eventConfig.event = copy.config.eventConfig.event.filter((type) => ['pageshow', 'pagehide'].includes(type));
-  }
-  return copy;
+  return applyCollectionProfile(policy, profile);
 }
 
 function pushMessage(message) {
@@ -180,15 +168,71 @@ function createId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-async function appKeyIdentifier(appKey) {
-  try {
-    const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(appKey)));
-    return Array.from(new Uint8Array(digest).slice(0, 16)).map((value) => value.toString(16).padStart(2, '0')).join('');
-  } catch (_) {
-    let hash = 2166136261;
-    for (const character of String(appKey)) { hash ^= character.charCodeAt(0); hash = Math.imul(hash, 16777619); }
-    return `fallback-${(hash >>> 0).toString(16)}`;
+function startTrackingStorageKey() {
+  return `__synap_start_${SDK_VERSION}_${shared.appKeyId}_${baseData.getStartId()}`;
+}
+
+function loadOrCreateStartTracking() {
+  const storage = safeSessionStorage();
+  const storageKey = startTrackingStorageKey();
+  if (storage) {
+    try {
+      const existing = JSON.parse(storage.getItem(storageKey));
+      if (existing && existing.messageId && existing.batchId
+          && existing.sessionId === String(baseData.getStartId()) && Number(existing.sequence) === 1) {
+        return existing;
+      }
+    } catch (_) { }
   }
+  const now = Date.now();
+  const tracking = {
+    messageId: createId('start-msg'),
+    batchId: createId('start-batch'),
+    sessionId: String(baseData.getStartId()),
+    attempt: 0,
+    createdAt: now,
+    observedAt: now,
+    sequence: 1,
+    acknowledged: false
+  };
+  if (storage) {
+    try { storage.setItem(storageKey, JSON.stringify(tracking)); } catch (_) { }
+  }
+  return tracking;
+}
+
+function persistStartTracking() {
+  const storage = safeSessionStorage();
+  if (!storage || !shared.startTracking) return;
+  try { storage.setItem(startTrackingStorageKey(), JSON.stringify(shared.startTracking)); } catch (_) { }
+}
+
+function nextStartMeta() {
+  shared.startTracking.attempt = Math.max(0, Number(shared.startTracking.attempt) || 0) + 1;
+  persistStartTracking();
+  const { acknowledged, ...meta } = shared.startTracking;
+  return meta;
+}
+
+function acknowledgeStart() {
+  shared.startAcknowledged = true;
+  shared.startTracking.acknowledged = true;
+  shared.startRetryCount = 0;
+  persistStartTracking();
+}
+
+function scheduleStartRetry() {
+  if (shared.startAcknowledged || shared.startRetryTimer || shared.status !== 'running') return;
+  const delay = Math.min(30000, 1000 * Math.pow(2, shared.startRetryCount));
+  shared.startRetryTimer = setTimeout(() => {
+    shared.startRetryTimer = null;
+    fetchPolicy().then(() => {
+      flushQueue().catch(() => {});
+    }).catch(() => {
+      shared.startRetryCount += 1;
+      scheduleStartRetry();
+    });
+  }, Math.round(delay * (0.8 + Math.random() * 0.4)));
 }
 
 function withMessageMetadata(message) {
@@ -206,10 +250,27 @@ function withMessageMetadata(message) {
 function decodeResponse(response) {
   if (!response) throw new Error('Empty SynapAgent response');
   try {
-    return JSON.parse(shared.codec.decodeResponse(response));
+    return typeof response === 'string' ? JSON.parse(response) : response;
   } catch (error) {
     shared.metrics.parseFailures += 1;
     throw new Error(`Invalid SynapAgent response: ${error.message || error}`);
+  }
+}
+
+async function securePost(path, body, requestId) {
+  if (!shared.secureClient) throw new Error('SynapAgent secure client is unavailable');
+  const controller = typeof AbortController === 'function' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), shared.options.requestTimeout) : null;
+  try {
+    const response = await shared.secureClient.request(
+      'POST', path, { code: baseData.getHeaderCode() }, JSON.stringify(body),
+      requestId || createId('request'), {
+        contentType: 'application/json',
+        signal: controller ? controller.signal : undefined
+      });
+    return decodeResponse(response.text());
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -226,7 +287,11 @@ function scheduleRetry() {
 async function flushQueue() {
   if (shared.status === 'destroyed') return false;
   if (shared.inFlight) return shared.inFlight;
-  if (!shared.queue || !shared.codec || !shared.endpoints || shared.queue.items.length === 0) {
+  if (!shared.startAcknowledged) {
+    scheduleStartRetry();
+    return false;
+  }
+  if (!shared.queue || !shared.secureClient || !shared.endpoints || shared.queue.items.length === 0) {
     return false;
   }
 
@@ -246,12 +311,7 @@ async function flushQueue() {
     data: batch
   };
   const uploadRequest = async () => {
-    const encoded = shared.codec.encodeRequest(JSON.stringify(body));
-    const response = await httpAjax.post(shared.endpoints.upload, encoded, {
-      headers: requestHeaders(),
-      timeout: shared.options.requestTimeout
-    });
-    return decodeResponse(response);
+    return securePost(shared.endpoints.upload, body, batchId);
   };
 
   shared.inFlight = uploadRequest().then((decoded) => {
@@ -337,7 +397,7 @@ function collectPeriodicData() {
       }
 
       if (shared.options.collectionProfile.integrity) {
-        const integrity = collectIntegrity(shared.options.appKey, shared.policyFingerprint);
+        const integrity = collectIntegrity(shared.options.appId, shared.policyFingerprint);
         const integrityFingerprint = messageFingerprint(integrity);
         if (integrityFingerprint !== shared.collectionState.integrityFingerprint) {
           if (pushMessage(integrity)) shared.collectionState.integrityFingerprint = integrityFingerprint;
@@ -464,10 +524,10 @@ function launchProbe(policy) {
     shared.cleanups.push(shared.behaviorController);
   }
   if (shared.options.collectionProfile.session) {
-    shared.cleanups.push(sessionMonitor(pushMessage, shared.options.appKey));
+    shared.cleanups.push(sessionMonitor(pushMessage, shared.options.appId));
   }
   if (shared.options.collectionProfile.network) {
-    shared.cleanups.push(networkMonitor(pushMessage, Object.values(shared.endpoints)));
+    shared.cleanups.push(networkMonitor(pushMessage, [`${shared.options.baseUrl}/sc/v1/`]));
   }
   if (shared.options.collectionProfile.securityReports) {
     shared.cleanups.push(resourceReportMonitor(pushMessage));
@@ -486,7 +546,7 @@ function cachedPolicy(appKey) {
   if (!encrypted) return null;
   try {
     if (encrypted.startsWith('json:')) return { encrypted, policy: validatePolicy(JSON.parse(encrypted.slice(5))) };
-    return { encrypted, policy: decodePolicy(shared.codec, encrypted) };
+    return null;
   } catch (_) {
     storage.removeItem(key);
     return null;
@@ -500,16 +560,18 @@ function storePolicy(appKey, encrypted) {
 }
 
 async function fetchPolicy() {
-  const body = shared.codec.encodeRequest(JSON.stringify({
+  const body = {
     common: baseData.getCommonInfo(),
-    meta: { protocolVersion: 1, appKeyId: shared.appKeyId, detectorVersion: SDK_VERSION }
-  }));
-  const encrypted = await httpAjax.post(shared.endpoints.start, body, {
-    headers: requestHeaders(),
-    timeout: shared.options.requestTimeout
-  });
-  const policy = decodePolicy(shared.codec, encrypted);
-  storePolicy(shared.options.appKey, encrypted);
+    meta: {
+      protocolVersion: 1,
+      appKeyId: shared.appKeyId,
+      detectorVersion: SDK_VERSION,
+      ...nextStartMeta()
+    }
+  };
+  const policy = validatePolicy(await securePost(shared.endpoints.start, body, createId('start')));
+  acknowledgeStart();
+  storePolicy(shared.options.appId, `json:${JSON.stringify(policy)}`);
   return policy;
 }
 
@@ -526,11 +588,22 @@ async function initialize(options) {
   const generation = ++shared.generation;
   shared.options = resolved;
   shared.endpoints = createEndpoints(resolved.baseUrl);
-  shared.codec = createH5Codec(resolved.appKey);
-  shared.appKeyId = await appKeyIdentifier(resolved.appKey);
+  shared.appKeyId = resolved.appId;
+  shared.startTracking = loadOrCreateStartTracking();
+  shared.startAcknowledged = shared.startTracking.acknowledged === true;
+  shared.startRetryCount = 0;
+  shared.secureClient = createSecureClient({
+    baseUrl: resolved.baseUrl,
+    appId: shared.appKeyId,
+    deviceType: 'H5',
+    serverTrustAnchors: resolved.serverTrustAnchors,
+    protectedHeaderNames: ['code'],
+    allowInsecureForTesting: isLoopbackHttpUrl(resolved.baseUrl)
+  });
+  await shared.secureClient.initialize();
   shared.cachedDeviceInfo = null;
   shared.behaviorController = null;
-  shared.collectionStorageKey = `__synap_collection_${SDK_VERSION}_${resolved.appKey}_${baseData.getStartId()}`;
+  shared.collectionStorageKey = `__synap_collection_${SDK_VERSION}_${resolved.appId}_${baseData.getStartId()}`;
   shared.collectionState = loadCollectionState(shared.collectionStorageKey) || {
     deviceSent: false,
     selfAppFingerprint: '',
@@ -539,12 +612,6 @@ async function initialize(options) {
     integrityFingerprint: '',
     resourceFingerprint: ''
   };
-  window.kk = resolved.appKey;
-  window.up = shared.endpoints.upload;
-  window.deviceInfoUrl = shared.endpoints.deviceInfo;
-  window.labelUrl = shared.endpoints.label;
-  window.ratingUrl = shared.endpoints.rating;
-
   // Common data is used by the policy request itself, so finish the bounded
   // local-address probe before the first request and reuse its cached result.
   await baseData.prepareDeviceInfo({
@@ -555,36 +622,32 @@ async function initialize(options) {
     Math.min(1500, Math.max(250, resolved.requestTimeout / 5)));
   if (generation !== shared.generation) throw new Error('SynapAgent initialization was cancelled');
 
-  const existingItems = Array.isArray(window.probeMsgQueue) &&
-    (!shared.queue || window.probeMsgQueue !== shared.queue.items)
-    ? window.probeMsgQueue.slice()
-    : [];
+  const existingItems = [];
   shared.queue = new MessageQueue({
     storage: safeSessionStorage(),
-    storageKey: `__synap_pending_${SDK_VERSION}_${resolved.appKey}`,
+    storageKey: `__synap_pending_${SDK_VERSION}_${resolved.appId}`,
     limit: resolved.queueLimit,
     initialItems: existingItems
   });
-  shared.nextSequence = shared.queue.items.reduce((max, item) => Math.max(max, Number(item.sequence) || 0), 0);
+  shared.nextSequence = shared.queue.items.reduce((max, item) => Math.max(max, Number(item.sequence) || 0), 1);
   const normalizedPending = shared.queue.items.map((item) => withMessageMetadata(item));
   shared.queue.items.splice(0, shared.queue.items.length, ...normalizedPending);
-  window.probeMsgQueue = shared.queue.items;
 
   try {
     let policy;
     try {
       policy = await fetchPolicy();
     } catch (error) {
-      const cached = cachedPolicy(resolved.appKey);
+      const cached = cachedPolicy(resolved.appId);
       if (!cached) throw error;
       policy = cached.policy;
     }
     if (generation !== shared.generation) throw new Error('SynapAgent initialization was cancelled');
     shared.policy = filteredPolicy(policy, resolved.collectionProfile);
     shared.policyFingerprint = JSON.stringify(shared.policy);
-    window._polic = shared.policy;
     launchProbe(shared.policy);
     shared.status = 'running';
+    if (!shared.startAcknowledged) scheduleStartRetry();
     return api;
   } catch (error) {
     if (generation === shared.generation) shared.status = 'idle';
@@ -603,6 +666,12 @@ async function init(options = {}) {
   shared.initPromise = promise;
   try {
     return await promise;
+  } catch (error) {
+    if (shared.status === 'initializing') shared.status = 'idle';
+    if (shared.secureClient) shared.secureClient.closeSession();
+    shared.secureClient = null;
+    clearRuntimeResources();
+    throw error;
   } finally {
     if (shared.initPromise === promise) shared.initPromise = null;
   }
@@ -622,6 +691,10 @@ async function destroy({ flush = true } = {}) {
   shared.appKeyId = '';
   shared.behaviorController = null;
   shared.cachedDeviceInfo = null;
+  shared.startTracking = null;
+  shared.startAcknowledged = false;
+  if (shared.secureClient) shared.secureClient.closeSession();
+  shared.secureClient = null;
   shared.status = 'destroyed';
 }
 
@@ -633,15 +706,10 @@ async function ensureReady() {
 
 async function requestInfo(endpoint) {
   await ensureReady();
-  const encoded = shared.codec.encodeRequest(JSON.stringify({
+  return securePost(shared.endpoints[endpoint], {
     common: baseData.getCommonInfo(),
     meta: { protocolVersion: 1, appKeyId: shared.appKeyId, detectorVersion: SDK_VERSION }
-  }));
-  const response = await httpAjax.post(shared.endpoints[endpoint], encoded, {
-    headers: requestHeaders(),
-    timeout: shared.options.requestTimeout
-  });
-  return decodeResponse(response);
+  }, createId(endpoint));
 }
 
 function userData(userId, data) {
@@ -687,18 +755,20 @@ const api = {
   getMetrics: () => ({
     ...shared.metrics,
     status: shared.status,
-    transportTrust: 'app-key-codec/untrusted',
+    transportTrust: 'sc1-authenticated/P256_HKDF_SHA256_AES256_GCM',
     networkInfo: baseData.getNetworkInfo(),
     queue: shared.queue ? shared.queue.metrics() : { queued: 0, inFlight: 0, dropped: 0 }
   })
 };
 
 window.SynapAgent = api;
-window.initWithKey = (appKey) => api.init({ ...(window.SynapAgentConfig || {}), appKey });
-window.userData = userData;
 
-// Preserve the existing zero-configuration integration while allowing hosts to
-// define window.SynapAgentConfig before loading the script.
-api.init(window.SynapAgentConfig || DEFAULT_OPTIONS).catch((error) => {
-  console.warn('SynapAgent failed to initialize', error);
-});
+// synap-build embeds the public appId and trust anchor into DEFAULT_OPTIONS.
+// A directly built SDK receives the same public values from the host page. If
+// they are not ready yet, expose the API and let the host call init() later.
+const bootstrapOptions = window.SynapAgentConfig || DEFAULT_OPTIONS;
+if (hasSecurityBootstrap(bootstrapOptions)) {
+  api.init(bootstrapOptions).catch((error) => {
+    console.warn('SynapAgent failed to initialize', error);
+  });
+}

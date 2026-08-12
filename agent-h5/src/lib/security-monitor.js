@@ -46,13 +46,14 @@ function apiSignal(target, key) {
   return { changed: typeof value === 'function' ? functionChanged(value) : false, status: descriptor ? 'available' : 'unavailable' };
 }
 
-export function collectIntegrity(appKey, expectedPolicyFingerprint) {
+export function collectIntegrity(appId, expectedPolicyFingerprint) {
   const userAgent = String(navigator.userAgent || '');
   const platform = String(navigator.platform || '');
   const userAgentData = navigator.userAgentData || null;
   const fetchApi = apiSignal(window, 'fetch');
   const xhrApi = apiSignal(window.XMLHttpRequest && window.XMLHttpRequest.prototype, 'open');
   const eventApi = apiSignal(window.EventTarget && window.EventTarget.prototype, 'addEventListener');
+  const configuredAppId = window.SynapAgentConfig && window.SynapAgentConfig.appId;
   const languageMismatch = Array.isArray(navigator.languages) && navigator.languages.length > 0
     && navigator.language && navigator.languages[0] !== navigator.language;
   const uaChPlatform = userAgentData && userAgentData.platform ? String(userAgentData.platform) : '';
@@ -69,16 +70,15 @@ export function collectIntegrity(appKey, expectedPolicyFingerprint) {
     fetchModified: fetchApi.changed,
     xhrModified: xhrApi.changed,
     eventTargetModified: eventApi.changed,
-    appKeyModified: String(window.kk || '') !== String(appKey || ''),
-    policyModified: (() => {
-      try { return JSON.stringify(window._polic) !== expectedPolicyFingerprint; }
-      catch (_) { return true; }
-    })()
+    appIdModified: configuredAppId != null
+      && String(configuredAppId) !== String(appId || ''),
+    policyUnavailable: !expectedPolicyFingerprint
   };
   const weights = {
     webdriver: 5, headlessUserAgent: 4, platformMismatch: 2, uaChPlatformMismatch: 3,
     uaChMobileMismatch: 2, languageMismatch: 1, touchMismatch: 1, screenInvalid: 1,
-    fetchModified: 1, xhrModified: 2, eventTargetModified: 3, appKeyModified: 4, policyModified: 4
+    fetchModified: 1, xhrModified: 2, eventTargetModified: 3,
+    appIdModified: 4, policyUnavailable: 1
   };
   const score = Object.keys(signals).reduce((total, key) => total + (signals[key] ? weights[key] || 1 : 0), 0);
   const evidenceCount = Object.values(signals).filter(Boolean).length;

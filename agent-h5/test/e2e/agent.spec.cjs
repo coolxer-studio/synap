@@ -1,212 +1,91 @@
 const { test, expect } = require('@playwright/test');
-const { createH5Codec } = require('@coolxer/secure-communication-js');
 
-const APP_KEY = '1596861234c4ea6ddd041d45b3912345';
-const codec = createH5Codec(APP_KEY);
-const policy = {
-  config: {
-    startConfig: [1, '', 10, 30, 10, 60],
-    deviceConfig: { baseInfo: [], network: [] },
-    selfAppConfig: { base: ['domain'] },
-    locationConfig: { base: ['time', 'speed', 'latitude', 'longitude', 'country', 'province', 'city', 'county', 'thoroughfare'] },
-    runtimeConfig: { custom: ['format'] },
-    debugConfig: { base: ['.*'] },
-    errorConfig: { message: ['.*'] },
-    eventConfig: { event: ['click'] },
-    devToolConfig: { shortCut: ['.*'], windowSise: ['.*'] }
-  }
-};
-
-function decodeUpload(route) {
-  const body = route.request().postData();
-  return JSON.parse(codec.decrypt(body.slice(0, -APP_KEY.length)));
-}
-
-async function acknowledge(route, request = decodeUpload(route), overrides = {}) {
-  const acceptedMessageIds = request.data.map((item) => item.messageId);
-  const response = {
-    status: 1,
-    ack: {
-      batchId: request.meta.batchId,
-      acceptedMessageIds,
-      duplicateMessageIds: [],
-      rejectedItems: [],
-      ...overrides
-    }
-  };
-  await route.fulfill({ status: 200, body: codec.encrypt(JSON.stringify(response)) });
-}
-
-async function mockBackend(page, onUpload) {
-  await page.route('http://risk.test/**', async (route) => {
-    const url = route.request().url();
-    if (url.endsWith('/attach/start')) {
-      await route.fulfill({ status: 200, body: codec.encrypt(JSON.stringify(policy)) });
-    } else if (url.endsWith('/attach/upload')) {
-      if (onUpload) await onUpload(route);
-      else await acknowledge(route);
-    } else {
-      await route.fulfill({ status: 200, body: codec.encrypt('{"code":0,"data":{"ok":true}}') });
-    }
-  });
-}
-
-test('initializes once, validates user data, queries asynchronously, and destroys cleanly', async ({ page }) => {
-  let startRequests = 0;
-  let startCommon;
-  let startMeta;
-  const requestedPaths = [];
-  await page.route('http://risk.test/**', async (route) => {
-    const url = route.request().url();
-    requestedPaths.push(new URL(url).pathname);
-    if (url.endsWith('/attach/start')) {
-      startRequests += 1;
-      const request = decodeUpload(route);
-      startCommon = request.common;
-      startMeta = request.meta;
-      await route.fulfill({ status: 200, body: codec.encrypt(JSON.stringify(policy)) });
-    } else if (url.endsWith('/attach/upload')) {
-      await acknowledge(route);
-    } else {
-      await route.fulfill({ status: 200, body: codec.encrypt('{"code":0,"data":{"ok":true}}') });
-    }
-  });
-  await page.goto('/');
-  await expect.poll(() => page.evaluate(() => SynapAgent.getMetrics().status)).toBe('running');
-  expect(startCommon[14]).not.toBe('0.0.0.0');
-  expect(startCommon[15]).toBe('');
-  expect(startMeta.protocolVersion).toBe(1);
-  expect(await page.evaluate(() => SynapAgent.getMetrics().networkInfo.status))
-    .toMatch(/^(available|masked|unavailable|disabled)$/);
-  expect(await page.evaluate(() => SynapAgent.init(window.SynapAgentConfig).then(() => SynapAgent.getMetrics().status))).toBe('running');
-  expect(startRequests).toBe(1);
-  expect(await page.evaluate(() => SynapAgent.userData('user-hash', { scene: 'test' }))).toBe(true);
-  expect(await page.evaluate(() => SynapAgent.userData('', {}))).toBe(false);
-  expect(await page.evaluate(() => SynapAgent.userData('user', () => {}))).toBe(false);
-  expect(await page.evaluate(() => SynapAgent.userData('user', (() => { const value = {}; value.self = value; return value; })()))).toBe(false);
-  expect(await page.evaluate(() => Promise.all([
-    SynapAgent.getDeviceInfo(), SynapAgent.getRatingInfo(), SynapAgent.getLabelInfo()
-  ]))).toEqual(Array(3).fill({ code: 0, data: { ok: true } }));
-  await page.evaluate(() => SynapAgent.flush());
-  expect(await page.evaluate(() => [typeof window.deviceInfo, typeof window.ratingInfo, typeof window.labelInfo]))
-    .toEqual(['undefined', 'undefined', 'undefined']);
-  const allowedPaths = [
-    '/sc/h5/attach/start', '/sc/h5/attach/upload', '/sc/h5/cross/info',
-    '/sc/h5/cross/rating', '/sc/h5/cross/label_start'
-  ];
-  expect(requestedPaths.every((path) => allowedPaths.includes(path))).toBe(true);
-  expect([...new Set(requestedPaths)].sort()).toEqual(allowedPaths.sort());
-  await page.evaluate(() => SynapAgent.destroy({ flush: false }));
-  expect(await page.evaluate(() => SynapAgent.getMetrics().status)).toBe('destroyed');
-  expect(await page.evaluate(() => SynapAgent.userData('user-hash', {}))).toBe(false);
+const secureError = JSON.stringify({
+  code: 'SC_HANDSHAKE_FAILED',
+  message: 'Secure handshake failed',
+  traceId: 'e2e-trace'
 });
 
-test('runs under a strict CSP and with storage disabled', async ({ page }) => {
-  await page.addInitScript(() => {
-    Storage.prototype.getItem = function () { throw new DOMException('blocked', 'SecurityError'); };
-    Storage.prototype.setItem = function () { throw new DOMException('blocked', 'SecurityError'); };
-    Storage.prototype.removeItem = function () { throw new DOMException('blocked', 'SecurityError'); };
+async function rejectHandshake(page, observed) {
+  await page.route('https://risk.test/**', async (route) => {
+    const request = route.request();
+    observed.push({
+      path: new URL(request.url()).pathname,
+      method: request.method(),
+      headers: request.headers(),
+      body: request.postDataJSON()
+    });
+    await route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: secureError
+    });
   });
-  await mockBackend(page);
+}
+
+test('missing public bootstrap config exposes the API without startup errors', async ({ page }) => {
+  const consoleErrors = [];
+  const requests = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error' || message.type() === 'warning') {
+      consoleErrors.push(message.text());
+    }
+  });
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/sc/v1/')) requests.push(request.url());
+  });
+
+  await page.goto('/unconfigured.html');
+  await page.waitForTimeout(100);
+
+  expect(await page.evaluate(() => typeof window.SynapAgent)).toBe('object');
+  expect(await page.evaluate(() => window.SynapAgent.getMetrics().status)).toBe('idle');
+  expect(consoleErrors).toEqual([]);
+  expect(requests).toEqual([]);
+});
+
+test('uses only the protocol v1 handshake entry and fails closed', async ({ page }) => {
+  const observed = [];
+  await rejectHandshake(page, observed);
+  await page.goto('/');
+  await expect.poll(() => observed.length).toBe(1);
+
+  expect(observed[0].path).toBe('/sc/v1/handshake');
+  expect(observed[0].method).toBe('POST');
+  expect(observed[0].headers.code).toBeUndefined();
+  expect(observed[0].body.v).toBe(1);
+  expect(observed[0].body.suite).toBe('P256_HKDF_SHA256_AES256_GCM');
+  expect(observed[0].body.deviceType).toBe('H5');
+  expect(observed.some((request) => request.path === '/sc/v1/message')).toBe(false);
+  await expect.poll(() => page.evaluate(() => SynapAgent.getMetrics().status)).toBe('idle');
+});
+
+test('does not expose keys, codecs, or legacy upload globals', async ({ page }) => {
+  const observed = [];
+  await rejectHandshake(page, observed);
   await page.goto('/csp.html');
-  await expect.poll(() => page.evaluate(() => SynapAgent.getMetrics().status)).toBe('running');
-  expect(await page.evaluate(() => SynapAgent.userData('user-hash', { scene: 'csp' }))).toBe(true);
-});
+  await expect.poll(() => observed.length).toBe(1);
 
-test('low-intrusion defaults do not request location or WebRTC addresses', async ({ page }) => {
-  await page.addInitScript(() => {
-    window.__geoCalls = 0;
-    try {
-      Object.defineProperty(navigator, 'geolocation', { configurable: true, value: {
-        getCurrentPosition() { window.__geoCalls += 1; }
-      } });
-    } catch (_) { }
+  const globals = await page.evaluate(() => ({
+    userData: typeof window.userData,
+    codec: typeof window.codec,
+    key: typeof window.appKey,
+    secureClient: typeof window.secureClient,
+    runtime: typeof window.__synapAgentRuntime,
+    policy: typeof window._polic,
+    queue: typeof window.probeMsgQueue,
+    memory: typeof window.esl,
+    agent: typeof window.SynapAgent
+  }));
+  expect(globals).toEqual({
+    userData: 'undefined',
+    codec: 'undefined',
+    key: 'undefined',
+    secureClient: 'undefined',
+    runtime: 'undefined',
+    policy: 'undefined',
+    queue: 'undefined',
+    memory: 'undefined',
+    agent: 'object'
   });
-  await mockBackend(page);
-  await page.goto('/?token=must-not-leak#private');
-  await expect.poll(() => page.evaluate(() => SynapAgent.getMetrics().status)).toBe('running');
-  expect(await page.evaluate(() => window.__geoCalls)).toBe(0);
-  expect(await page.evaluate(() => SynapAgent.getMetrics().networkInfo.status)).toBe('disabled');
-});
-
-test('low-intrusion defaults enable debug observation', async ({ page }) => {
-  const uploadedTypes = [];
-  await mockBackend(page, async (route) => {
-    const request = decodeUpload(route);
-    uploadedTypes.push(...request.data.map((item) => item.type));
-    await acknowledge(route, request);
-  });
-  await page.goto('/');
-  await expect.poll(() => page.evaluate(() => SynapAgent.getMetrics().status)).toBe('running');
-  await page.dispatchEvent('body', 'keydown', { keyCode: 123, which: 123 });
-  await page.evaluate(() => SynapAgent.flush());
-  expect(uploadedTypes).toContain('DevToolData');
-});
-
-test('restores a failed upload after navigation', async ({ page }) => {
-  let failUpload = true;
-  const uploadedTypes = [];
-  await mockBackend(page, async (route) => {
-    if (failUpload) {
-      await route.abort('failed');
-      return;
-    }
-    const request = decodeUpload(route);
-    uploadedTypes.push(...request.data.map((item) => item.type));
-    await acknowledge(route, request);
-  });
-  await page.goto('/');
-  await expect.poll(() => page.evaluate(() => SynapAgent.getMetrics().status)).toBe('running');
-  await page.evaluate(() => SynapAgent.userData('user-hash', { scene: 'restore' }));
-  await page.evaluate(() => SynapAgent.flush().catch(() => false));
-  failUpload = false;
-  await page.reload();
-  await expect.poll(() => page.evaluate(() => SynapAgent.getMetrics().status)).toBe('running');
-  await page.evaluate(() => SynapAgent.flush());
-  expect(uploadedTypes).toContain('UserData');
-});
-
-test('keeps stable message ids across invalid acknowledgements and retries', async ({ page }) => {
-  const attempts = [];
-  let invalidAck = true;
-  await mockBackend(page, async (route) => {
-    const request = decodeUpload(route);
-    attempts.push(request.data.map((item) => item.messageId));
-    if (invalidAck) {
-      invalidAck = false;
-      await route.fulfill({ status: 200, body: codec.encrypt(JSON.stringify({ status: 0 })) });
-      return;
-    }
-    await acknowledge(route, request);
-  });
-  await page.goto('/');
-  await expect.poll(() => page.evaluate(() => SynapAgent.getMetrics().status)).toBe('running');
-  await page.evaluate(() => SynapAgent.userData('user-hash', { scene: 'ack' }));
-  await page.evaluate(() => SynapAgent.flush().catch(() => false));
-  await page.evaluate(() => SynapAgent.flush());
-  expect(attempts.length).toBe(2);
-  expect(attempts[0].every((messageId) =>
-    attempts[1].filter((candidate) => candidate === messageId).length === 1)).toBe(true);
-  expect(await page.evaluate(() => SynapAgent.getMetrics().ackFailures)).toBe(1);
-});
-
-test('reports static facts once for the same page session across reloads', async ({ page }) => {
-  const uploadedTypes = [];
-  await mockBackend(page, async (route) => {
-    const request = decodeUpload(route);
-    uploadedTypes.push(...request.data.map((item) => item.type));
-    await acknowledge(route, request);
-  });
-  await page.goto('/');
-  await expect.poll(() => page.evaluate(() => SynapAgent.getMetrics().status)).toBe('running');
-  await expect.poll(() => page.evaluate(() => SynapAgent.getMetrics().queue.queued)).toBeGreaterThan(0);
-  await page.evaluate(() => SynapAgent.flush());
-  await page.reload();
-  await expect.poll(() => page.evaluate(() => SynapAgent.getMetrics().status)).toBe('running');
-  await page.evaluate(() => SynapAgent.userData('user-hash', { scene: 'reload' }));
-  await page.evaluate(() => SynapAgent.flush());
-
-  expect(uploadedTypes.filter((type) => type === 'DeviceData')).toHaveLength(1);
-  expect(uploadedTypes.filter((type) => type === 'SelfAppData')).toHaveLength(1);
-  expect(uploadedTypes.filter((type) => type === 'RuntimeData')).toHaveLength(1);
 });

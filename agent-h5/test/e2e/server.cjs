@@ -4,13 +4,19 @@ const path = require('path');
 
 const root = path.resolve(__dirname, '../..');
 const html = '<!doctype html><html><head><meta charset="utf-8"><script src="/e2e-config.js"></script><script src="/dist/probe.min.js"></script></head><body>SynapAgent E2E</body></html>';
-const config = `window.SynapAgentConfig={appKey:'1596861234c4ea6ddd041d45b3912345',baseUrl:'http://risk.test'};`;
+const unconfiguredHtml = '<!doctype html><html><head><meta charset="utf-8"><script src="/dist/probe.min.js"></script></head><body>SynapAgent unconfigured E2E</body></html>';
+const config = `window.SynapAgentConfig={appId:'synap-h5-e2e',baseUrl:'https://risk.test',serverTrustAnchors:{'e2e-key':'AA'}};`;
 
 http.createServer((request, response) => {
   const pathname = new URL(request.url, 'http://127.0.0.1').pathname;
+  if (pathname === '/unconfigured.html') {
+    response.setHeader('Content-Type', 'text/html; charset=utf-8');
+    response.end(unconfiguredHtml);
+    return;
+  }
   if (pathname === '/' || pathname === '/csp.html') {
     if (pathname === '/csp.html') {
-      response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; connect-src http://risk.test");
+      response.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; connect-src https://risk.test");
     }
     response.setHeader('Content-Type', 'text/html; charset=utf-8');
     response.end(html);

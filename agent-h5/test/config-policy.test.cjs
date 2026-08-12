@@ -4,7 +4,10 @@ const assert = require('node:assert/strict');
 global.window = { location: { protocol: 'http:' } };
 const fs = require('node:fs');
 const path = require('node:path');
-const { COMMON_FIELD_COUNT, ENDPOINT_PATHS, resolveOptions, createEndpoints, policyCacheKey } = require('../src/config');
+const {
+  COMMON_FIELD_COUNT, ENDPOINT_PATHS, resolveOptions, createEndpoints,
+  hasSecurityBootstrap, isLoopbackHttpUrl, normalizeBaseUrl, policyCacheKey
+} = require('../src/config');
 const { validatePolicy, decodePolicy } = require('../src/lib/policy');
 
 function validPolicy() {
@@ -18,10 +21,10 @@ function validPolicy() {
 }
 
 test('configuration resolves profiles and endpoints without obfuscation', () => {
-  const options = resolveOptions({ appKey: 'key', baseUrl: 'https://risk.example.test/', collectionProfile: 'minimal' });
+  const options = resolveOptions({ appId: 'app-1', baseUrl: 'https://risk.example.test/', serverTrustAnchors: { key1: 'anchor' }, collectionProfile: 'minimal' });
   assert.equal(options.baseUrl, 'https://risk.example.test');
   assert.equal(options.collectionProfile.canvas, false);
-  assert.equal(createEndpoints(options.baseUrl).upload, 'https://risk.example.test/sc/h5/attach/upload');
+  assert.equal(createEndpoints(options.baseUrl).upload, '/attach/upload');
   assert.deepEqual(Object.keys(ENDPOINT_PATHS), ['start', 'upload', 'deviceInfo', 'rating', 'label']);
   assert.equal(JSON.stringify(ENDPOINT_PATHS).includes('/secure/v2'), false);
   assert.equal(JSON.stringify(ENDPOINT_PATHS).includes('/security/reports'), false);
@@ -30,21 +33,38 @@ test('configuration resolves profiles and endpoints without obfuscation', () => 
 });
 
 test('default profile is low intrusion and high entropy collection is explicit', () => {
-  const defaults = resolveOptions({ appKey: 'key', baseUrl: 'https://risk.example.test' });
+  const defaults = resolveOptions({ appId: 'app-1', baseUrl: 'https://risk.example.test', serverTrustAnchors: { key1: 'anchor' } });
   for (const capability of ['canvas', 'webgl', 'fonts', 'webrtc', 'location', 'network']) {
     assert.equal(defaults.collectionProfile[capability], false, capability);
   }
   assert.equal(defaults.collectionProfile.userBehavior, true);
   assert.equal(defaults.collectionProfile.integrity, true);
   assert.equal(defaults.collectionProfile.debug, true);
-  assert.equal(resolveOptions({ appKey: 'key', baseUrl: 'https://risk.example.test', collectionProfile: 'minimal' }).collectionProfile.debug, false);
-  assert.equal(resolveOptions({ appKey: 'key', baseUrl: 'https://risk.example.test', collectionProfile: 'full' }).collectionProfile.canvas, true);
+  assert.equal(resolveOptions({ appId: 'app-1', baseUrl: 'https://risk.example.test', serverTrustAnchors: { key1: 'anchor' }, collectionProfile: 'minimal' }).collectionProfile.debug, false);
+  assert.equal(resolveOptions({ appId: 'app-1', baseUrl: 'https://risk.example.test', serverTrustAnchors: { key1: 'anchor' }, collectionProfile: 'full' }).collectionProfile.canvas, true);
 });
 
 test('HTTPS pages reject mixed-content endpoints', () => {
   window.location.protocol = 'https:';
-  assert.throws(() => resolveOptions({ baseUrl: 'http://risk.example.test' }), /insecure HTTP/);
+  assert.throws(() => resolveOptions({ appId: 'app-1', serverTrustAnchors: { key1: 'anchor' }, baseUrl: 'http://risk.example.test' }), /insecure HTTP/);
   window.location.protocol = 'http:';
+});
+
+test('HTTP is limited to loopback development endpoints', () => {
+  assert.equal(isLoopbackHttpUrl('http://127.0.0.1:11099'), true);
+  assert.equal(isLoopbackHttpUrl('http://localhost:11099'), true);
+  assert.equal(isLoopbackHttpUrl('https://127.0.0.1:11099'), false);
+  assert.equal(normalizeBaseUrl('http://127.0.0.1:11099/'), 'http://127.0.0.1:11099');
+  assert.throws(() => normalizeBaseUrl('http://risk.example.test'), /must use HTTPS/);
+});
+
+test('auto initialization requires appId and a server trust anchor', () => {
+  assert.equal(hasSecurityBootstrap({}), false);
+  assert.equal(hasSecurityBootstrap({ appId: 'app-1' }), false);
+  assert.equal(hasSecurityBootstrap({ serverTrustAnchors: { key1: 'anchor' } }), false);
+  assert.equal(hasSecurityBootstrap({
+    appId: 'app-1', serverTrustAnchors: { key1: 'anchor' }
+  }), true);
 });
 
 test('policy validation rejects incomplete start configuration', () => {
