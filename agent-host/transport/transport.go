@@ -19,7 +19,7 @@ import (
 
 	log "agent-host/log_zap"
 	"agent-host/model"
-	sc "github.com/coolxer/secure-communication-go"
+	sc "github.com/coolxer/secure-communication-go/v2"
 	"github.com/go-resty/resty/v2"
 )
 
@@ -36,6 +36,7 @@ const (
 	InfoPath       = "/cross/info"
 	RatingPath     = "/cross/rating"
 	LabelStartPath = "/cross/label_start"
+	identityV2Name = "identity-v2.json"
 )
 
 type RequestError struct {
@@ -101,15 +102,15 @@ func New(config Config) *Client {
 	if configError := validateSecureConfig(config); configError != nil {
 		return &Client{baseURL: baseURL, http: client, secureInitError: configError}
 	}
-	identityPath := filepath.Join(config.DataDir, "secure-communication", "identity.json")
+	identityPath := secureIdentityPath(config.DataDir)
 	secureClient, secureError := sc.New(sc.Config{
-		BaseURL:                 baseURL,
-		AppID:                   strings.TrimSpace(config.AppID),
-		DeviceType:              "HOST",
-		ServerTrustAnchors:      map[string]string{strings.TrimSpace(config.ServerKeyID): strings.TrimSpace(config.TrustAnchor)},
-		IdentityStore:           protectedIdentityStore{path: identityPath},
-		HTTPClient:              client.GetClient(),
-		AllowInsecureForTesting: isLoopbackHTTP(baseURL),
+		BaseURL:                         baseURL,
+		AppID:                           strings.TrimSpace(config.AppID),
+		DeviceType:                      "HOST",
+		ServerTrustAnchors:              map[string]string{strings.TrimSpace(config.ServerKeyID): strings.TrimSpace(config.TrustAnchor)},
+		IdentityStore:                   protectedIdentityStore{path: identityPath},
+		HTTPClient:                      client.GetClient(),
+		AllowInsecureLoopbackForTesting: isLoopbackHTTP(baseURL),
 	})
 	if secureError == nil {
 		if token := strings.TrimSpace(config.EnrollmentToken); token != "" {
@@ -194,8 +195,13 @@ func (c *Client) securePost(path, code string, body []byte) (*sc.Response, error
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	response, err := c.secure.Request(ctx, http.MethodPost, path,
-		map[string]string{"code": code}, body, "")
+	response, err := c.secure.Request(ctx, sc.Request{
+		Method:           http.MethodPost,
+		LogicalPath:      path,
+		ContentType:      "application/json",
+		ProtectedHeaders: map[string]string{"code": code},
+		Body:             body,
+	})
 	if err == nil {
 		return response, nil
 	}
@@ -209,15 +215,15 @@ func (c *Client) classifySecureFailure(err error) error {
 			if c.secure != nil {
 				c.secure.CloseSession()
 			}
-			return retryable("secure session expired; handshake required", secureError.Status, err)
+			return retryable("secure session expired; handshake required", secureError.HTTPStatus, err)
 		}
 		if secureError.Code == "SC_REQUEST_EXPIRED" {
-			return retryable("secure request timestamp expired", secureError.Status, err)
+			return retryable("secure request timestamp expired", secureError.HTTPStatus, err)
 		}
-		if secureError.Status == http.StatusTooManyRequests || secureError.Status >= 500 || secureError.Code == "SC_NETWORK_FAILED" {
-			return retryable("secure transport unavailable", secureError.Status, err)
+		if secureError.HTTPStatus == http.StatusTooManyRequests || secureError.HTTPStatus >= 500 || secureError.Code == "SC_NETWORK_FAILED" {
+			return retryable("secure transport unavailable", secureError.HTTPStatus, err)
 		}
-		return permanent("secure transport rejected", secureError.Status, err)
+		return permanent("secure transport rejected", secureError.HTTPStatus, err)
 	}
 	return permanent("secure client failed", 0, err)
 }
@@ -255,6 +261,10 @@ func isLoopbackHTTP(value string) bool {
 	}
 	ip := net.ParseIP(parsed.Hostname())
 	return strings.EqualFold(parsed.Hostname(), "localhost") || (ip != nil && ip.IsLoopback())
+}
+
+func secureIdentityPath(dataDir string) string {
+	return filepath.Join(dataDir, "secure-communication", identityV2Name)
 }
 
 func IsRetryable(err error) bool {

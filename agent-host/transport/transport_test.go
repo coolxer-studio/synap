@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -14,7 +15,7 @@ import (
 	"testing"
 
 	"agent-host/model"
-	sc "github.com/coolxer/secure-communication-go"
+	sc "github.com/coolxer/secure-communication-go/v2"
 )
 
 func TestCanonicalLogicalEndpoints(t *testing.T) {
@@ -71,26 +72,41 @@ func TestHTTPClientRequiresTLS12AndRejectsRedirects(t *testing.T) {
 	}
 }
 
+func TestOnlyLoopbackMayUseInsecureHTTP(t *testing.T) {
+	config := Config{
+		DataDir: t.TempDir(), AppID: "synap-host",
+		ServerKeyID: "server-key", TrustAnchor: testTrustAnchor(t),
+	}
+	config.BaseURL = "http://127.0.0.1:11099"
+	if client := New(config); client.secureInitError != nil {
+		t.Fatalf("loopback HTTP must be available for local testing: %v", client.secureInitError)
+	}
+	config.BaseURL = "http://synap.example.test"
+	if client := New(config); client.secureInitError == nil {
+		t.Fatal("non-loopback HTTP must be rejected")
+	}
+}
+
 func TestUnknownSessionAndNetworkFailuresAreRetryable(t *testing.T) {
 	client := &Client{}
 	for _, failure := range []*sc.Error{
-		{Code: "SC_UNKNOWN_SESSION", Status: 401},
-		{Code: "SC_REQUEST_EXPIRED", Status: 408},
+		{Code: "SC_UNKNOWN_SESSION", HTTPStatus: 401},
+		{Code: "SC_REQUEST_EXPIRED", HTTPStatus: 408},
 		{Code: "SC_NETWORK_FAILED"},
-		{Code: "SC_KEY_PROVIDER_UNAVAILABLE", Status: 503},
+		{Code: "SC_KEY_PROVIDER_UNAVAILABLE", HTTPStatus: 503},
 	} {
 		if classified := client.classifySecureFailure(failure); !IsRetryable(classified) {
 			t.Fatalf("%s must be retryable: %v", failure.Code, classified)
 		}
 	}
-	if classified := client.classifySecureFailure(&sc.Error{Code: "SC_HANDSHAKE_FAILED", Status: 401}); IsRetryable(classified) {
+	if classified := client.classifySecureFailure(&sc.Error{Code: "SC_HANDSHAKE_FAILED", HTTPStatus: 401}); IsRetryable(classified) {
 		t.Fatalf("handshake admission failure must be permanent: %v", classified)
 	}
 }
 
 func TestInstallationIdentityUsesPrivatePermissions(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "security", "identity.json")
-	if _, err := (protectedIdentityStore{path: path}).LoadOrCreate(); err != nil {
+	path := filepath.Join(t.TempDir(), "security", identityV2Name)
+	if _, err := (protectedIdentityStore{path: path}).LoadOrCreate("synap-host-test"); err != nil {
 		t.Fatal(err)
 	}
 	directory, err := os.Stat(filepath.Dir(path))
@@ -104,6 +120,50 @@ func TestInstallationIdentityUsesPrivatePermissions(t *testing.T) {
 	if directory.Mode().Perm() != 0o700 || file.Mode().Perm() != 0o600 {
 		t.Fatalf("identity permissions directory=%o file=%o",
 			directory.Mode().Perm(), file.Mode().Perm())
+	}
+}
+
+func TestV2IdentityUsesNewPathAndPreservesLegacyIdentity(t *testing.T) {
+	dataDir := t.TempDir()
+	identityDir := filepath.Join(dataDir, "secure-communication")
+	if err := os.MkdirAll(identityDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	legacyPath := filepath.Join(identityDir, "identity.json")
+	legacy := []byte(`{"version":1,"legacy":true}`)
+	if err := os.WriteFile(legacyPath, legacy, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	v2Path := secureIdentityPath(dataDir)
+	if filepath.Base(v2Path) != identityV2Name || v2Path == legacyPath {
+		t.Fatalf("unexpected v2 identity path: %s", v2Path)
+	}
+	const appID = "synap-host-test"
+	if _, err := (protectedIdentityStore{path: v2Path}).LoadOrCreate(appID); err != nil {
+		t.Fatal(err)
+	}
+
+	unchanged, err := os.ReadFile(legacyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(unchanged) != string(legacy) {
+		t.Fatalf("legacy identity was modified: %s", unchanged)
+	}
+	v2Data, err := os.ReadFile(v2Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stored struct {
+		Version int    `json:"version"`
+		AppID   string `json:"appId"`
+	}
+	if err := json.Unmarshal(v2Data, &stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored.Version != 2 || stored.AppID != appID {
+		t.Fatalf("unexpected v2 identity metadata: %+v", stored)
 	}
 }
 
@@ -121,11 +181,11 @@ func testTrustAnchor(t *testing.T) string {
 }
 
 func TestSecureTransportErrorClassification(t *testing.T) {
-	retry := retryable("network", 503, &sc.Error{Code: "SC_NETWORK_FAILED", Status: 503})
+	retry := retryable("network", 503, &sc.Error{Code: "SC_NETWORK_FAILED", HTTPStatus: 503})
 	if !IsRetryable(retry) {
 		t.Fatal("network failure must be retryable")
 	}
-	permanentError := permanent("authentication", 401, &sc.Error{Code: "SC_HANDSHAKE_FAILED", Status: 401})
+	permanentError := permanent("authentication", 401, &sc.Error{Code: "SC_HANDSHAKE_FAILED", HTTPStatus: 401})
 	if IsRetryable(permanentError) {
 		t.Fatal("authentication failure must be permanent")
 	}

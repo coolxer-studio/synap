@@ -3,7 +3,7 @@ module agent-host
 go 1.23
 
 require (
-	github.com/coolxer/secure-communication-go v1.0.0
+	github.com/coolxer/secure-communication-go/v2 v2.0.0
 	github.com/distatus/battery v0.11.0
 	github.com/go-resty/resty/v2 v2.11.0
 	github.com/google/uuid v1.4.0
@@ -15,7 +15,7 @@ require (
 	golang.org/x/sys v0.18.0
 )
 
-replace github.com/coolxer/secure-communication-go => ../../../secure-communication/client/go
+replace github.com/coolxer/secure-communication-go/v2 => ../../../secure-communication/client/go
 
 require (
 	github.com/go-ole/go-ole v1.2.6 // indirect

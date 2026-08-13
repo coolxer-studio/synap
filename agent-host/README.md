@@ -128,11 +128,15 @@ go run . \
   --log-level debug
 ```
 
-首次握手成功后，安装身份保存在
-`/tmp/synap-agent-host-local/secure-communication/identity.json`。后续运行不再需要
+首次握手成功后，v2 安装身份保存在
+`/tmp/synap-agent-host-local/secure-communication/identity-v2.json`。后续运行不再需要
 注册令牌，可删除 `SYNAP_SC_ENROLLMENT_TOKEN`；不要删除或复制身份文件。
 Unix 会强制目录 `0700`、文件 `0600`；Windows 会设置受保护 DACL，只允许当前
 运行账号访问。
+
+从 secure-communication-go 1.x 升级时，旧 `identity.json` 不会被读取、覆盖或删除。
+升级后的首次启动必须通过部署系统提供新的单次 `SYNAP_SC_ENROLLMENT_TOKEN`，成功注册
+并生成 `identity-v2.json` 后再移除该环境变量。
 
 输出 `探针已启动，进程ID: ...` 表示已经完成 `/attach/start` 并进入采集循环。另开终端检查日志和队列：
 
