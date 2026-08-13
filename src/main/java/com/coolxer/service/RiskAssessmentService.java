@@ -77,7 +77,8 @@ public class RiskAssessmentService {
         state.reasons.addAll(currentReasons); state.evidenceCount = Math.min(1000, state.evidenceCount + currentReasons.size());
         state.updatedAt = now; write(key, state);
         double confidence = Math.round(Math.min(0.99, state.score / 100 * Math.min(1, state.evidenceCount / 2.0)) * 100) / 100.0;
-        return new RiskAssessment("wechat".equals(platform) ? "wechat-risk-1" : "h5-risk-1", "2026-08-05", Math.round(state.score * 100) / 100.0,
+        String model = "wechat".equals(platform) ? "wechat-risk-1" : "server".equals(platform) ? "server-risk-1" : "h5-risk-1";
+        return new RiskAssessment(model, "2026-08-12", Math.round(state.score * 100) / 100.0,
                 confidence, new ArrayList<>(state.reasons), state.evidenceCount, true,
                 fact.getTransportTrust() == null ? "unauthenticated" : fact.getTransportTrust());
     }

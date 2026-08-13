@@ -21,7 +21,7 @@ import java.util.Set;
 @RestController
 @ConditionalOnProperty(prefix = "synap.sc", name = "enabled", havingValue = "true")
 public class SecureEnrollmentController {
-    private static final Set<String> DEVICE_TYPES = Set.of("HOST", "ANDROID", "IOS", "EMULATOR");
+    private static final Set<String> DEVICE_TYPES = Set.of("HOST", "ANDROID", "IOS", "EMULATOR", "SERVER");
     private final EnrollmentTokenService tokens;
     private final byte[] adminToken;
 

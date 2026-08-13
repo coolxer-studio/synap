@@ -1,0 +1,18 @@
+{
+  "policyVersion": "server-1.0.0",
+  "startConfig": [1, 60.0, 600.0, 10.0, 864000.0],
+  "apiPolicy": {
+    "enabled": true,
+    "observationWindowSeconds": 60,
+    "maxAssets": 5000,
+    "collectBody": false
+  },
+  "protectionPolicy": {
+    "mode": "observe",
+    "blockCapableRules": ["COMMAND_INJECTION_V1", "SSRF_PRIVATE_TARGET_V1", "PATH_TRAVERSAL_V1"]
+  },
+  "dependencyPolicy": {
+    "enabled": true,
+    "catalogProvider": "osv-file"
+  }
+}

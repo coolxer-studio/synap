@@ -16,6 +16,7 @@ import com.coolxer.model.fact.android.AndroidStartFact;
 import com.coolxer.model.fact.h5.H5StartFact;
 import com.coolxer.model.fact.host.HostStartFact;
 import com.coolxer.model.fact.host.HostAuditFact;
+import com.coolxer.model.fact.server.ServerStartFact;
 import com.coolxer.model.fact.ios.IosStartFact;
 import com.coolxer.model.fact.wechat.WechatStartFact;
 import com.coolxer.model.punish.Punish;
@@ -122,6 +123,7 @@ public class AttachController extends AbstractController {
             else if("h5".equals(platform)) fact = new H5StartFact("StartData",header,common,config);
             else if("wechat".equals(platform)) fact = new WechatStartFact("StartData",header,common,config);
             else if("host".equals(platform)) fact = new HostStartFact("StartData",header,common,config);
+            else if("server".equals(platform)) fact = new ServerStartFact("StartData",header,common,config);
             else throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown platform:" + platform);
 
             if (tracked) {
@@ -338,7 +340,7 @@ public class AttachController extends AbstractController {
 
     private static boolean isProtocolRequest(String platform) {
         return "h5".equalsIgnoreCase(platform) || "wechat".equalsIgnoreCase(platform)
-                || "host".equalsIgnoreCase(platform);
+                || "host".equalsIgnoreCase(platform) || "server".equalsIgnoreCase(platform);
     }
 
     private static String transportTrust(HttpServletRequest request) {

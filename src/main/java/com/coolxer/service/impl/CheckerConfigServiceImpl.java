@@ -77,7 +77,7 @@ public class CheckerConfigServiceImpl implements CheckerConfigService {
      * 加载所有平台的配置
      */
     private void loadAllPlatformConfigs() {
-        String[] platforms = {"android", "ios", "h5", "wechat", "host"};
+        String[] platforms = {"android", "ios", "h5", "wechat", "host", "server"};
         for (String platform : platforms) {
             reloadPlatformConfig(platform);
         }

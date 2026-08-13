@@ -602,4 +602,31 @@ public class TopicDefine {
     public NewTopic TopicForWechatLocation() { return wechatTopic(TOPIC_WECHAT_LOCATION_FACT); }
     @Bean(TOPIC_WECHAT_DEBUG_FACT)
     public NewTopic TopicForWechatDebug() { return wechatTopic(TOPIC_WECHAT_DEBUG_FACT); }
+
+    public static final String TOPIC_SERVER_START_FACT = "server_fact_start";
+    public static final String TOPIC_SERVER_APPLICATION_FACT = "server_fact_application";
+    public static final String TOPIC_SERVER_RUNTIME_FACT = "server_fact_runtime";
+    public static final String TOPIC_SERVER_API_ASSET_FACT = "server_fact_api_asset";
+    public static final String TOPIC_SERVER_API_OBSERVATION_FACT = "server_fact_api_observation";
+    public static final String TOPIC_SERVER_SECURITY_CONFIG_FACT = "server_fact_security_config";
+    public static final String TOPIC_SERVER_DEPENDENCY_FACT = "server_fact_dependency";
+    public static final String TOPIC_SERVER_DANGEROUS_CALL_FACT = "server_fact_dangerous_call";
+    public static final String TOPIC_SERVER_SECURITY_EVENT_FACT = "server_fact_security_event";
+    public static final String TOPIC_SERVER_AGENT_HEALTH_FACT = "server_fact_agent_health";
+    public static final String TOPIC_SERVER_USER_FACT = "server_fact_user";
+    public static final String TOPIC_SERVER_ACTION_FACT = "server_fact_action";
+
+    private NewTopic serverTopic(String name) { return TopicBuilder.name(name).partitions(partitions).replicas(replicas).compact().build(); }
+    @Bean(TOPIC_SERVER_START_FACT) public NewTopic TopicForServerStart() { return serverTopic(TOPIC_SERVER_START_FACT); }
+    @Bean(TOPIC_SERVER_APPLICATION_FACT) public NewTopic TopicForServerApplication() { return serverTopic(TOPIC_SERVER_APPLICATION_FACT); }
+    @Bean(TOPIC_SERVER_RUNTIME_FACT) public NewTopic TopicForServerRuntime() { return serverTopic(TOPIC_SERVER_RUNTIME_FACT); }
+    @Bean(TOPIC_SERVER_API_ASSET_FACT) public NewTopic TopicForServerApiAsset() { return serverTopic(TOPIC_SERVER_API_ASSET_FACT); }
+    @Bean(TOPIC_SERVER_API_OBSERVATION_FACT) public NewTopic TopicForServerApiObservation() { return serverTopic(TOPIC_SERVER_API_OBSERVATION_FACT); }
+    @Bean(TOPIC_SERVER_SECURITY_CONFIG_FACT) public NewTopic TopicForServerSecurityConfig() { return serverTopic(TOPIC_SERVER_SECURITY_CONFIG_FACT); }
+    @Bean(TOPIC_SERVER_DEPENDENCY_FACT) public NewTopic TopicForServerDependency() { return serverTopic(TOPIC_SERVER_DEPENDENCY_FACT); }
+    @Bean(TOPIC_SERVER_DANGEROUS_CALL_FACT) public NewTopic TopicForServerDangerousCall() { return serverTopic(TOPIC_SERVER_DANGEROUS_CALL_FACT); }
+    @Bean(TOPIC_SERVER_SECURITY_EVENT_FACT) public NewTopic TopicForServerSecurityEvent() { return serverTopic(TOPIC_SERVER_SECURITY_EVENT_FACT); }
+    @Bean(TOPIC_SERVER_AGENT_HEALTH_FACT) public NewTopic TopicForServerAgentHealth() { return serverTopic(TOPIC_SERVER_AGENT_HEALTH_FACT); }
+    @Bean(TOPIC_SERVER_USER_FACT) public NewTopic TopicForServerUser() { return serverTopic(TOPIC_SERVER_USER_FACT); }
+    @Bean(TOPIC_SERVER_ACTION_FACT) public NewTopic TopicForServerAction() { return serverTopic(TOPIC_SERVER_ACTION_FACT); }
 }

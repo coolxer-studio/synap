@@ -27,6 +27,9 @@ public class RequestValidationService {
             "UserData", "DebugData");
     private static final Set<String> HOST_FACT_TYPES = Set.of(
             "DeviceData", "FileData", "RuntimeData", "NetData", "EventData", "UserData", "AuditData");
+    private static final Set<String> SERVER_FACT_TYPES = Set.of(
+            "ApplicationData", "RuntimeData", "ApiAssetData", "ApiObservationData", "SecurityConfigData",
+            "DependencyData", "DangerousCallData", "SecurityEventData", "AgentHealthData", "UserData", "ActionData");
 
     private final String[] globalOrigins;
     private final Map<String, String[]> appOrigins;
@@ -66,6 +69,7 @@ public class RequestValidationService {
             Header header = new Header(code);
             common = com.coolxer.model.fact.FactBuilder.buildCommon(request.getCommon());
             if (!header.isConsistentWith(common)) return "header and common are inconsistent";
+            if ("jvm".equalsIgnoreCase(common.getPlatform())) return "unsupported platform";
             if (!upload) {
                 RequestMeta meta = request.getMeta();
                 boolean hasTracking = meta != null && meta.hasStartTracking();
@@ -123,18 +127,20 @@ public class RequestValidationService {
 
     private static boolean isProtocolPlatform(String platform) {
         return "h5".equalsIgnoreCase(platform) || "wechat".equalsIgnoreCase(platform)
-                || "host".equalsIgnoreCase(platform);
+                || "host".equalsIgnoreCase(platform) || "server".equalsIgnoreCase(platform);
     }
 
     private static Set<String> allowedFactTypes(String platform) {
         if ("h5".equalsIgnoreCase(platform)) return H5_FACT_TYPES;
         if ("wechat".equalsIgnoreCase(platform)) return WECHAT_FACT_TYPES;
+        if ("server".equalsIgnoreCase(platform)) return SERVER_FACT_TYPES;
         return HOST_FACT_TYPES;
     }
 
     private static String protocolLabel(String platform) {
         if ("h5".equalsIgnoreCase(platform)) return "H5";
         if ("wechat".equalsIgnoreCase(platform)) return "WeChat";
+        if ("server".equalsIgnoreCase(platform)) return "Server";
         return "Host";
     }
 

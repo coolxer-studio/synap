@@ -190,6 +190,11 @@ Fact 数量、字符串长度和嵌套深度。生产使用互相隔离的 Redis
 - 生产环境可访问的 Redis；开发 profile 默认使用有界内存去重存储
 - 可访问的外部服务地址，见 `msg_api_config.json`
 
+开发 profile 会可选加载 `.local/sc-dev/application-local.properties`。需要启用
+安全通信时，在该 Git 已忽略的文件中保存本地密钥；密钥必须在服务
+重启后保持不变，否则 Redis 中已有的安全会话将无法解密。本地密钥文件
+应设置为仅当前用户可读。
+
 启动：
 
 ```bash

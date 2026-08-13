@@ -5,6 +5,8 @@ import com.coolxer.model.checkpoint.Checkpoint;
 import com.coolxer.config.TopicDefine;
 import com.coolxer.model.fact.AbstractFact;
 import com.coolxer.model.fact.host.HostAuditFact;
+import com.coolxer.model.fact.server.ServerDependencyFact;
+import com.coolxer.service.VulnerabilityCatalogService;
 import com.coolxer.model.punish.Punish;
 import com.coolxer.service.PunishConfigService;
 import com.coolxer.service.UploadMetrics;
@@ -75,6 +77,9 @@ public class RuleEngineImpl implements RuleEngine {
     @Autowired(required = false)
     private RiskAssessmentService riskAssessmentService;
 
+    @Autowired(required = false)
+    private VulnerabilityCatalogService vulnerabilityCatalogService;
+
     public RuleEngineImpl(PunishConfigService punishConfigService) {
         this.punishConfigService = punishConfigService;
     }
@@ -86,6 +91,9 @@ public class RuleEngineImpl implements RuleEngine {
 
     @Override
     public Checkpoint run(AbstractFact fact) {
+        if (fact instanceof ServerDependencyFact dependencyFact && vulnerabilityCatalogService != null) {
+            vulnerabilityCatalogService.enrich(dependencyFact);
+        }
         Checkpoint checkpoint = null;
         String factClassName = fact.getClass().getSimpleName();
         String scriptName = factClassName+"Rule.groovy";
@@ -109,7 +117,7 @@ public class RuleEngineImpl implements RuleEngine {
             checkpoint = new Checkpoint(fact, scriptName, agendaList, punishHashSet,
                     FastDateFormat.getInstance("yyyy-MM-dd HH:mm:ss").format(new Date()),
                     riskAssessmentService == null || !("h5".equals(fact.getCommon().getPlatform())
-                            || "wechat".equals(fact.getCommon().getPlatform()))
+                            || "wechat".equals(fact.getCommon().getPlatform()) || "server".equals(fact.getCommon().getPlatform()))
                             ? null : riskAssessmentService.assess(fact, agendaList));
 
             String kafkaKey = fact instanceof HostAuditFact
