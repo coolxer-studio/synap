@@ -123,7 +123,7 @@ func readAndEncryptFile(inputPath, outputPath string) {
 
 // performDataEncryption 执行数据加密操作
 // 遍历 dataDirectory 目录，加密其中的 start 和 upload 文件
-func performDataEncryption() {
+func performDataEncryption(platformFilter string) {
 	if _, err := os.Stat(dataDirectory); os.IsNotExist(err) {
 		fmt.Printf("目录 %s 不存在\n", dataDirectory)
 		return
@@ -137,6 +137,9 @@ func performDataEncryption() {
 	// 遍历每个数据类型目录
 	for _, entry := range entries {
 		if !entry.IsDir() {
+			continue
+		}
+		if platformFilter != "" && entry.Name() != platformFilter {
 			continue
 		}
 
@@ -198,13 +201,20 @@ func getAsMap(data interface{}) (map[string]interface{}, bool) {
 	return m, ok
 }
 
+func buildHeaderCode(common []interface{}) (string, error) {
+	if len(common) < 9 {
+		return "", fmt.Errorf("common slice too short")
+	}
+	return fmt.Sprintf("%v-%v-%v-%v", common[1], common[8], common[4], common[3]), nil
+}
+
 // modifyStartData 修改 start 数据中的通用字段
 // 参数 startData: 待修改的数据
 // 参数 randomUUID: 新的设备 UUID
 // 参数 startID: 会话 ID
 // 参数 currentTimeFormatted: 当前时间字符串
 // 返回: 错误信息
-func modifyStartData(startData map[string]interface{}, randomUUID string, startID int64, currentTimeFormatted string) error {
+func modifyStartData(startData map[string]interface{}, randomUUID string, startID int64, currentTimeFormatted string, dataTypeName string) error {
 	startDataCommon, ok := getAsSlice(startData, "common")
 	if !ok {
 		return fmt.Errorf("startData common is not a slice")
@@ -217,6 +227,13 @@ func modifyStartData(startData map[string]interface{}, randomUUID string, startI
 	startDataCommon[2] = startID
 	startDataCommon[23] = currentTimeFormatted
 	startData["common"] = startDataCommon
+	if dataTypeName == "wechat" {
+		startData["meta"] = map[string]interface{}{
+			"protocolVersion": 1,
+			"appKeyId":        "emulator",
+			"detectorVersion": "wechat-risk-1",
+		}
+	}
 	return nil
 }
 
@@ -240,6 +257,17 @@ func modifyUploadData(uploadData map[string]interface{}, randomUUID string, star
 	uploadDataCommon[2] = startID
 	uploadDataCommon[23] = currentTimeFormatted
 	uploadData["common"] = uploadDataCommon
+	if dataTypeName == "wechat" {
+		uploadData["meta"] = map[string]interface{}{
+			"protocolVersion": 1,
+			"appKeyId":        "emulator",
+			"detectorVersion": "wechat-risk-1",
+			"batchId":         "batch-" + uuid.NewString(),
+			"sessionId":       fmt.Sprint(startID),
+			"attempt":         1,
+			"createdAt":       time.Now().UnixMilli(),
+		}
+	}
 
 	// 更新数据字段
 	dataSlice, ok := getAsSlice(uploadData, "data")
@@ -247,12 +275,17 @@ func modifyUploadData(uploadData map[string]interface{}, randomUUID string, star
 		return fmt.Errorf("uploadData data is not a slice")
 	}
 
-	for _, item := range dataSlice {
+	for index, item := range dataSlice {
 		itemMap, ok := getAsMap(item)
 		if !ok {
 			continue
 		}
 		itemMap["buildDate"] = currentTimeFormatted
+		if dataTypeName == "wechat" {
+			itemMap["messageId"] = "message-" + uuid.NewString()
+			itemMap["sequence"] = index + 1
+			itemMap["observedAt"] = time.Now().UnixMilli()
+		}
 		// 如果是设备数据，更新对应的 UUID 字段
 		if itemMap["type"] == "DeviceData" {
 			uuidSlice, ok := getAsSlice(itemMap, "uuid")
@@ -295,14 +328,15 @@ func sendDataToAPI(host string, data map[string]interface{}, urlIndex int, print
 		log.Printf("common field is not a slice")
 		return
 	}
-	if len(common) < 4 {
-		log.Printf("common slice too short")
+	headerCode, err := buildHeaderCode(common)
+	if err != nil {
+		log.Printf("%v", err)
 		return
 	}
 	// 构建请求头
 	headers := map[string]string{
 		"Content-Type": "application/json",
-		"code":         fmt.Sprintf("%s-%s-1-230501", common[1], common[3]),
+		"code":         headerCode,
 	}
 	body, err := json.Marshal(data)
 	if err != nil {
@@ -362,7 +396,7 @@ func performDataSending(host string, deviceCount int, printLog bool) {
 	// 获取当前时间和会话 ID
 	currentTime := time.Now()
 	currentTimeFormatted := currentTime.Format("2006-01-02 15:04:05")
-	startID := currentTime.UnixMicro()
+	startID := currentTime.UnixMilli()
 
 	currentDataDirectory := dataDirectory
 	isEncryp := false
@@ -393,12 +427,12 @@ func performDataSending(host string, deviceCount int, printLog bool) {
 		uploadFilePath := filepath.Join(currentDataDirectory, entry.Name(), "upload")
 		startData, err := readJSONFile(startFilePath, isEncryp)
 		if err != nil {
-			log.Printf("Failed to read start message file: %v", startFilePath, err)
+			log.Printf("Failed to read start message file %s: %v", startFilePath, err)
 			continue
 		}
 		uploadData, err := readJSONFile(uploadFilePath, isEncryp)
 		if err != nil {
-			log.Printf("Failed to read upload message file: %v", uploadFilePath, err)
+			log.Printf("Failed to read upload message file %s: %v", uploadFilePath, err)
 			continue
 		}
 
@@ -407,7 +441,7 @@ func performDataSending(host string, deviceCount int, printLog bool) {
 			randomUUID := uuid.NewString()
 
 			// 修改 start 数据
-			if err := modifyStartData(startData, randomUUID, startID, currentTimeFormatted); err != nil {
+			if err := modifyStartData(startData, randomUUID, startID, currentTimeFormatted, entry.Name()); err != nil {
 				log.Printf("Failed to modify start data: %v", err)
 				continue
 			}
@@ -435,11 +469,12 @@ func main() {
 	host := flag.String("host", "localhost", "The hostname or IP address of the server")
 	deviceCount := flag.Int("device_count", 1, "The number of devices to connect to")
 	printLog := flag.Bool("print_log", false, "Print log")
+	encryptPlatform := flag.String("encrypt_platform", "", "Encrypt only one platform sample (for example wechat)")
 	flag.Parse()
 
 	// 根据是否有参数决定运行模式
-	if flag.NFlag() == 0 {
-		performDataEncryption()
+	if flag.NFlag() == 0 || *encryptPlatform != "" {
+		performDataEncryption(*encryptPlatform)
 	} else {
 		performDataSending(*host, *deviceCount, *printLog)
 	}

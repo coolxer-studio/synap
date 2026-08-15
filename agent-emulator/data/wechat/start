@@ -1,3 +1,8 @@
 {
-	"common": ["", "3aef158b-1548-4f55-b8f0-f07b488d3795", 1718720348298, "1.0.0.240701", 1, "设备测试页面", "pages/device/device", "-", "wechat", "apple", "iPhone 5", "iOS", "10.0.1", "wifi", "192.168.0.104", "223.104.227.183", null, null, "", "", "", "", "", "2024-06-18 22:19:08"]
+  "common": ["", "3aef158b-1548-4f55-b8f0-f07b488d3795", 1718720348298, "1.0.0", 1, "业务小程序", "wx9354023cec37e940", "1.0.0", "wechat", "apple", "iPhone", "iOS", "17.0", "wifi", "", "", "", "", "", "", "", "", "", "2026-08-05T10:00:00.000Z"],
+  "meta": {
+    "protocolVersion": 1,
+    "appKeyId": "emulator",
+    "detectorVersion": "wechat-risk-1"
+  }
 }

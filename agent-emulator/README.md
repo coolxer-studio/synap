@@ -1,22 +1,30 @@
-# synap-agent消息仿真器
+# synap-agent 消息仿真器
 
-## 运行环境
-golang
+## 构建与测试
 
-## 构建说明
-```
+```bash
+go test ./...
 go build -o agent-emulator
 ```
 
-## 运行说明
-发送数据，如果是加密目录先解密再发送，如果非加密直接发送：
-```
-./agent-emulator --host 192.168.1.201 --device_count 1 --print_log 1
+## 发送
+
+```bash
+./agent-emulator --host 192.168.1.201 --device_count 1 --print_log=true
 ```
 
-## 加密文件
-加密文件（构建时需要）生成data_encryp目录存放加密文件
-```
+发送前会更新 guid、毫秒级 startId 和客户端时间。WeChat start/upload 会同步生成第一版 meta、batchId、messageId、sequence、observedAt；请求头按 `{guid}-{platform}-{appId}-{sdkVersion}` 构造。
+
+## 生成加密样例
+
+无参数运行会读取 `data` 并写入 `data_encryp`：
+
+```bash
 ./agent-emulator
+```
 
+只刷新微信小程序加密样例：
+
+```bash
+./agent-emulator --encrypt_platform wechat
 ```
