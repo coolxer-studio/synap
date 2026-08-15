@@ -1,0 +1,13 @@
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = "agent-android"
+include ':app'
+include ':probe'
+include ':secure-communication'
+project(':secure-communication').projectDir =
+        new File(settingsDir, '../../../secure-communication/client/android/secure-communication')
