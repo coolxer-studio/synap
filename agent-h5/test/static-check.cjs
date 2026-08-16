@@ -38,4 +38,17 @@ const runningSource = fs.readFileSync(path.join(root, 'lib/running-check/ct-runn
 if (/return\s+['"]0\.0\.0\.0['"]/.test(deviceSource) || /return\s+['"]0\.0\.0\.0['"]/.test(runningSource)) {
   throw new Error('IP fields must not use 0.0.0.0 placeholders');
 }
+const entrySource = fs.readFileSync(path.join(root, 'index.js'), 'utf8');
+if (!/SecureRequest/.test(entrySource)
+    || !/SecureClientConfig/.test(entrySource)
+    || !/IndexedDbIdentityStore/.test(entrySource)) {
+  throw new Error('Secure Communication 2.0 client contract must be used explicitly');
+}
+if (/allowInsecureForTesting|protectedHeaderNames/.test(entrySource)
+    || /secureClient\.request\(\s*['"]/.test(entrySource)) {
+  throw new Error('Legacy Secure Communication 1.x client API must not be used');
+}
+if (!/fetch:\s*window\.fetch\.bind\(window\)/.test(entrySource)) {
+  throw new Error('Browser fetch must retain its native receiver');
+}
 console.log(`Checked ${files.length} source files`);

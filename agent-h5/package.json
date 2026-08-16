@@ -36,7 +36,7 @@
     "crypto": false
   },
   "dependencies": {
-    "@coolxer/secure-communication-js": "1.0.0"
+    "@coolxer/secure-communication-js": "2.0.0"
   },
   "browserslist": [
     "Chrome >= 90",

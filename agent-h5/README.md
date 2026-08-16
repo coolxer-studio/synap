@@ -1,6 +1,6 @@
 # synap-agent-h5
 
-Synap H5 Agent 通过 `@coolxer/secure-communication-js@1.0.0` 接入安全通信协议
+Synap H5 Agent 通过 `@coolxer/secure-communication-js@2.0.0` 接入安全通信协议
 v1。外层只访问 `/sc/v1/handshake`、`/sc/v1/handshake/finish` 和
 `/sc/v1/message`；业务 method、逻辑 path、Content-Type、`code` 和正文位于
 AES-256-GCM 密文内，传输 requestId 位于经过 AAD 认证的外层信封中。
@@ -32,6 +32,9 @@ await SynapAgent.destroy({ flush: true });
 
 浏览器端 `appId` 是公开标识，不是秘密。身份保证依赖 HTTPS、服务端公钥固定、
 Origin 白名单和 IndexedDB 中不可导出的 WebCrypto P-256 安装密钥。
+2.0 使用 `coolxer-secure-communication-v2` 身份库及
+`installation-v2:<appId>` 记录，不读取、覆盖或删除 1.x 身份。升级后首次请求会为
+当前 Origin 和 appId 生成新安装身份，并按需自动完成会话初始化。
 
 ## 重试语义
 

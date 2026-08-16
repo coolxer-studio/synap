@@ -1,4 +1,9 @@
-import { createSecureClient } from '@coolxer/secure-communication-js';
+import {
+  IndexedDbIdentityStore,
+  SecureClientConfig,
+  SecureRequest,
+  createSecureClient
+} from '@coolxer/secure-communication-js';
 import baseData from './lib/base-data';
 import ctDeviceInfo from './lib/device-info/ct-device-info';
 import { applyCollectionProfile } from './lib/device-info/collection-policy';
@@ -69,6 +74,8 @@ const shared = {
   },
   generation: 0
 };
+
+const SECURE_IDENTITY_DATABASE = 'coolxer-secure-communication-v2';
 
 function safeSessionStorage() {
   try {
@@ -262,12 +269,14 @@ async function securePost(path, body, requestId) {
   const controller = typeof AbortController === 'function' ? new AbortController() : null;
   const timer = controller ? setTimeout(() => controller.abort(), shared.options.requestTimeout) : null;
   try {
-    const response = await shared.secureClient.request(
-      'POST', path, { code: baseData.getHeaderCode() }, JSON.stringify(body),
-      requestId || createId('request'), {
-        contentType: 'application/json',
-        signal: controller ? controller.signal : undefined
-      });
+    const response = await shared.secureClient.request(new SecureRequest({
+      method: 'POST',
+      logicalPath: path,
+      contentType: 'application/json',
+      protectedHeaders: { code: baseData.getHeaderCode() },
+      body: JSON.stringify(body),
+      requestId: requestId || createId('request')
+    }), { signal: controller ? controller.signal : undefined });
     return decodeResponse(response.text());
   } finally {
     if (timer) clearTimeout(timer);
@@ -592,15 +601,18 @@ async function initialize(options) {
   shared.startTracking = loadOrCreateStartTracking();
   shared.startAcknowledged = shared.startTracking.acknowledged === true;
   shared.startRetryCount = 0;
-  shared.secureClient = createSecureClient({
+  shared.secureClient = createSecureClient(new SecureClientConfig({
     baseUrl: resolved.baseUrl,
     appId: shared.appKeyId,
     deviceType: 'H5',
     serverTrustAnchors: resolved.serverTrustAnchors,
-    protectedHeaderNames: ['code'],
-    allowInsecureForTesting: isLoopbackHttpUrl(resolved.baseUrl)
-  });
-  await shared.secureClient.initialize();
+    identityStore: new IndexedDbIdentityStore({ databaseName: SECURE_IDENTITY_DATABASE }),
+    requestTimeoutMillis: resolved.requestTimeout,
+    allowInsecureLoopbackForTesting: isLoopbackHttpUrl(resolved.baseUrl),
+    // SecureClientConfig stores the supplied function and invokes it through
+    // the config object. Bind the browser native to avoid an illegal receiver.
+    fetch: window.fetch.bind(window)
+  }));
   shared.cachedDeviceInfo = null;
   shared.behaviorController = null;
   shared.collectionStorageKey = `__synap_collection_${SDK_VERSION}_${resolved.appId}_${baseData.getStartId()}`;

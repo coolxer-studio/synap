@@ -93,6 +93,9 @@ await SynapAgent.destroy({ flush: true });
 ```
 
 重复使用相同配置调用 `init` 不会重复安装定时器和监听器。`destroy` 会清理采集资源，`flush` 默认为 `true`。
+安全客户端在首次业务请求时按需建立会话。安装身份保存在
+`coolxer-secure-communication-v2` IndexedDB 中，与 1.x 身份隔离；清理站点数据、更换
+Origin 或 appId 后会生成新身份。
 
 ### 用户数据
 

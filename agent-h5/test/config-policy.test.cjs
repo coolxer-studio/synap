@@ -52,7 +52,9 @@ test('HTTPS pages reject mixed-content endpoints', () => {
 
 test('HTTP is limited to loopback development endpoints', () => {
   assert.equal(isLoopbackHttpUrl('http://127.0.0.1:11099'), true);
+  assert.equal(isLoopbackHttpUrl('http://127.10.20.30:11099'), true);
   assert.equal(isLoopbackHttpUrl('http://localhost:11099'), true);
+  assert.equal(isLoopbackHttpUrl('http://[::1]:11099'), true);
   assert.equal(isLoopbackHttpUrl('https://127.0.0.1:11099'), false);
   assert.equal(normalizeBaseUrl('http://127.0.0.1:11099/'), 'http://127.0.0.1:11099');
   assert.throws(() => normalizeBaseUrl('http://risk.example.test'), /must use HTTPS/);
