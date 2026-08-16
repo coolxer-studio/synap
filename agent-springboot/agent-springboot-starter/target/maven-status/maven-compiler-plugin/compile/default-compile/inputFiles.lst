@@ -1,0 +1,8 @@
+/Users/qihaha/Documents/cabin/synap/synap-agent/agent-springboot/agent-springboot-starter/src/main/java/com/coolxer/synap/starter/ApiAssetSupport.java
+/Users/qihaha/Documents/cabin/synap/synap-agent/agent-springboot/agent-springboot-starter/src/main/java/com/coolxer/synap/starter/ApiObservationAggregator.java
+/Users/qihaha/Documents/cabin/synap/synap-agent/agent-springboot/agent-springboot-starter/src/main/java/com/coolxer/synap/starter/MvcApiInstrumentation.java
+/Users/qihaha/Documents/cabin/synap/synap-agent/agent-springboot/agent-springboot-starter/src/main/java/com/coolxer/synap/starter/SpringSecurityInstrumentation.java
+/Users/qihaha/Documents/cabin/synap/synap-agent/agent-springboot/agent-springboot-starter/src/main/java/com/coolxer/synap/starter/SynapAgentAutoConfiguration.java
+/Users/qihaha/Documents/cabin/synap/synap-agent/agent-springboot/agent-springboot-starter/src/main/java/com/coolxer/synap/starter/SynapAgentBootstrap.java
+/Users/qihaha/Documents/cabin/synap/synap-agent/agent-springboot/agent-springboot-starter/src/main/java/com/coolxer/synap/starter/SynapAgentProperties.java
+/Users/qihaha/Documents/cabin/synap/synap-agent/agent-springboot/agent-springboot-starter/src/main/java/com/coolxer/synap/starter/WebFluxApiInstrumentation.java

@@ -1,0 +1,10 @@
+com/coolxer/synap/javaagent/SinkAdvices$File.class
+com/coolxer/synap/javaagent/SinkAdvices$Command.class
+com/coolxer/synap/javaagent/SynapJavaAgent.class
+com/coolxer/synap/javaagent/SinkAdvices$Http.class
+com/coolxer/synap/javaagent/SinkAdvices$Jndi.class
+com/coolxer/synap/javaagent/SinkAdvices$FileConstructor.class
+com/coolxer/synap/javaagent/SinkAdvices.class
+com/coolxer/synap/javaagent/SinkAdvices$Sql.class
+com/coolxer/synap/javaagent/SinkAdvices$Spel.class
+com/coolxer/synap/javaagent/SinkAdvices$Deserialization.class
