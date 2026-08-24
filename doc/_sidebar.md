@@ -1,0 +1,43 @@
+- [文档首页](/)
+
+- [产品与快速开始](/01-产品与快速开始/README.md)
+  - [快速开始](/01-产品与快速开始/快速开始.md)
+  - [组件、术语与兼容性](/01-产品与快速开始/组件术语与兼容性.md)
+
+- [Server 部署运维](/02-Server部署运维/README.md)
+  - [Docker Compose 部署](/02-Server部署运维/Docker-Compose部署.md)
+  - [生产配置与安全通信](/02-Server部署运维/生产配置与安全通信.md)
+  - [验收、升级与排障](/02-Server部署运维/验收升级与排障.md)
+
+- [Agent 接入](/03-Agent接入/README.md)
+  - [Web / H5 接入](/03-Agent接入/Web-H5接入.md)
+  - [Electron 接入](/03-Agent接入/Electron接入.md)
+  - [Host 接入与运维](/03-Agent接入/Host接入与运维.md)
+  - [Qt 桌面探针](/03-Agent接入/Qt桌面探针.md)
+  - [Spring Boot 接入](/03-Agent接入/Spring-Boot接入.md)
+  - [Android 与 iOS](/03-Agent接入/Android与iOS.md)
+  - [HarmonyOS NEXT 状态](/03-Agent接入/HarmonyOS-NEXT状态.md)
+  - [ESP32 接入状态](/03-Agent接入/ESP32接入状态.md)
+  - [数据仿真器](/03-Agent接入/数据仿真器.md)
+  - [微信小程序状态](/03-Agent接入/微信小程序状态.md)
+
+- [Synap Build](/04-Synap-Build/README.md)
+  - [部署与配置](/04-Synap-Build/部署与配置.md)
+  - [任务与交付包](/04-Synap-Build/任务与交付包.md)
+  - [运维与故障排查](/04-Synap-Build/运维与故障排查.md)
+
+- [协议与 API](/05-协议与API/README.md)
+  - [安全通信协议 v1](/05-协议与API/安全通信协议-v1.md)
+  - [Server API](/05-协议与API/Server-API.md)
+  - [Fact 与规则模型](/05-协议与API/Fact与规则模型.md)
+  - [Synap Build API](/05-协议与API/Synap-Build-API.md)
+
+- [架构与安全](/06-架构与安全/README.md)
+  - [系统与数据链路](/06-架构与安全/系统与数据链路.md)
+  - [可靠性与幂等](/06-架构与安全/可靠性与幂等.md)
+  - [安全与隐私](/06-架构与安全/安全与隐私.md)
+
+- [开发指南](/07-开发指南/README.md)
+  - [子项目开发](/07-开发指南/子项目开发.md)
+  - [扩展 Fact 与规则](/07-开发指南/扩展Fact与规则.md)
+  - [文档维护](/07-开发指南/文档维护.md)
