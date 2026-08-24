@@ -1,0 +1,44 @@
+{
+  "name": "synap-agent-electron",
+  "version": "1.0.0",
+  "description": "Synap security probe adapter for Electron 28+",
+  "license": "Apache-2.0",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "exports": {
+    "./main": {
+      "types": "./dist/main.d.ts",
+      "import": "./dist/main.js",
+      "require": "./dist/main.cjs"
+    },
+    "./preload": {
+      "types": "./dist/preload.d.ts",
+      "default": "./dist/preload.cjs"
+    },
+    "./renderer": {
+      "types": "./dist/renderer.d.ts",
+      "import": "./dist/renderer.js",
+      "require": "./dist/renderer.cjs"
+    }
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "electron": ">=28"
+  },
+  "scripts": {
+    "build": "node config/build.cjs",
+    "lint": "node test/static-check.mjs",
+    "test": "node --test test/*.test.mjs",
+    "test:electron": "npm run build && electron test/electron-smoke.cjs",
+    "ci": "npm run lint && npm test && npm run build && npm run test:electron"
+  },
+  "devDependencies": {
+    "electron": "^42.0.0",
+    "webpack": "^5.109.0"
+  }
+}

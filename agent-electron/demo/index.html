@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; connect-src https: http://127.0.0.1:*">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Synap Electron Agent Demo</title>
+  <style>
+    body { margin: 0; padding: 32px; font: 15px/1.6 system-ui, sans-serif; color: #172033; background: #f4f7fb; }
+    main { max-width: 860px; margin: auto; padding: 28px; background: white; border-radius: 14px; box-shadow: 0 10px 30px #24324a18; }
+    h1 { margin-top: 0; } pre { overflow: auto; padding: 16px; background: #101827; color: #d9e4ff; border-radius: 8px; }
+    .ok { color: #087f5b; } .warn { color: #b35c00; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Synap Electron Agent</h1>
+  <p id="status" class="warn">正在读取安全上下文…</p>
+  <pre id="context"></pre>
+  <p>配置真实的 Server 地址、appId 与公开信任锚后，可在 <code>demo/renderer.js</code> 中启用完整探针初始化。</p>
+</main>
+<script type="module" src="/demo/renderer.js"></script>
+</body>
+</html>

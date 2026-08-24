@@ -1,0 +1,8 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "agent-harmony",
+  "version": "1.0.0",
+  "description": "Synap HarmonyOS NEXT security probe",
+  "dependencies": {},
+  "devDependencies": {}
+}

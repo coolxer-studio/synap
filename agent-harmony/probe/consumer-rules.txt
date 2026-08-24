@@ -1,0 +1,5 @@
+-keep-global-name
+SynapAgent
+SynapAgentConfig
+SynapError
+

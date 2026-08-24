@@ -1,0 +1,9 @@
+{
+  "description": "SC1 international-suite request envelope with Unicode plaintext",
+  "keyHex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "nonceBase64Url": "oKGiowAAAAAAAAAB",
+  "aadUtf8": "SC1\nrequest\nP256_HKDF_SHA256_AES256_GCM\ntest-key-2026-01\ntest-session-0001\n1785283200000\n1\nrequest-0001\nPOST\n/sc/v1/message\napplication/sc-protected+json",
+  "plaintextUtf8": "{\"message\":\"你好🌍\"}",
+  "combinedCiphertextBase64Url": "y43V6x8Hp9N--JdIn9atb-inacLk7T5Q9B7Jzez-vufGdNrX0f2xKw"
+}
+

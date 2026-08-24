@@ -1,0 +1,14 @@
+{
+  "wifi_ssid": "<factory-wifi-ssid>",
+  "wifi_password": "<factory-wifi-password>",
+  "server_url": "https://<synap-server-host>",
+  "tls_ca_pem": "<pem-ca-certificate>",
+  "sc_app_id": "synap-esp32-prod",
+  "server_key_id": "<server-key-id>",
+  "server_trust_spki": "<p256-spki-base64url>",
+  "enrollment_token": "<short-lived-single-use-token>",
+  "business_app_id": "1",
+  "device_id": "<per-device-uuid>",
+  "device_name": "<asset-name>"
+}
+

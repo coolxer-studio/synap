@@ -1,3 +1,5 @@
+import { normalizeHostContext } from './lib/host-context';
+
 export const PLATFORM = 'h5';
 export const APP_ID = 1;
 export const SDK_VERSION = '1.3.0';
@@ -46,6 +48,7 @@ export const DEFAULT_OPTIONS = Object.freeze({
   allowedParentOrigins: [],
   allowedServiceWorkerOrigins: [],
   expectedScriptIntegrity: '',
+  hostContext: null,
   serverTrustAnchors: DEFAULT_SERVER_TRUST_ANCHORS
 });
 
@@ -95,7 +98,8 @@ export function resolveOptions(options = {}) {
     ...options,
     appId: String(options.appId || DEFAULT_APP_ID),
     baseUrl: normalizeBaseUrl(options.baseUrl || DEFAULT_BASE_URL),
-    collectionProfile: normalizeCollectionProfile(options.collectionProfile)
+    collectionProfile: normalizeCollectionProfile(options.collectionProfile),
+    hostContext: normalizeHostContext(options.hostContext)
   };
   if (!resolved.appId) throw new Error('SynapAgent appId is required');
   if (!resolved.serverTrustAnchors || Object.keys(resolved.serverTrustAnchors).length === 0) {

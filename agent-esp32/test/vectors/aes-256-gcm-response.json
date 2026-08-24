@@ -1,0 +1,20 @@
+{
+  "suite": "P256_HKDF_SHA256_AES256_GCM",
+  "direction": "response",
+  "keyHex": "1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100",
+  "noncePrefixHex": "b0b1b2b3",
+  "kid": "test-key-2026-01",
+  "sid": "test-session-0001",
+  "timestamp": 1785283200000,
+  "sequence": 1,
+  "requestId": "request-0001",
+  "method": "POST",
+  "path": "/sc/v1/message",
+  "contentType": "application/sc-protected+json",
+  "status": 200,
+  "nonceBase64Url": "sLGyswAAAAAAAAAB",
+  "aadUtf8": "SC1\nresponse\nP256_HKDF_SHA256_AES256_GCM\ntest-key-2026-01\ntest-session-0001\n1785283200000\n1\nrequest-0001\nPOST\n/sc/v1/message\napplication/sc-protected+json\n200",
+  "plaintextUtf8": "{\"ok\":true}",
+  "combinedCiphertextBase64Url": "2Q9-vvRfgB3ZDenLUzdtXout2_wtOCcXZu6C"
+}
+

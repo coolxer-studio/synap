@@ -25,6 +25,7 @@ import {
   policyCacheKey,
   resolveOptions
 } from './config';
+import { createAdapterEventFact } from './lib/host-context';
 
 const shared = {
   status: 'idle',
@@ -100,6 +101,7 @@ function sameOptions(left, right) {
     JSON.stringify(left.allowedServiceWorkerOrigins) === JSON.stringify(right.allowedServiceWorkerOrigins) &&
     left.expectedScriptIntegrity === right.expectedScriptIntegrity &&
     JSON.stringify(left.collectionProfile) === JSON.stringify(right.collectionProfile) &&
+    JSON.stringify(left.hostContext) === JSON.stringify(right.hostContext) &&
     JSON.stringify(left.serverTrustAnchors) === JSON.stringify(right.serverTrustAnchors);
 }
 
@@ -405,7 +407,7 @@ function collectPeriodicData() {
       }
 
       if (shared.options.collectionProfile.integrity) {
-        const integrity = collectIntegrity(shared.options.appId, shared.policyFingerprint);
+        const integrity = collectIntegrity(shared.options.appId, shared.policyFingerprint, shared.options.hostContext);
         const integrityFingerprint = messageFingerprint(integrity);
         if (integrityFingerprint !== shared.collectionState.integrityFingerprint) {
           if (pushMessage(integrity)) shared.collectionState.integrityFingerprint = integrityFingerprint;
@@ -487,7 +489,7 @@ function registerLifecyclePersistence() {
 
 function launchProbe(policy) {
   const config = policy.config;
-  ctDeviceInfo.loadConfig(config, shared.options.collectionProfile);
+  ctDeviceInfo.loadConfig(config, shared.options.collectionProfile, shared.options.hostContext);
   ctRunningCheck.loadConfig(config);
   ctIllegalState.loadConfig(config);
   ctUserBehavior.loadConfig(config);
@@ -752,6 +754,21 @@ function markAction(action) {
   return shared.behaviorController.markAction(action);
 }
 
+function recordEvent(name, data = {}) {
+  if (shared.status !== 'running' || !shared.queue) return false;
+  let event;
+  try {
+    event = createAdapterEventFact(name, data, {
+      buildDate: baseData.currentFormatDate(),
+      href: window.location.href,
+      docTitle: document.title,
+      online: navigator.onLine
+    });
+  }
+  catch (_) { return false; }
+  return pushMessage(event);
+}
+
 const api = {
   version: SDK_VERSION,
   init,
@@ -759,6 +776,7 @@ const api = {
   flush: flushQueue,
   userData,
   markAction,
+  recordEvent,
   getDeviceInfo: () => requestInfo('deviceInfo'),
   getRatingInfo: () => requestInfo('rating'),
   getLabelInfo: () => requestInfo('label'),

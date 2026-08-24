@@ -1,0 +1,47 @@
+menu "Synap ESP32 Agent"
+
+config SYNAP_PROVISION_PARTITION
+    string "Provisioning NVS partition"
+    default "provision"
+
+config SYNAP_RUNTIME_PARTITION
+    string "Runtime identity NVS partition"
+    default "runtime"
+
+config SYNAP_SPOOL_PARTITION
+    string "Durable spool NVS partition"
+    default "spool"
+
+config SYNAP_DEAD_LETTER_PARTITION
+    string "Dead-letter NVS partition"
+    default "dead_letter"
+
+config SYNAP_QUEUE_MAX_RECORDS
+    int "Maximum queued records"
+    range 8 512
+    default 128
+
+config SYNAP_QUEUE_MAX_RECORD_BYTES
+    int "Maximum encoded record bytes"
+    range 1024 32768
+    default 32768
+
+config SYNAP_DEAD_LETTER_MAX_RECORDS
+    int "Maximum dead-letter records"
+    range 1 64
+    default 16
+
+config SYNAP_WORKER_STACK_SIZE
+    int "Worker task stack size"
+    range 8192 24576
+    default 12288
+
+config SYNAP_ALLOW_INSECURE_HTTP
+    bool "Allow cleartext HTTP for local development"
+    default n
+    help
+        This removes TLS only. Protocol-v1 application encryption remains
+        mandatory. Never enable this option in a production image.
+
+endmenu
+

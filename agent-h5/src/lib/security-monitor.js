@@ -1,5 +1,6 @@
 import baseData from './base-data';
 import { sanitizeText, textHash, urlTemplate } from './privacy';
+import { electronIntegrityEvidence } from './host-context';
 
 const loadedScript = typeof document !== 'undefined' ? document.currentScript : null;
 const scriptContext = {
@@ -46,7 +47,7 @@ function apiSignal(target, key) {
   return { changed: typeof value === 'function' ? functionChanged(value) : false, status: descriptor ? 'available' : 'unavailable' };
 }
 
-export function collectIntegrity(appId, expectedPolicyFingerprint) {
+export function collectIntegrity(appId, expectedPolicyFingerprint, hostContext = null) {
   const userAgent = String(navigator.userAgent || '');
   const platform = String(navigator.platform || '');
   const userAgentData = navigator.userAgentData || null;
@@ -80,6 +81,9 @@ export function collectIntegrity(appId, expectedPolicyFingerprint) {
     fetchModified: 1, xhrModified: 2, eventTargetModified: 3,
     appIdModified: 4, policyUnavailable: 1
   };
+  const electronEvidence = electronIntegrityEvidence(hostContext);
+  Object.assign(signals, electronEvidence.signals);
+  Object.assign(weights, electronEvidence.weights);
   const score = Object.keys(signals).reduce((total, key) => total + (signals[key] ? weights[key] || 1 : 0), 0);
   const evidenceCount = Object.values(signals).filter(Boolean).length;
   return {

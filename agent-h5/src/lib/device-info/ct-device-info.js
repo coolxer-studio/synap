@@ -9,6 +9,7 @@ import ctScreen from './screen'
 import ctBattery from './battery'
 import baseData from '../base-data'
 import { collectConfiguredValues } from './collection-policy'
+import { attachHostCapabilities } from '../host-context'
 
 window.ct_device_config = {
   "device": ["systemName", "systemVersion", "modelCode", "language", "timeZone"],
@@ -26,6 +27,7 @@ window.ct_device_config = {
 }
 
 let collectionProfile = {};
+let hostContext = null;
 
 function capabilityState(enabled, supported = true, extra = {}) {
   return { status: enabled ? (supported ? 'available' : 'unavailable') : 'disabled', ...extra };
@@ -128,7 +130,7 @@ export default {
           break;
       }
     }
-    data.capabilities = {
+    data.capabilities = attachHostCapabilities({
       battery: ctBattery.capability(),
       storageEstimate: ctStorage.capability(),
       localAddress: ctNetwork.getLanIpState(),
@@ -136,11 +138,12 @@ export default {
       webgl: capabilityState(!!collectionProfile.webgl, typeof WebGLRenderingContext !== 'undefined'),
       fonts: capabilityState(!!collectionProfile.fonts, typeof document.fonts !== 'undefined'),
       geolocation: capabilityState(!!collectionProfile.location, 'geolocation' in navigator)
-    };
+    }, hostContext);
     return data;
   },
-  loadConfig: function (config, profile) {
+  loadConfig: function (config, profile, context) {
     window.ct_device_config = config['deviceConfig'];
     collectionProfile = profile || collectionProfile;
+    hostContext = context || null;
   }
 }

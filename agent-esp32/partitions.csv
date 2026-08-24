@@ -1,0 +1,9 @@
+# Name,        Type, SubType,  Offset,   Size,     Flags
+nvs_keys,      data, nvs_keys, 0x9000,   0x1000,   encrypted
+phy_init,      data, phy,       0xa000,   0x1000,
+provision,     data, nvs,       0xb000,   0x5000,
+factory,       app,  factory,   0x10000,  0x200000,
+runtime,       data, nvs,       0x210000, 0x20000,
+spool,         data, nvs,       0x230000, 0x80000,
+dead_letter,   data, nvs,       0x2b0000, 0x20000,
+coredump,      data, coredump,  0x2d0000, 0x10000,  encrypted

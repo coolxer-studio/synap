@@ -30,6 +30,11 @@ const rating = await SynapAgent.getRatingInfo();
 await SynapAgent.destroy({ flush: true });
 ```
 
+公共 API 包括 `init`、`destroy`、`flush`、`getDeviceInfo`、`getRatingInfo`、
+`getLabelInfo`、`userData`、`markAction`、`recordEvent` 和 `getMetrics`。
+`hostContext` 初始化项与 `recordEvent` 专供经过隔离的宿主适配器使用；普通浏览器未
+提供 `hostContext` 时，原有 Fact 与采集行为不变。
+
 浏览器端 `appId` 是公开标识，不是秘密。安全通信支持 HTTP 和 HTTPS；生产环境仍建议使用 HTTPS，并结合服务端公钥固定、Origin 白名单和 IndexedDB 中不可导出的 WebCrypto P-256 安装密钥。
 2.0 使用 `coolxer-secure-communication-v2` 身份库及
 `installation-v2:<appId>` 记录，不读取、覆盖或删除 1.x 身份。升级后首次请求会为
