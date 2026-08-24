@@ -82,8 +82,7 @@ public class AttachController extends AbstractController {
         Common common = FactBuilder.buildCommon(requestVO.getCommon());
         String platform = common.getPlatform();
         String clientIp = clientIpResolver.resolve(servletRequest);
-        common.setWanIp("host".equalsIgnoreCase(platform)
-                ? clientIpResolver.resolveWanIp(common.getWanIp(), clientIp) : clientIp);
+        common.setWanIp(clientIpResolver.resolveWanIp(platform, common.getWanIp(), clientIp));
 
         RequestMeta meta = requestVO.getMeta();
         boolean tracked = meta != null && meta.hasStartTracking();
@@ -171,8 +170,7 @@ public class AttachController extends AbstractController {
         Common common = FactBuilder.buildCommon(requestVO.getCommon());
         String platform = common.getPlatform();
         String clientIp = clientIpResolver.resolve(servletRequest);
-        common.setWanIp("host".equalsIgnoreCase(platform)
-                ? clientIpResolver.resolveWanIp(common.getWanIp(), clientIp) : clientIp);
+        common.setWanIp(clientIpResolver.resolveWanIp(platform, common.getWanIp(), clientIp));
 
         LinkedHashSet<Punish> punishSet = new LinkedHashSet<>();
         ArrayList<Agenda> agendaList = new ArrayList<>();
@@ -340,7 +338,8 @@ public class AttachController extends AbstractController {
 
     private static boolean isProtocolRequest(String platform) {
         return "h5".equalsIgnoreCase(platform) || "wechat".equalsIgnoreCase(platform)
-                || "host".equalsIgnoreCase(platform) || "server".equalsIgnoreCase(platform);
+                || "host".equalsIgnoreCase(platform) || "server".equalsIgnoreCase(platform)
+                || "android".equalsIgnoreCase(platform);
     }
 
     private static String transportTrust(HttpServletRequest request) {

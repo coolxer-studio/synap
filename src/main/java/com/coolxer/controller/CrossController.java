@@ -41,8 +41,8 @@ public class CrossController extends AbstractController {
         Header header = FactBuilder.buildHeader(code);
         Common common = FactBuilder.buildCommon(requestVO.getCommon());
         String clientIp = clientIpResolver.resolve(servletRequest);
-        common.setWanIp("host".equalsIgnoreCase(common.getPlatform())
-                ? clientIpResolver.resolveWanIp(common.getWanIp(), clientIp) : clientIp);
+        common.setWanIp(clientIpResolver.resolveWanIp(
+                common.getPlatform(), common.getWanIp(), clientIp));
         return crossService.rpc(id,header,common);
     }
 

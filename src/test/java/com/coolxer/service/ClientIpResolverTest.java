@@ -52,6 +52,17 @@ class ClientIpResolverTest {
         assertEquals("127.0.0.1", resolver.resolveWanIp("invalid", "127.0.0.1"));
     }
 
+    @Test
+    void preservesPublicClaimsOnlyForIndependentAgentPlatforms() {
+        ClientIpResolver resolver = new ClientIpResolver("");
+
+        assertEquals("8.8.8.8", resolver.resolveWanIp("android", "8.8.8.8", "192.168.0.103"));
+        assertEquals("8.8.8.8", resolver.resolveWanIp("host", "8.8.8.8", "192.168.0.103"));
+        assertEquals("192.168.0.103", resolver.resolveWanIp("h5", "8.8.8.8", "192.168.0.103"));
+        assertEquals("192.168.0.103",
+                resolver.resolveWanIp("android", "192.168.0.8", "192.168.0.103"));
+    }
+
     private HttpServletRequest request(String remote, String xForwardedFor, String forwarded) {
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getRemoteAddr()).thenReturn(remote);

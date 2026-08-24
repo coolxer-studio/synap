@@ -229,6 +229,34 @@ class AttachControllerContractTest {
         assertEquals("SEQUENCE_OK", facts.getValue().getSequenceObservation());
     }
 
+    @Test
+    void appliesAckIdempotencyAndSequenceContractToAndroid() {
+        RuleEngineImpl ruleEngine = mock(RuleEngineImpl.class);
+        when(ruleEngine.run(any())).thenAnswer(invocation -> new Checkpoint(invocation.getArgument(0),
+                "AndroidUserFactRule.groovy", new ArrayList<>(), new HashSet<>(), "now"));
+        AttachController controller = controller(ruleEngine);
+        RequestVO request = request();
+        request.getCommon().set(8, "android");
+        request.getCommon().set(15, "8.8.8.8");
+        ArrayList<Integer> legacyDetectorCollection = new ArrayList<>();
+        for (int index = 0; index < 300; index++) legacyDetectorCollection.add(index);
+        request.getData().get(0).put("data", Map.of("apps", legacyDetectorCollection));
+
+        ResponseVO first = (ResponseVO) controller.upload(header("android"), request, requestContext());
+        ResponseVO duplicate = (ResponseVO) controller.upload(header("android"), request, requestContext());
+
+        assertEquals(Arrays.asList("message-1"), first.getAck().getAcceptedMessageIds());
+        assertEquals(Arrays.asList("message-1"), duplicate.getAck().getDuplicateMessageIds());
+        ArgumentCaptor<AbstractFact> facts = ArgumentCaptor.forClass(AbstractFact.class);
+        verify(ruleEngine).run(facts.capture());
+        assertEquals("android", facts.getValue().getCommon().getPlatform());
+        assertEquals("8.8.8.8", facts.getValue().getCommon().getWanIp());
+        assertEquals("message-1", facts.getValue().getMessageId());
+        assertEquals("sc1-authenticated/P256_HKDF_SHA256_AES256_GCM",
+                facts.getValue().getTransportTrust());
+        assertEquals("SEQUENCE_OK", facts.getValue().getSequenceObservation());
+    }
+
     private AttachController controller(RuleEngineImpl ruleEngine) {
         return controller(ruleEngine,
                 new InMemoryIdempotencyStore(Duration.ofMinutes(5), Duration.ofDays(14), 100));

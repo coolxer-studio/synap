@@ -50,13 +50,25 @@ public class ClientIpResolver {
     }
 
     /**
-     * Keeps a Host probe's independently resolved public address when it is a
-     * valid globally routable IP. The observed TCP/proxy address remains the
-     * fallback and is also stored separately on every fact as requestIp.
+     * Keeps an independently resolved public address when it is globally routable.
+     * The observed TCP/proxy address remains the fallback and is also stored
+     * separately on every fact as requestIp.
      */
     public String resolveWanIp(String claimedAddress, String observedAddress) {
         String claimed = normalizeIp(claimedAddress);
         return isPublicAddress(claimed) ? claimed : observedAddress;
+    }
+
+    /**
+     * Host and Android probes resolve their public address independently. Keep a valid public
+     * claim for those authenticated agents, while browser-style clients continue to use the
+     * address observed at the server boundary.
+     */
+    public String resolveWanIp(String platform, String claimedAddress, String observedAddress) {
+        if ("host".equalsIgnoreCase(platform) || "android".equalsIgnoreCase(platform)) {
+            return resolveWanIp(claimedAddress, observedAddress);
+        }
+        return observedAddress;
     }
 
     public GatewaySignals gatewaySignals(HttpServletRequest request) {
