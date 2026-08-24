@@ -92,11 +92,11 @@ public class CommunicationSettingsInstrumentedTest {
         ActivityScenario<CommunicationSettingsActivity> scenario =
                 ActivityScenario.launch(CommunicationSettingsActivity.class);
         try {
-            onView(withId(R.id.edit_communication_base_url)).perform(replaceText("http://bad.test"));
+            onView(withId(R.id.edit_communication_base_url)).perform(replaceText("ftp://bad.test"));
             closeSoftKeyboard();
             onView(withId(R.id.button_save_communication_settings)).perform(scrollTo(), click());
             onView(withId(R.id.edit_communication_base_url))
-                    .check(matches(hasErrorText("服务地址必须使用 HTTPS")));
+                    .check(matches(hasErrorText("请输入不含用户信息、查询参数或片段的有效 URL")));
             assertEquals(previous, CommunicationConfigStore.load(context));
         } finally {
             scenario.close();
@@ -105,7 +105,7 @@ public class CommunicationSettingsInstrumentedTest {
 
     @Test
     public void validSavePersistsAllFieldsAndShowsRestartDialog() throws Exception {
-        CommunicationConfig expected = validConfig("https://new.example.com/api");
+        CommunicationConfig expected = validConfig("http://new.example.com/api");
         ActivityScenario<CommunicationSettingsActivity> scenario =
                 ActivityScenario.launch(CommunicationSettingsActivity.class);
         try {

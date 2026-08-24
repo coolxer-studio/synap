@@ -33,9 +33,7 @@ public record AgentConfiguration(
     public boolean ready() {
         if (!enabled || serverUrl == null || appId <= 0 || appKeyId.isBlank() || serverKeyId.isBlank() || trustAnchor.isBlank()) return false;
         String scheme = serverUrl.getScheme();
-        if ("https".equalsIgnoreCase(scheme)) return true;
-        String host = serverUrl.getHost();
-        return "http".equalsIgnoreCase(scheme) && ("localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host) || "::1".equals(host));
+        return "https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme);
     }
 
     public static AgentConfiguration fromEnvironment() {

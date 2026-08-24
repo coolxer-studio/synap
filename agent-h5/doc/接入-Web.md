@@ -26,7 +26,7 @@
 <script src="./js/probe.min.js" integrity="sha384-构建生成的摘要" crossorigin="anonymous"></script>
 ```
 
-配置完整时 SDK 会自动初始化。生产页面使用 HTTPS 时，`baseUrl` 也必须是 HTTPS，否则初始化会拒绝执行。
+配置完整时 SDK 会自动初始化。`baseUrl` 支持 HTTP 和 HTTPS，探针不会按页面协议或服务端主机硬性限制 HTTP；但 HTTPS 页面访问 HTTP 地址仍可能被浏览器的 Mixed Content 策略拦截。
 
 如需由应用控制启动时机，可调用幂等初始化接口：
 

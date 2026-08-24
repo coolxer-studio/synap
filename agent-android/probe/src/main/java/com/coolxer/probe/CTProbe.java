@@ -3,13 +3,12 @@ package com.coolxer.probe;
 import android.content.Context;
 import android.util.Log;
 
-import androidx.appcompat.app.AlertDialog;
-
 import com.coolxer.deviceinfo.CTDeviceInfo;
 import com.coolxer.punishment.Reminder;
 import com.coolxer.runningcheck.CTRunningCheck;
 import com.coolxer.securecommunication.SecureClient;
 import com.coolxer.securecommunication.SecureClientConfig;
+import com.coolxer.securecommunication.SecureError;
 import com.coolxer.securecommunication.SecureRequest;
 import com.coolxer.securecommunication.SecureResponse;
 import com.coolxer.userbehavior.CTUserBehavior;
@@ -22,9 +21,14 @@ import org.json.JSONObject;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public class CTProbe {
+
+    private static final int MAX_UPLOAD_BODY_BYTES = 240 * 1024;
 
     private static volatile CTProbe INSTANCE = null;
     private static volatile Boolean INSTANCE_STARTED = false;
@@ -39,6 +43,8 @@ public class CTProbe {
     private static SecureClient secureClient;
     private static JSONArray COMMON;
     private JSONObject startMeta;
+    private String appKeyId;
+    private long nextMessageSequence = 2;
 
     private CTProbe(){}
 
@@ -54,6 +60,7 @@ public class CTProbe {
             }
         }
         INSTANCE.context = context;
+        INSTANCE.appKeyId = normalizeAppKeyId(securityConfig.getAppId());
         try {
             secureClient = new SecureClient(context, securityConfig);
             if (enrollmentTokenProvider != null) {
@@ -100,6 +107,7 @@ public class CTProbe {
                         if(responseJson != null){
                             // 2.1 配置
                             int status = responseJson.optInt("status");
+                            Log.i("agent-android", "probe start response status=" + status);
                             if(status == 1){
                                 // 2.2 checker
                                 JSONObject configjson = responseJson.optJSONObject("config");
@@ -125,7 +133,7 @@ public class CTProbe {
                                     CTUserBehavior.getInstance().registerCallBack(new IMonitored.ICallback() {
                                         @Override
                                         public boolean onMsg(String msg) {
-                                            ThreadSafeQueue.pushMsg(msg);
+                                            enqueueMessage(msg);
                                             return true;
                                         }
                                     });
@@ -135,7 +143,7 @@ public class CTProbe {
                                     CTRunningCheck.getInstance().registerEventCallBack(new com.coolxer.runningcheck.checker.base.IMonitored.ICallback() {
                                         @Override
                                         public boolean onMsg(String msg) {
-                                            ThreadSafeQueue.pushMsg(msg);
+                                            enqueueMessage(msg);
                                             return true;
                                         }
                                     });
@@ -156,8 +164,15 @@ public class CTProbe {
 
                 } catch (Exception e) {
                     INSTANCE_STARTED = false;
-                    e.printStackTrace();
-                    Log.d("agent-android", "error:" + e.getMessage());
+                    if (e instanceof SecureError) {
+                        SecureError secureError = (SecureError) e;
+                        Log.e("agent-android", "secure request failed: code="
+                                + secureError.getCode() + ", httpStatus="
+                                + secureError.getHttpStatus() + ", traceId="
+                                + secureError.getTraceId(), secureError);
+                    } else {
+                        Log.e("agent-android", "probe start failed", e);
+                    }
                 }
             }
         }).start();
@@ -167,14 +182,14 @@ public class CTProbe {
         return new Runnable() {
             @Override
             public void run() {
-                ThreadSafeQueue.pushMsg(CTDeviceInfo.getInstance().deviceInfo());
-                ThreadSafeQueue.pushMsg(CTRunningCheck.getInstance().getAppInfo());
-                ThreadSafeQueue.pushMsg(CTRunningCheck.getInstance().getFileInfo());
-                ThreadSafeQueue.pushMsg(CTRunningCheck.getInstance().getInjectInfo());
-                ThreadSafeQueue.pushMsg(CTRunningCheck.getInstance().getLocationInfo());
-                ThreadSafeQueue.pushMsg(CTRunningCheck.getInstance().getNetInfo());
-                ThreadSafeQueue.pushMsg(CTRunningCheck.getInstance().getRuntimeInfo());
-                ThreadSafeQueue.pushMsg(CTRunningCheck.getInstance().getSelfAppInfo());
+                enqueueMessage(CTDeviceInfo.getInstance().deviceInfo());
+                enqueueMessage(CTRunningCheck.getInstance().getAppInfo());
+                enqueueMessage(CTRunningCheck.getInstance().getFileInfo());
+                enqueueMessage(CTRunningCheck.getInstance().getInjectInfo());
+                enqueueMessage(CTRunningCheck.getInstance().getLocationInfo());
+                enqueueMessage(CTRunningCheck.getInstance().getNetInfo());
+                enqueueMessage(CTRunningCheck.getInstance().getRuntimeInfo());
+                enqueueMessage(CTRunningCheck.getInstance().getSelfAppInfo());
             }
         };
     }
@@ -183,52 +198,144 @@ public class CTProbe {
         return new Runnable() {
             @Override
             public void run() {
-                try {
-                    // 上传数据
-                    ArrayList<String> queueMsgList = ThreadSafeQueue.pullMsg();
-                    if (queueMsgList.size()==0){
+                ArrayList<String> drainedMessages = ThreadSafeQueue.pullMsg();
+                if (drainedMessages.isEmpty()) {
+                    return;
+                }
+
+                ArrayList<String> validMessages = new ArrayList<>();
+                for (String message : drainedMessages) {
+                    try {
+                        validMessages.add(new JSONObject(message).toString());
+                    } catch (JSONException exception) {
+                        Log.e("agent-android", "discarding invalid queued JSON", exception);
+                    }
+                }
+                UploadBatcher.Result result = UploadBatcher.split(
+                        getCommon().toString(), validMessages, MAX_UPLOAD_BODY_BYTES,
+                        index -> nextUploadMeta());
+                for (String ignored : result.getOversizedMessages()) {
+                    Log.e("agent-android", "discarding a single upload item larger than "
+                            + MAX_UPLOAD_BODY_BYTES + " bytes");
+                }
+
+                ArrayList<String> retryMessages = new ArrayList<>();
+                for (int index = 0; index < result.getBatches().size(); index++) {
+                    UploadBatcher.Batch batch = result.getBatches().get(index);
+                    try {
+                        String response = securePost("/attach/upload", batch.getBody());
+                        JSONObject responseJson = new JSONObject(response);
+                        if (responseJson.optInt("status") != 1) {
+                            retryMessages.addAll(messagesFrom(result.getBatches(), index));
+                            ThreadSafeQueue.pushFront(retryMessages);
+                            Log.e("agent-android", "upload batch was rejected by the server");
+                            return;
+                        }
+                        retryMessages.addAll(retryableMessages(responseJson, batch));
+                        handlePunishments(responseJson.optJSONArray("punish"));
+                        Log.i("agent-android", "uploaded batch " + (index + 1) + "/"
+                                + result.getBatches().size() + " with "
+                                + batch.getMessages().size() + " items");
+                    } catch (Exception exception) {
+                        retryMessages.addAll(messagesFrom(result.getBatches(), index));
+                        ThreadSafeQueue.pushFront(retryMessages);
+                        logSecureFailure("upload batch failed", exception);
                         return;
                     }
-                    JSONObject bodyJson = new JSONObject();
-                    bodyJson.put("common",getCommon());
-                    JSONArray msgArray = new JSONArray();
-                    for (String msgString:queueMsgList) {
-                        msgArray.put(new JSONObject(msgString));
-                    }
-                    bodyJson.put("data",msgArray);
-
-                    String response = securePost("/attach/upload", bodyJson.toString());
-                    if(response!=null) {
-                        JSONObject responseJson = null;
-                        try {
-                            responseJson = new JSONObject(response);
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                            Log.d("agent-android", "error:" + e.getMessage());
-                        }
-                        if(responseJson != null){
-                            int status = responseJson.optInt("status");
-                            if(status == 1){
-                                JSONArray punishArray = responseJson.optJSONArray("punish");
-                                if(punishArray != null){
-                                    for (int i = 0; i < punishArray.length(); i++) {
-                                        JSONArray punish = punishArray.optJSONArray(i);
-                                        if(punish.optInt(0) == 1){
-                                            AlertDialog.Builder builder = new AlertDialog.Builder(context);
-                                            String title = punish.optString(1);
-                                            String message = punish.optString(2);
-                                            Reminder.showAlertDialog(context,title,message);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
                 }
+                ThreadSafeQueue.pushFront(retryMessages);
             }
         };
+    }
+
+    private ArrayList<String> messagesFrom(List<UploadBatcher.Batch> batches, int startIndex) {
+        ArrayList<String> retryMessages = new ArrayList<>();
+        for (int index = startIndex; index < batches.size(); index++) {
+            retryMessages.addAll(batches.get(index).getMessages());
+        }
+        return retryMessages;
+    }
+
+    private List<String> retryableMessages(JSONObject responseJson, UploadBatcher.Batch batch)
+            throws JSONException {
+        JSONObject ack = responseJson.optJSONObject("ack");
+        // Keep compatibility with an older server during a rolling upgrade.
+        if (ack == null) {
+            return Collections.emptyList();
+        }
+        if (!batch.getBatchId().equals(ack.optString("batchId"))) {
+            throw new JSONException("upload ACK batchId does not match request");
+        }
+
+        Set<String> completed = new HashSet<>();
+        addStrings(completed, ack.optJSONArray("acceptedMessageIds"));
+        addStrings(completed, ack.optJSONArray("duplicateMessageIds"));
+        Set<String> retryable = new HashSet<>();
+        Set<String> permanentlyRejected = new HashSet<>();
+        JSONArray rejected = ack.optJSONArray("rejectedItems");
+        if (rejected != null) {
+            for (int index = 0; index < rejected.length(); index++) {
+                JSONObject item = rejected.optJSONObject(index);
+                if (item == null) {
+                    continue;
+                }
+                String messageId = item.optString("messageId");
+                if (item.optBoolean("retryable")) {
+                    retryable.add(messageId);
+                } else {
+                    permanentlyRejected.add(messageId);
+                    Log.e("agent-android", "server permanently rejected message " + messageId
+                            + ": " + item.optString("reason"));
+                }
+            }
+        }
+
+        ArrayList<String> messages = new ArrayList<>();
+        for (String message : batch.getMessages()) {
+            String messageId = new JSONObject(message).optString("messageId");
+            if (retryable.contains(messageId)
+                    || (!completed.contains(messageId) && !permanentlyRejected.contains(messageId))) {
+                messages.add(message);
+            }
+        }
+        return messages;
+    }
+
+    private void addStrings(Set<String> target, JSONArray values) {
+        if (values == null) {
+            return;
+        }
+        for (int index = 0; index < values.length(); index++) {
+            String value = values.optString(index);
+            if (!value.isEmpty()) {
+                target.add(value);
+            }
+        }
+    }
+
+    private void handlePunishments(JSONArray punishArray) {
+        if (punishArray == null) {
+            return;
+        }
+        for (int index = 0; index < punishArray.length(); index++) {
+            JSONArray punish = punishArray.optJSONArray(index);
+            if (punish != null && punish.optInt(0) == 1) {
+                String title = punish.optString(1);
+                String message = punish.optString(2);
+                Reminder.showAlertDialog(context, title, message);
+            }
+        }
+    }
+
+    private void logSecureFailure(String message, Exception exception) {
+        if (exception instanceof SecureError) {
+            SecureError secureError = (SecureError) exception;
+            Log.e("agent-android", message + ": code=" + secureError.getCode()
+                    + ", httpStatus=" + secureError.getHttpStatus() + ", traceId="
+                    + secureError.getTraceId(), secureError);
+        } else {
+            Log.e("agent-android", message, exception);
+        }
     }
 
     private String getCode(){
@@ -282,7 +389,8 @@ public class CTProbe {
             // lanIp
             COMMON.put(ctDeviceInfo.lanIp());
             // wlanIp
-            COMMON.put(ctRunningCheck.wanIp());
+            String publicIp = PublicIpResolver.resolve();
+            COMMON.put(publicIp == null ? "0.0.0.0" : publicIp);
             // latitude,longitude,location
             ArrayList<Object> lastLocation = ctRunningCheck.queryLatestLocation();
             COMMON.put(lastLocation.size()>0?lastLocation.get(0):"");
@@ -310,9 +418,59 @@ public class CTProbe {
             startMeta.put("createdAt", now);
             startMeta.put("observedAt", now);
             startMeta.put("sequence", 1);
+            startMeta.put("protocolVersion", 1);
+            startMeta.put("appKeyId", appKeyId);
+            startMeta.put("detectorVersion", SDK_VERSION);
         }
         startMeta.put("attempt", startMeta.optInt("attempt", 0) + 1);
         return startMeta;
+    }
+
+    private UploadBatcher.BatchMeta nextUploadMeta() {
+        String batchId = "batch-" + UUID.randomUUID();
+        try {
+            JSONObject meta = new JSONObject();
+            meta.put("protocolVersion", 1);
+            meta.put("batchId", batchId);
+            meta.put("sessionId", String.valueOf(getCommon().get(2)));
+            meta.put("attempt", 1);
+            meta.put("createdAt", System.currentTimeMillis());
+            meta.put("appKeyId", appKeyId);
+            meta.put("detectorVersion", SDK_VERSION);
+            return new UploadBatcher.BatchMeta(batchId, meta.toString());
+        } catch (JSONException exception) {
+            throw new IllegalStateException("Could not create upload metadata", exception);
+        }
+    }
+
+    private synchronized void enqueueMessage(String message) {
+        try {
+            JSONObject json = new JSONObject(message);
+            String messageId = json.optString("messageId").trim();
+            if (messageId.isEmpty() || messageId.length() > 128) {
+                json.put("messageId", "msg-" + UUID.randomUUID());
+            }
+            long sequence = json.optLong("sequence", 0);
+            if (sequence <= 1) {
+                json.put("sequence", nextMessageSequence++);
+            } else {
+                nextMessageSequence = Math.max(nextMessageSequence, sequence + 1);
+            }
+            if (json.optLong("observedAt", 0) <= 0) {
+                json.put("observedAt", System.currentTimeMillis());
+            }
+            ThreadSafeQueue.pushMsg(json.toString());
+        } catch (JSONException exception) {
+            Log.e("agent-android", "discarding invalid checker JSON", exception);
+        }
+    }
+
+    private static String normalizeAppKeyId(String appId) {
+        String normalized = appId == null ? "android" : appId.replaceAll("[^a-zA-Z0-9_-]", "_");
+        if (normalized.isEmpty()) {
+            normalized = "android";
+        }
+        return normalized.substring(0, Math.min(normalized.length(), 64));
     }
 
     private static String USER_ID = "";
@@ -323,7 +481,7 @@ public class CTProbe {
             jsonMsg.put("type","UserData");
             jsonMsg.put("userId",userId);
             jsonMsg.put("data",data);
-            ThreadSafeQueue.pushMsg(jsonMsg.toString());
+            enqueueMessage(jsonMsg.toString());
         } catch (JSONException e) {
             e.printStackTrace();
             return false;

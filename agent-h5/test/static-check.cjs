@@ -44,7 +44,7 @@ if (!/SecureRequest/.test(entrySource)
     || !/IndexedDbIdentityStore/.test(entrySource)) {
   throw new Error('Secure Communication 2.0 client contract must be used explicitly');
 }
-if (/allowInsecureForTesting|protectedHeaderNames/.test(entrySource)
+if (/allowInsecure(?:Loopback)?ForTesting|protectedHeaderNames/.test(entrySource)
     || /secureClient\.request\(\s*['"]/.test(entrySource)) {
   throw new Error('Legacy Secure Communication 1.x client API must not be used');
 }

@@ -72,18 +72,14 @@ func TestHTTPClientRequiresTLS12AndRejectsRedirects(t *testing.T) {
 	}
 }
 
-func TestOnlyLoopbackMayUseInsecureHTTP(t *testing.T) {
+func TestRemoteHTTPIsAccepted(t *testing.T) {
 	config := Config{
 		DataDir: t.TempDir(), AppID: "synap-host",
 		ServerKeyID: "server-key", TrustAnchor: testTrustAnchor(t),
 	}
-	config.BaseURL = "http://127.0.0.1:11099"
-	if client := New(config); client.secureInitError != nil {
-		t.Fatalf("loopback HTTP must be available for local testing: %v", client.secureInitError)
-	}
 	config.BaseURL = "http://synap.example.test"
-	if client := New(config); client.secureInitError == nil {
-		t.Fatal("non-loopback HTTP must be rejected")
+	if client := New(config); client.secureInitError != nil {
+		t.Fatalf("remote HTTP must be accepted: %v", client.secureInitError)
 	}
 }
 

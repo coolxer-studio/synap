@@ -41,11 +41,9 @@ function trimTrailingSlash(value) {
   return String(value || '').replace(/\/+$/, '');
 }
 
-function validateBaseUrl(baseUrl, allowInsecureForTesting) {
-  if (/^https:\/\//i.test(baseUrl)) return;
-  const localHttp = /^http:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/i.test(baseUrl);
-  if (allowInsecureForTesting === true && localHttp) return;
-  throw new TypeError('baseUrl must use HTTPS; local HTTP requires allowInsecureForTesting=true');
+function validateBaseUrl(baseUrl) {
+  if (/^https?:\/\//i.test(baseUrl)) return;
+  throw new TypeError('baseUrl must use HTTP or HTTPS');
 }
 
 function normalizeOptions(options) {
@@ -53,7 +51,7 @@ function normalizeOptions(options) {
   const appKey = String(value.appKey || '').trim().toLowerCase();
   if (!/^[0-9a-f]{32}$/.test(appKey)) throw new TypeError('appKey must be a 32-character hexadecimal string');
   const baseUrl = trimTrailingSlash(value.baseUrl);
-  validateBaseUrl(baseUrl, value.allowInsecureForTesting);
+  validateBaseUrl(baseUrl);
   const collectionProfile = value.collectionProfile || 'low';
   if (!PROFILES[collectionProfile]) throw new TypeError('collectionProfile must be minimal, low, balanced, or full');
   const appId = Number(value.appId);
@@ -68,7 +66,6 @@ function normalizeOptions(options) {
     appName,
     collectionProfile,
     capabilities: Object.assign({}, PROFILES[collectionProfile]),
-    allowInsecureForTesting: value.allowInsecureForTesting === true,
     timeout: Math.max(1000, Math.min(60000, Number(value.timeout) || 15000)),
     uploadInterval: Math.max(1000, Number(value.uploadInterval) || 10000),
     behaviorInterval: Math.max(5000, Number(value.behaviorInterval) || 10000),

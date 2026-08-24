@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {
   COMMON_FIELD_COUNT, ENDPOINT_PATHS, resolveOptions, createEndpoints,
-  hasSecurityBootstrap, isLoopbackHttpUrl, normalizeBaseUrl, policyCacheKey
+  hasSecurityBootstrap, normalizeBaseUrl, policyCacheKey
 } = require('../src/config');
 const { validatePolicy, decodePolicy } = require('../src/lib/policy');
 
@@ -44,20 +44,12 @@ test('default profile is low intrusion and high entropy collection is explicit',
   assert.equal(resolveOptions({ appId: 'app-1', baseUrl: 'https://risk.example.test', serverTrustAnchors: { key1: 'anchor' }, collectionProfile: 'full' }).collectionProfile.canvas, true);
 });
 
-test('HTTPS pages reject mixed-content endpoints', () => {
+test('HTTP endpoints are accepted without probe-side environment restrictions', () => {
   window.location.protocol = 'https:';
-  assert.throws(() => resolveOptions({ appId: 'app-1', serverTrustAnchors: { key1: 'anchor' }, baseUrl: 'http://risk.example.test' }), /insecure HTTP/);
+  assert.equal(resolveOptions({ appId: 'app-1', serverTrustAnchors: { key1: 'anchor' }, baseUrl: 'http://risk.example.test' }).baseUrl, 'http://risk.example.test');
   window.location.protocol = 'http:';
-});
-
-test('HTTP is limited to loopback development endpoints', () => {
-  assert.equal(isLoopbackHttpUrl('http://127.0.0.1:11099'), true);
-  assert.equal(isLoopbackHttpUrl('http://127.10.20.30:11099'), true);
-  assert.equal(isLoopbackHttpUrl('http://localhost:11099'), true);
-  assert.equal(isLoopbackHttpUrl('http://[::1]:11099'), true);
-  assert.equal(isLoopbackHttpUrl('https://127.0.0.1:11099'), false);
   assert.equal(normalizeBaseUrl('http://127.0.0.1:11099/'), 'http://127.0.0.1:11099');
-  assert.throws(() => normalizeBaseUrl('http://risk.example.test'), /must use HTTPS/);
+  assert.equal(normalizeBaseUrl('http://risk.example.test/'), 'http://risk.example.test');
 });
 
 test('auto initialization requires appId and a server trust anchor', () => {

@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -104,13 +103,12 @@ func New(config Config) *Client {
 	}
 	identityPath := secureIdentityPath(config.DataDir)
 	secureClient, secureError := sc.New(sc.Config{
-		BaseURL:                         baseURL,
-		AppID:                           strings.TrimSpace(config.AppID),
-		DeviceType:                      "HOST",
-		ServerTrustAnchors:              map[string]string{strings.TrimSpace(config.ServerKeyID): strings.TrimSpace(config.TrustAnchor)},
-		IdentityStore:                   protectedIdentityStore{path: identityPath},
-		HTTPClient:                      client.GetClient(),
-		AllowInsecureLoopbackForTesting: isLoopbackHTTP(baseURL),
+		BaseURL:            baseURL,
+		AppID:              strings.TrimSpace(config.AppID),
+		DeviceType:         "HOST",
+		ServerTrustAnchors: map[string]string{strings.TrimSpace(config.ServerKeyID): strings.TrimSpace(config.TrustAnchor)},
+		IdentityStore:      protectedIdentityStore{path: identityPath},
+		HTTPClient:         client.GetClient(),
 	})
 	if secureError == nil {
 		if token := strings.TrimSpace(config.EnrollmentToken); token != "" {
@@ -252,15 +250,6 @@ func environmentOr(name, fallback string) string {
 		return value
 	}
 	return strings.TrimSpace(fallback)
-}
-
-func isLoopbackHTTP(value string) bool {
-	parsed, err := url.Parse(value)
-	if err != nil || parsed.Scheme != "http" {
-		return false
-	}
-	ip := net.ParseIP(parsed.Hostname())
-	return strings.EqualFold(parsed.Hostname(), "localhost") || (ip != nil && ip.IsLoopback())
 }
 
 func secureIdentityPath(dataDir string) string {

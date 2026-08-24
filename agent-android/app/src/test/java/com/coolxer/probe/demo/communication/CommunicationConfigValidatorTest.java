@@ -32,9 +32,14 @@ public class CommunicationConfigValidatorTest {
     }
 
     @Test
-    public void baseUrlMustBeHttpsAndMustNotContainUnsafeComponents() throws Exception {
+    public void baseUrlAcceptsHttpAndHttpsAndRejectsOtherSchemesOrUnsafeComponents()
+            throws Exception {
         String anchor = ecKey("secp256r1");
-        assertFieldError(config("http://example.com", "synap-android", "key", anchor),
+        assertTrue(CommunicationConfigValidator.validate(
+                config("http://example.com", "synap-android", "key", anchor)).isValid());
+        assertTrue(CommunicationConfigValidator.validate(
+                config("https://example.com", "synap-android", "key", anchor)).isValid());
+        assertFieldError(config("ftp://example.com", "synap-android", "key", anchor),
                 CommunicationConfigValidator.Field.BASE_URL);
         assertFieldError(config("https://user@example.com", "synap-android", "key", anchor),
                 CommunicationConfigValidator.Field.BASE_URL);

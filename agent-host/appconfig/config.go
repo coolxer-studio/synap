@@ -2,7 +2,6 @@ package appconfig
 
 import (
 	"errors"
-	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -57,9 +56,6 @@ func (o *Options) Validate() error {
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
 		return errors.New("server must use http or https")
 	}
-	if parsed.Scheme == "http" && !isLoopback(parsed.Hostname()) {
-		return errors.New("server must use https; http is allowed only for loopback development")
-	}
 	if parsed.Path != "" && parsed.Path != "/" {
 		return errors.New("server must not contain a path")
 	}
@@ -79,14 +75,6 @@ func (o *Options) Validate() error {
 	o.ServerBaseURL = strings.TrimRight(o.ServerBaseURL, "/")
 	o.PublicIPURL = strings.TrimSpace(o.PublicIPURL)
 	return nil
-}
-
-func isLoopback(host string) bool {
-	if strings.EqualFold(host, "localhost") {
-		return true
-	}
-	ip := net.ParseIP(host)
-	return ip != nil && ip.IsLoopback()
 }
 
 func defaultDataDir() string {

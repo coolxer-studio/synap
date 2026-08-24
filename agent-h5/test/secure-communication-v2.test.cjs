@@ -18,7 +18,6 @@ test('secure communication uses the 2.0 request and identity contracts', () => {
     serverTrustAnchors: { 'server-key-test': 'anchor' },
     identityStore,
     requestTimeoutMillis: 1234,
-    allowInsecureLoopbackForTesting: true,
     fetch: async () => { throw new Error('not called'); }
   });
   const request = new SecureRequest({
@@ -32,7 +31,6 @@ test('secure communication uses the 2.0 request and identity contracts', () => {
 
   assert.equal(config.identityStore.databaseName, 'coolxer-secure-communication-v2');
   assert.equal(config.requestTimeoutMillis, 1234);
-  assert.equal(config.allowInsecureLoopbackForTesting, true);
   assert.equal(request.logicalPath, '/attach/upload');
   assert.equal(request.protectedHeaders.code, 'h5-test');
   assert.equal(request.requestId, 'request-1');

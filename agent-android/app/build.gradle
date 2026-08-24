@@ -26,11 +26,13 @@ android {
         versionCode 1
         versionName "1.0"
         buildConfigField "String", "SYNAP_SC_BASE_URL",
-                secureCommunicationConfig("SYNAP_SC_BASE_URL", "https://synap-server.com")
+                secureCommunicationConfig("SYNAP_SC_BASE_URL", "http://192.168.0.102:11099")
         buildConfigField "String", "SYNAP_SC_APP_ID",
                 secureCommunicationConfig("SYNAP_SC_APP_ID", "synap-android")
         buildConfigField "String", "SYNAP_SC_SERVER_KEY_ID",
                 secureCommunicationConfig("SYNAP_SC_SERVER_KEY_ID", "server-key-dev")
+        buildConfigField "String", "SYNAP_SC_ENROLLMENT_TOKEN",
+                secureCommunicationConfig("SYNAP_SC_ENROLLMENT_TOKEN")
         buildConfigField "String", "SYNAP_SC_TRUST_ANCHOR",
                 secureCommunicationConfig("SYNAP_SC_TRUST_ANCHOR",
                         "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEbn5vVUmDNdGt6kinA3qZBrrpk5e39C7NkPzuK8z-_xA1WNmqpmXvUvbplcDfzTnpERMyarM7Xh-w3UFCy7aXOQ")

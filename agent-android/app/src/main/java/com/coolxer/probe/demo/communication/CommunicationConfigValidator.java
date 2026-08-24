@@ -43,8 +43,8 @@ public final class CommunicationConfigValidator {
             errors.put(Field.BASE_URL, "请输入不含用户信息、查询参数或片段的有效 URL");
             return;
         }
-        if (!"https".equals(parsed.scheme())) {
-            errors.put(Field.BASE_URL, "服务地址必须使用 HTTPS");
+        if (!"https".equals(parsed.scheme()) && !"http".equals(parsed.scheme())) {
+            errors.put(Field.BASE_URL, "服务地址必须使用 HTTP 或 HTTPS");
         }
     }
 

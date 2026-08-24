@@ -217,7 +217,7 @@ sudo augenrules --load
 sudo auditctl -l
 ```
 
-将 `deploy/linux/synap-host.service` 中的服务地址替换为生产 HTTPS origin，然后安装并启动：
+将 `deploy/linux/synap-host.service` 中的服务地址替换为实际 HTTP 或 HTTPS origin，然后安装并启动：
 
 ```bash
 sudo install -m 0644 \
@@ -276,7 +276,7 @@ sudo mkdir -p '/Library/Application Support/SynapHost'
 sudo chmod 700 '/Library/Application Support/SynapHost'
 ```
 
-将 `deploy/macos/com.synap.agent-host.plist` 中的服务地址替换为生产 HTTPS origin，然后安装：
+将 `deploy/macos/com.synap.agent-host.plist` 中的服务地址替换为实际 HTTP 或 HTTPS origin，然后安装：
 
 ```bash
 sudo cp deploy/macos/com.synap.agent-host.plist \
@@ -312,7 +312,7 @@ docker compose logs -f synap-server
 - Kafka 地址正确，`host_fact_audit` topic 可用。
 - Redis 可用，用于 Host AuditData 批次幂等及其他协议状态。
 - checker、Groovy rule、punish 和 msg API 配置目录正确挂载。
-- agent-host 使用 HTTPS origin；HTTP 仅用于本机联调。
+- agent-host 支持 HTTP 和 HTTPS origin，生产环境建议使用 HTTPS。
 - 只有真实网关 CIDR 配置到 `SYNAP_TRUSTED_PROXIES`，不得使用 `0.0.0.0/0`。
 
 审计 Kafka topic 为 `host_fact_audit`，消息 key 是 `<guid>:<batchId>`，使用 delete 策略并默认保留 180 天。下游应以 `eventId` 做事件级最终去重。
@@ -406,8 +406,9 @@ sudo systemctl status synap-host
 
 ### 传输安全
 
-生产环境必须使用 HTTPS。Host 在 TLS 之上使用 Secure Communication v1，提供
-服务端公钥固定、安装身份持有证明、AES-256-GCM 应用层加密、完整性和重放保护。
+Host 支持 HTTP 和 HTTPS，探针不会限制 HTTP 的主机范围；生产环境仍建议使用 HTTPS。
+Secure Communication v1 提供服务端公钥固定、安装身份持有证明、AES-256-GCM
+应用层加密、完整性和重放保护。
 `code` 是密文内的业务 header，仍由服务端执行原有业务校验，但不单独作为密码学
 身份凭据。SDK 不自动重试业务 POST：spool 重试保留原业务 `batchId/eventId`，每次
 传输由安全客户端生成新的 `seq/requestId` 并重新加密。

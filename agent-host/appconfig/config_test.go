@@ -14,15 +14,11 @@ func TestValidateServerOrigin(t *testing.T) {
 	}
 }
 
-func TestValidateRejectsRemotePlainHTTP(t *testing.T) {
+func TestValidateAcceptsRemotePlainHTTP(t *testing.T) {
 	options := Defaults("http://synap.example.test:11099")
 	options.DataDir = t.TempDir()
-	if err := options.Validate(); err == nil {
-		t.Fatal("remote plain HTTP must be rejected")
-	}
-	options.ServerBaseURL = "http://127.0.0.1:11099"
 	if err := options.Validate(); err != nil {
-		t.Fatalf("loopback HTTP must remain available for development: %v", err)
+		t.Fatalf("remote HTTP must be accepted: %v", err)
 	}
 }
 

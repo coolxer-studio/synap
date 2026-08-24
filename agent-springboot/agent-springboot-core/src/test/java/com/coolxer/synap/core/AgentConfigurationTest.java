@@ -13,8 +13,8 @@ class AgentConfigurationTest {
         assertEquals(AgentConfiguration.Mode.OBSERVE, value.mode());
     }
 
-    @Test void permitsLoopbackHttpForDevelopment() {
-        AgentConfiguration value = AgentConfiguration.from(Map.of("server-url", "http://127.0.0.1:11099", "app-id", "1",
+    @Test void permitsRemoteHttp() {
+        AgentConfiguration value = AgentConfiguration.from(Map.of("server-url", "http://risk.example.com:11099", "app-id", "1",
                 "app-key-id", "synap-server-dev", "server-key-id", "key", "trust-anchor", "value"));
         assertTrue(value.ready());
     }

@@ -49,29 +49,10 @@ export const DEFAULT_OPTIONS = Object.freeze({
   serverTrustAnchors: DEFAULT_SERVER_TRUST_ANCHORS
 });
 
-export function isLoopbackHttpUrl(baseUrl) {
-  try {
-    const parsed = new URL(String(baseUrl));
-    const host = parsed.hostname.toLowerCase();
-    return parsed.protocol === 'http:' &&
-      (host === 'localhost' || host === '[::1]' || host === '::1' ||
-        /^127(?:\.\d{1,3}){3}$/.test(host));
-  } catch (_) {
-    return false;
-  }
-}
-
 export function normalizeBaseUrl(baseUrl) {
   const normalized = String(baseUrl || DEFAULT_BASE_URL).replace(/\/+$/, '');
   if (!/^https?:\/\//i.test(normalized)) {
     throw new Error('SynapAgent baseUrl must use http or https');
-  }
-  if (typeof window !== 'undefined' && window.location &&
-      window.location.protocol === 'https:' && /^http:\/\//i.test(normalized)) {
-    throw new Error('SynapAgent refuses an insecure HTTP endpoint on an HTTPS page');
-  }
-  if (/^http:\/\//i.test(normalized) && !isLoopbackHttpUrl(normalized)) {
-    throw new Error('SynapAgent baseUrl must use HTTPS outside local development');
   }
   return normalized;
 }

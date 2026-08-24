@@ -8,7 +8,6 @@ import com.coolxer.securecommunication.SecureError;
 import com.coolxer.securecommunication.SecureRequest;
 import com.coolxer.securecommunication.SecureResponse;
 
-import java.net.URI;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Map;
@@ -68,21 +67,11 @@ final class SecureCommunicationClient implements AutoCloseable {
                 .identityStore(new FileIdentityStore(identityPath(config)))
                 .requestTimeout(REQUEST_TIMEOUT)
                 .allowedClockSkew(CLOCK_SKEW)
-                .allowInsecureLoopbackForTesting(isLoopbackHttp(config.serverUrl()))
                 .build();
     }
 
     static Path identityPath(AgentConfiguration config) {
         return config.dataDir().resolve("secure-communication/java-sdk-identity.json");
-    }
-
-    private static boolean isLoopbackHttp(URI uri) {
-        if (uri == null || !"http".equalsIgnoreCase(uri.getScheme())) return false;
-        String host = uri.getHost();
-        return "localhost".equalsIgnoreCase(host)
-                || "127.0.0.1".equals(host)
-                || "::1".equals(host)
-                || "0:0:0:0:0:0:0:1".equals(host);
     }
 
     static final class TransportException extends Exception {

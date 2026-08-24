@@ -12,7 +12,7 @@
     <string name="label_auth">用户认证</string>
 
     <string name="communication_settings_title">通信设置</string>
-    <string name="communication_settings_base_url">服务地址（HTTPS）</string>
+    <string name="communication_settings_base_url">服务地址（HTTP/HTTPS）</string>
     <string name="communication_settings_app_id">App ID</string>
     <string name="communication_settings_server_key_id">服务端 Key ID</string>
     <string name="communication_settings_trust_anchor">服务端信任锚</string>

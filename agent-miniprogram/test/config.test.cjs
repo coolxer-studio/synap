@@ -15,12 +15,10 @@ test('low is non-permission profile and debug is enabled', () => {
   assert.equal(PROFILES.low.permission, false);
 });
 
-test('configuration requires HTTPS except explicit localhost tests', () => {
+test('configuration accepts HTTP without a probe-side host restriction', () => {
   const base = { appKey: '1234567890abcdef1234567890abcdef', appId: 1, appName: 'demo' };
-  assert.throws(() => normalizeOptions(Object.assign({}, base, { baseUrl: 'http://example.test' })), /HTTPS/);
   const options = normalizeOptions(Object.assign({}, base, {
-    baseUrl: 'http://127.0.0.1:8080/',
-    allowInsecureForTesting: true
+    baseUrl: 'http://example.test:8080/'
   }));
-  assert.equal(options.baseUrl, 'http://127.0.0.1:8080');
+  assert.equal(options.baseUrl, 'http://example.test:8080');
 });

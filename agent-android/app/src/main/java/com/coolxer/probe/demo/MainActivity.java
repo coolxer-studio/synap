@@ -120,9 +120,10 @@ public class MainActivity extends AppCompatActivity {
         try {
             com.coolxer.securecommunication.SecureClientConfig securityConfig =
                     communicationConfig.toSecureClientConfig();
-            // Production hosts must return a short-lived token from a runtime callback.
-            // The demo intentionally has no embedded enrollment credential.
-            boolean initialized = CTProbe.initWithContext(this, securityConfig, () -> null);
+            // Production hosts should return a short-lived token from a runtime callback.
+            // The demo accepts a build-time injected token and does not commit it to source.
+            boolean initialized = CTProbe.initWithContext(this, securityConfig,
+                    () -> BuildConfig.SYNAP_SC_ENROLLMENT_TOKEN);
             if (initialized) {
                 CTProbe.getInstance().start();
                 Log.d("demo", "start probe");

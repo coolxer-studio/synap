@@ -22,7 +22,6 @@ import {
   SDK_VERSION,
   createEndpoints,
   hasSecurityBootstrap,
-  isLoopbackHttpUrl,
   policyCacheKey,
   resolveOptions
 } from './config';
@@ -608,7 +607,6 @@ async function initialize(options) {
     serverTrustAnchors: resolved.serverTrustAnchors,
     identityStore: new IndexedDbIdentityStore({ databaseName: SECURE_IDENTITY_DATABASE }),
     requestTimeoutMillis: resolved.requestTimeout,
-    allowInsecureLoopbackForTesting: isLoopbackHttpUrl(resolved.baseUrl),
     // SecureClientConfig stores the supplied function and invokes it through
     // the config object. Bind the browser native to avoid an illegal receiver.
     fetch: window.fetch.bind(window)

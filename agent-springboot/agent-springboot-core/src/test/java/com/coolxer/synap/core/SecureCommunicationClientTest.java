@@ -33,17 +33,16 @@ class SecureCommunicationClientTest {
         assertEquals("synap-agent-test", sdk.getAppId());
         assertEquals("SERVER", sdk.getDeviceType());
         assertEquals(Map.of("server-key", "AA"), sdk.getServerTrustAnchors());
-        assertFalse(sdk.isAllowInsecureLoopbackForTesting());
         assertEquals(dataDir.resolve("secure-communication/java-sdk-identity.json"),
                 SecureCommunicationClient.identityPath(agent));
     }
 
     @Test
-    void enablesPlainHttpOnlyForValidatedLoopbackConfiguration() {
+    void mapsRemotePlainHttpConfiguration() {
         SecureClientConfig sdk = SecureCommunicationClient.sdkConfig(
-                configuration("http://127.0.0.1:11099"));
+                configuration("http://synap.example.test:11099"));
 
-        assertTrue(sdk.isAllowInsecureLoopbackForTesting());
+        assertEquals("http://synap.example.test:11099", sdk.getBaseUrl().toString());
     }
 
     @Test
