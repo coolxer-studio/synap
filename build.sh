@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 readonly PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly IMAGE_NAME="${IMAGE_NAME:-crpi-4pdi7kz96g4v0tg3.cn-beijing.personal.cr.aliyuncs.com/coolxer-studio/synap-server}"
-readonly IMAGE_TAG="${IMAGE_TAG:-latest}"
+readonly IMAGE_TAG="1.0.0.alpha"
 readonly DATE_TAG="${DATE_TAG:-$(date +%Y%m%d)}"
 readonly PUSH_IMAGE="${PUSH_IMAGE:-false}"
 readonly SKIP_TESTS="${SKIP_TESTS:-true}"

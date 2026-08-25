@@ -1,8 +1,13 @@
-name: ${COMPOSE_PROJECT_NAME:-synap}
+# Compatibility baseline:
+# - Docker Compose v2 (`docker compose`) is recommended.
+# - Legacy `docker-compose` 1.29.2 is supported; lower v1 releases are not.
+# Keep the project name in COMPOSE_PROJECT_NAME. The top-level `name` field is
+# intentionally omitted because it is not understood by legacy Compose v1.
 
 services:
   synap-server:
     image: ${SYNAP_IMAGE}:${SYNAP_IMAGE_TAG:-latest}-${IMAGE_ARCH:-amd64}
+    container_name: synap-server
     platform: linux/${IMAGE_ARCH:-amd64}
     init: true
     ports:

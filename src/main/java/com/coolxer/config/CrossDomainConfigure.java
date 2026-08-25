@@ -30,7 +30,7 @@ public class CrossDomainConfigure {
     CorsConfiguration cors = new CorsConfiguration();
     cors.setAllowedOriginPatterns(Arrays.asList(allowedOrigins));
     cors.setAllowedMethods(List.of("POST", "OPTIONS"));
-    cors.setAllowedHeaders(List.of("Content-Type", "Accept"));
+    cors.setAllowedHeaders(List.of("Content-Type", "Accept", "X-Requested-With"));
     cors.setAllowCredentials(false);
     cors.setMaxAge(3600L);
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

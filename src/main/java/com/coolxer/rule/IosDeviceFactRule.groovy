@@ -6,7 +6,7 @@ import com.coolxer.model.fact.ios.IosDeviceFact
 
 def simulator(IosDeviceFact fact){
     ArrayList<Agenda> agendaList = new ArrayList<>()
-    if(fact.getDevice().getSimulator()){
+    if(fact.getDevice()?.getSimulator()){
         agendaList.add(new Agenda("simulator","宏定义:TARGET_IPHONE_SIMULATOR = 1", AgendaLevelEnum.LOW))
     }
     return agendaList
@@ -14,8 +14,10 @@ def simulator(IosDeviceFact fact){
 
 def macosWithDeviceInfo(IosDeviceFact fact){
     ArrayList<Agenda> agendaList = new ArrayList<>()
-    if(fact.getCpu().getType().startsWith("arm64") && fact.getSysctl().get("hwModel").startsWith("Mac")){
-        agendaList.add(new Agenda("macos","Model:"+fact.getSysctl().getHwModel(),AgendaLevelEnum.LOW))
+    String cpuType = fact.getCpu()?.getType()
+    Object modelValue = fact.getSysctl()?.get("hwModel")
+    if(cpuType?.startsWith("arm64") && modelValue instanceof String && modelValue.startsWith("Mac")){
+        agendaList.add(new Agenda("macos","Model:"+modelValue,AgendaLevelEnum.LOW))
     }
     return agendaList
 }

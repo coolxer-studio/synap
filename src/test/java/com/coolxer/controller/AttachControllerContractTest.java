@@ -257,6 +257,29 @@ class AttachControllerContractTest {
         assertEquals("SEQUENCE_OK", facts.getValue().getSequenceObservation());
     }
 
+    @Test
+    void appliesAckIdempotencyAndTransportContextToIos() {
+        RuleEngineImpl ruleEngine = mock(RuleEngineImpl.class);
+        when(ruleEngine.run(any())).thenAnswer(invocation -> new Checkpoint(invocation.getArgument(0),
+                "IosUserFactRule.groovy", new ArrayList<>(), new HashSet<>(), "now"));
+        AttachController controller = controller(ruleEngine);
+        RequestVO request = request();
+        request.getCommon().set(8, "ios");
+        request.getMeta().setAppKeyId("synap-ios-dev");
+
+        ResponseVO first = (ResponseVO) controller.upload(header("ios"), request, requestContext());
+        ResponseVO duplicate = (ResponseVO) controller.upload(header("ios"), request, requestContext());
+
+        assertEquals(Arrays.asList("message-1"), first.getAck().getAcceptedMessageIds());
+        assertEquals(Arrays.asList("message-1"), duplicate.getAck().getDuplicateMessageIds());
+        ArgumentCaptor<AbstractFact> facts = ArgumentCaptor.forClass(AbstractFact.class);
+        verify(ruleEngine).run(facts.capture());
+        assertEquals("ios", facts.getValue().getCommon().getPlatform());
+        assertEquals("message-1", facts.getValue().getMessageId());
+        assertEquals("batch-1", facts.getValue().getBatchId());
+        assertTrue(facts.getValue().getObservedAt() > 0);
+    }
+
     private AttachController controller(RuleEngineImpl ruleEngine) {
         return controller(ruleEngine,
                 new InMemoryIdempotencyStore(Duration.ofMinutes(5), Duration.ofDays(14), 100));

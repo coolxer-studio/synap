@@ -339,7 +339,7 @@ public class AttachController extends AbstractController {
     private static boolean isProtocolRequest(String platform) {
         return "h5".equalsIgnoreCase(platform) || "wechat".equalsIgnoreCase(platform)
                 || "host".equalsIgnoreCase(platform) || "server".equalsIgnoreCase(platform)
-                || "android".equalsIgnoreCase(platform);
+                || "android".equalsIgnoreCase(platform) || "ios".equalsIgnoreCase(platform);
     }
 
     private static String transportTrust(HttpServletRequest request) {

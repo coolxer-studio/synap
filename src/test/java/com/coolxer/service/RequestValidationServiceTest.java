@@ -79,6 +79,23 @@ class RequestValidationServiceTest {
     }
 
     @Test
+    void requiresProtocolMetadataAndAllowsIosFactTypes() {
+        RequestValidationService service = new RequestValidationService("", "", false, 262144, 100, 8192);
+        RequestVO request = request();
+        request.getCommon().set(3, "1.0.0.220519");
+        request.getCommon().set(8, "ios");
+        request.getMeta().setAppKeyId("synap-ios-dev");
+        request.getMeta().setDetectorVersion("1.0.0.220519");
+        request.getData().get(0).put("type", "DeviceData");
+
+        assertNull(service.validateEnvelope("a-b-c-d-e-ios-1-1.0.0.220519", request,
+                mock(HttpServletRequest.class), true));
+        request.setMeta(null);
+        assertEquals("iOS metadata is required", service.validateEnvelope(
+                "a-b-c-d-e-ios-1-1.0.0.220519", request, mock(HttpServletRequest.class), true));
+    }
+
+    @Test
     void enforcesWechatAppIdAllowlistByAppKeyId() {
         RequestValidationService service = new RequestValidationService("", "", true, 262144, 100, 8192);
         ReflectionTestUtils.setField(service, "configuredWechatAppIds",

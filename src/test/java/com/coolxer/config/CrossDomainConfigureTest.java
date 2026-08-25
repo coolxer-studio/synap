@@ -20,7 +20,8 @@ class CrossDomainConfigureTest {
                 "OPTIONS", "/sc/v1/message");
         request.addHeader("Origin", "http://localhost:8888");
         request.addHeader("Access-Control-Request-Method", "POST");
-        request.addHeader("Access-Control-Request-Headers", "content-type");
+        request.addHeader("Access-Control-Request-Headers",
+                "content-type,x-requested-with");
         MockHttpServletResponse response = new MockHttpServletResponse();
         AtomicBoolean continued = new AtomicBoolean();
 
@@ -32,6 +33,8 @@ class CrossDomainConfigureTest {
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getHeader("Access-Control-Allow-Origin"))
                 .isEqualTo("http://localhost:8888");
+        assertThat(response.getHeader("Access-Control-Allow-Headers"))
+                .containsIgnoringCase("x-requested-with");
     }
 
     @Test

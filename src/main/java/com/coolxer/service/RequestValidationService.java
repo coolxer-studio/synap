@@ -31,6 +31,9 @@ public class RequestValidationService {
             "ActivityData", "AnrData", "AppData", "DeviceData", "EventData", "FileData",
             "InjectData", "JavaData", "LocationData", "NativeData", "NetData", "PrivacyData",
             "RuntimeData", "SelfAppData", "UserData");
+    private static final Set<String> IOS_FACT_TYPES = Set.of(
+            "AppData", "DeviceData", "FileData", "InjectData", "LocationData", "NetData",
+            "ObjcData", "RuntimeData", "SelfAppData", "SignalData", "UserData", "ViewData");
     private static final Set<String> SERVER_FACT_TYPES = Set.of(
             "ApplicationData", "RuntimeData", "ApiAssetData", "ApiObservationData", "SecurityConfigData",
             "DependencyData", "DangerousCallData", "SecurityEventData", "AgentHealthData", "UserData", "ActionData");
@@ -110,7 +113,8 @@ public class RequestValidationService {
                 // Existing Android detectors can legitimately emit app/file collections larger
                 // than the browser-oriented per-node limit. The envelope byte and fact-count
                 // limits still bound the request, while Android fact constructors validate shape.
-                if (!"android".equalsIgnoreCase(common.getPlatform()) && !validValue(fact, 0)) {
+                if (!"android".equalsIgnoreCase(common.getPlatform())
+                        && !"ios".equalsIgnoreCase(common.getPlatform()) && !validValue(fact, 0)) {
                     return "fact exceeds structural limits";
                 }
                 if ("wechat".equalsIgnoreCase(common.getPlatform()) && "SelfAppData".equals(type)) {
@@ -137,7 +141,7 @@ public class RequestValidationService {
     private static boolean isProtocolPlatform(String platform) {
         return "h5".equalsIgnoreCase(platform) || "wechat".equalsIgnoreCase(platform)
                 || "host".equalsIgnoreCase(platform) || "server".equalsIgnoreCase(platform)
-                || "android".equalsIgnoreCase(platform);
+                || "android".equalsIgnoreCase(platform) || "ios".equalsIgnoreCase(platform);
     }
 
     private static Set<String> allowedFactTypes(String platform) {
@@ -145,6 +149,7 @@ public class RequestValidationService {
         if ("wechat".equalsIgnoreCase(platform)) return WECHAT_FACT_TYPES;
         if ("server".equalsIgnoreCase(platform)) return SERVER_FACT_TYPES;
         if ("android".equalsIgnoreCase(platform)) return ANDROID_FACT_TYPES;
+        if ("ios".equalsIgnoreCase(platform)) return IOS_FACT_TYPES;
         return HOST_FACT_TYPES;
     }
 
@@ -153,6 +158,7 @@ public class RequestValidationService {
         if ("wechat".equalsIgnoreCase(platform)) return "WeChat";
         if ("server".equalsIgnoreCase(platform)) return "Server";
         if ("android".equalsIgnoreCase(platform)) return "Android";
+        if ("ios".equalsIgnoreCase(platform)) return "iOS";
         return "Host";
     }
 
