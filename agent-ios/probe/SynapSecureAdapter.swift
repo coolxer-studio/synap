@@ -14,7 +14,10 @@ import SecureCommunication
         trustAnchor: String,
         enrollmentTokenProvider: (() -> String?)?
     ) {
-        guard let anchor = Data(base64URL: trustAnchor) else { return nil }
+        guard let anchor = Data(base64URL: trustAnchor) else {
+            NSLog("Synap secure client configuration has an invalid trust anchor")
+            return nil
+        }
         do {
             client = try SecureCommunication.SecureClient(config: SecureClientConfig(
                 baseURL: baseURL,
@@ -23,6 +26,7 @@ import SecureCommunication
             self.enrollmentTokenProvider = enrollmentTokenProvider
             super.init()
         } catch {
+            NSLog("Synap secure client initialization failed: %@", String(describing: error))
             return nil
         }
     }
@@ -51,8 +55,10 @@ import SecureCommunication
                     body: body,
                     requestID: UUID().uuidString.lowercased())
                 let response = try await client.request(request)
+                NSLog("Synap secure POST %@ completed with HTTP %ld", logicalPath, response.status)
                 result = response.body
             } catch {
+                NSLog("Synap secure POST %@ failed: %@", logicalPath, String(describing: error))
                 await client.closeSession()
             }
         }

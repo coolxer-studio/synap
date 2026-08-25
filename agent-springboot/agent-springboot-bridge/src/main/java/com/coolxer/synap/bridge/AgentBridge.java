@@ -27,6 +27,8 @@ public final class AgentBridge {
     private static final AtomicReference<Sink> SINK = new AtomicReference<>();
     private static final ArrayDeque<BridgeEvent> EARLY = new ArrayDeque<>();
     private static final ThreadLocal<RequestSecurityContext> REQUEST = new ThreadLocal<>();
+    private static final ThreadLocal<Integer> INTERNAL_OPERATION_DEPTH = new ThreadLocal<>();
+    private static final ThreadLocal<Boolean> SINK_EVALUATION_ACTIVE = new ThreadLocal<>();
     private static volatile boolean protect;
     private static volatile Set<String> enabledRules = Set.of();
 
@@ -65,10 +67,31 @@ public final class AgentBridge {
     public static RequestSecurityContext currentRequest() { return REQUEST.get(); }
     public static void closeRequest() { REQUEST.remove(); }
 
+    /** Suppresses sink instrumentation while the agent performs its own I/O. */
+    public static void enterInternalOperation() {
+        Integer depth = INTERNAL_OPERATION_DEPTH.get();
+        INTERNAL_OPERATION_DEPTH.set(depth == null ? 1 : depth + 1);
+    }
+
+    public static void exitInternalOperation() {
+        Integer depth = INTERNAL_OPERATION_DEPTH.get();
+        if (depth == null || depth <= 1) INTERNAL_OPERATION_DEPTH.remove();
+        else INTERNAL_OPERATION_DEPTH.set(depth - 1);
+    }
+
+    public static boolean internalOperationActive() {
+        Integer depth = INTERNAL_OPERATION_DEPTH.get();
+        return depth != null && depth > 0;
+    }
+
     public static Decision beforeSink(String sinkType, String operation, Object[] arguments) {
+        if (internalOperationActive() || Boolean.TRUE.equals(SINK_EVALUATION_ACTIVE.get())) {
+            return Decision.ALLOW;
+        }
+        RequestSecurityContext request = REQUEST.get();
+        if (request == null) return Decision.ALLOW;
+        SINK_EVALUATION_ACTIVE.set(Boolean.TRUE);
         try {
-            RequestSecurityContext request = REQUEST.get();
-            if (request == null) return Decision.ALLOW;
             String target = summarizeArguments(arguments);
             String ruleId = ruleFor(sinkType, target, request);
             boolean correlated = correlated(target, request);
@@ -93,6 +116,8 @@ public final class AgentBridge {
             return block ? Decision.BLOCK : Decision.ALLOW;
         } catch (Throwable ignored) {
             return Decision.ALLOW;
+        } finally {
+            SINK_EVALUATION_ACTIVE.remove();
         }
     }
 

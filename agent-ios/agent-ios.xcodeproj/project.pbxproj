@@ -13,18 +13,18 @@
 		1463F3D429D3C26300125C94 /* CrashViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 1463F3D029D3C26300125C94 /* CrashViewController.m */; };
 		1463F3D529D3C26300125C94 /* CCrash.c in Sources */ = {isa = PBXBuildFile; fileRef = 1463F3D129D3C26300125C94 /* CCrash.c */; };
 		1463F3DD29D3CB9000125C94 /* Aspects.m in Sources */ = {isa = PBXBuildFile; fileRef = 1463F3DC29D3CB9000125C94 /* Aspects.m */; };
-		1463F43C29D4430F00125C94 /* illegal_state.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1463F43A29D4430E00125C94 /* illegal_state.a */; };
+		1463F43C29D4430F00125C94 /* illegal_state.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1463F43A29D4430E00125C94 /* illegal_state.xcframework */; };
 		1463F43D29D4430F00125C94 /* CTIllegalState.h in Headers */ = {isa = PBXBuildFile; fileRef = 1463F43B29D4430E00125C94 /* CTIllegalState.h */; };
 		1463F44629D4462400125C94 /* CTUserBehavior.h in Headers */ = {isa = PBXBuildFile; fileRef = 1463F44429D4462400125C94 /* CTUserBehavior.h */; };
-		1463F44729D4462400125C94 /* user_behavior.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1463F44529D4462400125C94 /* user_behavior.a */; };
+		1463F44729D4462400125C94 /* user_behavior.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1463F44529D4462400125C94 /* user_behavior.xcframework */; };
 		14680E932A1B688200866F19 /* CTDeviceInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 14680E912A1B688200866F19 /* CTDeviceInfo.h */; };
-		14680E942A1B688200866F19 /* device_info.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 14680E922A1B688200866F19 /* device_info.a */; };
+		14680E942A1B688200866F19 /* device_info.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 14680E922A1B688200866F19 /* device_info.xcframework */; };
 		14680E9C2A1DDC8E00866F19 /* DispatchTask.h in Headers */ = {isa = PBXBuildFile; fileRef = 14680E9A2A1DDC8E00866F19 /* DispatchTask.h */; };
 		14680E9D2A1DDC8E00866F19 /* DispatchTask.m in Sources */ = {isa = PBXBuildFile; fileRef = 14680E9B2A1DDC8E00866F19 /* DispatchTask.m */; };
 		14680EA02A1DED5400866F19 /* ThreadSafeQueue.h in Headers */ = {isa = PBXBuildFile; fileRef = 14680E9E2A1DED5400866F19 /* ThreadSafeQueue.h */; };
 		14680EA12A1DED5400866F19 /* ThreadSafeQueue.m in Sources */ = {isa = PBXBuildFile; fileRef = 14680E9F2A1DED5400866F19 /* ThreadSafeQueue.m */; };
 		14680EAE2A1F0B8600866F19 /* CTRunningCheck.h in Headers */ = {isa = PBXBuildFile; fileRef = 14680EAC2A1F0B8600866F19 /* CTRunningCheck.h */; };
-		14680EAF2A1F0B8600866F19 /* running_check.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 14680EAD2A1F0B8600866F19 /* running_check.a */; };
+		14680EAF2A1F0B8600866F19 /* running_check.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 14680EAD2A1F0B8600866F19 /* running_check.xcframework */; };
 		14688AEE2AD8C8580032E1D0 /* CTLoginViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 14688AED2AD8C8580032E1D0 /* CTLoginViewController.m */; };
 		149780D92AD638690078E345 /* CTToolViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 149780D82AD638690078E345 /* CTToolViewController.m */; };
 		14B1AD3429B70BF4008AEAEE /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 14B1AD3329B70BF4008AEAEE /* AppDelegate.m */; };
@@ -53,7 +53,7 @@
 		6F8B11E52ADFC6CC001839E8 /* CTDeviceContentModel.m in Sources */ = {isa = PBXBuildFile; fileRef = 6F8B11E42ADFC6CC001839E8 /* CTDeviceContentModel.m */; };
 		6F8B11E82ADFC7BF001839E8 /* CTDeviceDetailModel.m in Sources */ = {isa = PBXBuildFile; fileRef = 6F8B11E72ADFC7BF001839E8 /* CTDeviceDetailModel.m */; };
 		6F9304252B8F5BFC00775BBA /* CTToolTableViewCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 6F9304242B8F5BFC00775BBA /* CTToolTableViewCell.m */; };
-		6FE42CDC2A40433C0026AD37 /* punishment.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6FE42CDA2A40433C0026AD37 /* punishment.a */; };
+		6FE42CDC2A40433C0026AD37 /* punishment.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6FE42CDA2A40433C0026AD37 /* punishment.xcframework */; };
 		6FE42CDD2A40433C0026AD37 /* CTpunishment.h in Headers */ = {isa = PBXBuildFile; fileRef = 6FE42CDB2A40433C0026AD37 /* CTpunishment.h */; };
 /* End PBXBuildFile section */
 
@@ -77,18 +77,18 @@
 		1463F3D829D3C30800125C94 /* agent-ios-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "agent-ios-Bridging-Header.h"; sourceTree = "<group>"; };
 		1463F3DB29D3CB9000125C94 /* Aspects.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Aspects.h; sourceTree = "<group>"; };
 		1463F3DC29D3CB9000125C94 /* Aspects.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Aspects.m; sourceTree = "<group>"; };
-		1463F43A29D4430E00125C94 /* illegal_state.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = illegal_state.a; sourceTree = "<group>"; };
+		1463F43A29D4430E00125C94 /* illegal_state.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = illegal_state.xcframework; sourceTree = "<group>"; };
 		1463F43B29D4430E00125C94 /* CTIllegalState.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CTIllegalState.h; sourceTree = "<group>"; };
 		1463F44429D4462400125C94 /* CTUserBehavior.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CTUserBehavior.h; sourceTree = "<group>"; };
-		1463F44529D4462400125C94 /* user_behavior.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = user_behavior.a; sourceTree = "<group>"; };
+		1463F44529D4462400125C94 /* user_behavior.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = user_behavior.xcframework; sourceTree = "<group>"; };
 		14680E912A1B688200866F19 /* CTDeviceInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CTDeviceInfo.h; sourceTree = "<group>"; };
-		14680E922A1B688200866F19 /* device_info.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = device_info.a; sourceTree = "<group>"; };
+		14680E922A1B688200866F19 /* device_info.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = device_info.xcframework; sourceTree = "<group>"; };
 		14680E9A2A1DDC8E00866F19 /* DispatchTask.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DispatchTask.h; sourceTree = "<group>"; };
 		14680E9B2A1DDC8E00866F19 /* DispatchTask.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = DispatchTask.m; sourceTree = "<group>"; };
 		14680E9E2A1DED5400866F19 /* ThreadSafeQueue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ThreadSafeQueue.h; sourceTree = "<group>"; };
 		14680E9F2A1DED5400866F19 /* ThreadSafeQueue.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ThreadSafeQueue.m; sourceTree = "<group>"; };
 		14680EAC2A1F0B8600866F19 /* CTRunningCheck.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CTRunningCheck.h; sourceTree = "<group>"; };
-		14680EAD2A1F0B8600866F19 /* running_check.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = running_check.a; sourceTree = "<group>"; };
+		14680EAD2A1F0B8600866F19 /* running_check.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = running_check.xcframework; sourceTree = "<group>"; };
 		14688AEC2AD8C8580032E1D0 /* CTLoginViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CTLoginViewController.h; sourceTree = "<group>"; };
 		14688AED2AD8C8580032E1D0 /* CTLoginViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CTLoginViewController.m; sourceTree = "<group>"; };
 		149780D72AD638690078E345 /* CTToolViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CTToolViewController.h; sourceTree = "<group>"; };
@@ -141,7 +141,7 @@
 		6F8B11E72ADFC7BF001839E8 /* CTDeviceDetailModel.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CTDeviceDetailModel.m; sourceTree = "<group>"; };
 		6F9304232B8F5BFC00775BBA /* CTToolTableViewCell.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CTToolTableViewCell.h; sourceTree = "<group>"; };
 		6F9304242B8F5BFC00775BBA /* CTToolTableViewCell.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = CTToolTableViewCell.m; sourceTree = "<group>"; };
-		6FE42CDA2A40433C0026AD37 /* punishment.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = punishment.a; sourceTree = "<group>"; };
+		6FE42CDA2A40433C0026AD37 /* punishment.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = punishment.xcframework; sourceTree = "<group>"; };
 		6FE42CDB2A40433C0026AD37 /* CTpunishment.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CTpunishment.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -158,12 +158,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1463F43C29D4430F00125C94 /* illegal_state.a in Frameworks */,
-				1463F44729D4462400125C94 /* user_behavior.a in Frameworks */,
-				6FE42CDC2A40433C0026AD37 /* punishment.a in Frameworks */,
+				1463F43C29D4430F00125C94 /* illegal_state.xcframework in Frameworks */,
+				1463F44729D4462400125C94 /* user_behavior.xcframework in Frameworks */,
+				6FE42CDC2A40433C0026AD37 /* punishment.xcframework in Frameworks */,
 				A10000000000000000000005 /* SecureCommunication in Frameworks */,
-				14680E942A1B688200866F19 /* device_info.a in Frameworks */,
-				14680EAF2A1F0B8600866F19 /* running_check.a in Frameworks */,
+				14680E942A1B688200866F19 /* device_info.xcframework in Frameworks */,
+				14680EAF2A1F0B8600866F19 /* running_check.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -202,7 +202,7 @@
 		1463F43929D4430E00125C94 /* illegal_state */ = {
 			isa = PBXGroup;
 			children = (
-				1463F43A29D4430E00125C94 /* illegal_state.a */,
+				1463F43A29D4430E00125C94 /* illegal_state.xcframework */,
 				1463F43B29D4430E00125C94 /* CTIllegalState.h */,
 			);
 			path = illegal_state;
@@ -212,7 +212,7 @@
 			isa = PBXGroup;
 			children = (
 				1463F44429D4462400125C94 /* CTUserBehavior.h */,
-				1463F44529D4462400125C94 /* user_behavior.a */,
+				1463F44529D4462400125C94 /* user_behavior.xcframework */,
 			);
 			path = user_behavior;
 			sourceTree = "<group>";
@@ -221,7 +221,7 @@
 			isa = PBXGroup;
 			children = (
 				14680E912A1B688200866F19 /* CTDeviceInfo.h */,
-				14680E922A1B688200866F19 /* device_info.a */,
+				14680E922A1B688200866F19 /* device_info.xcframework */,
 			);
 			path = device_info;
 			sourceTree = "<group>";
@@ -230,7 +230,7 @@
 			isa = PBXGroup;
 			children = (
 				14680EAC2A1F0B8600866F19 /* CTRunningCheck.h */,
-				14680EAD2A1F0B8600866F19 /* running_check.a */,
+				14680EAD2A1F0B8600866F19 /* running_check.xcframework */,
 			);
 			path = running_check;
 			sourceTree = "<group>";
@@ -485,7 +485,7 @@
 		6FE42CD92A40433C0026AD37 /* punishment */ = {
 			isa = PBXGroup;
 			children = (
-				6FE42CDA2A40433C0026AD37 /* punishment.a */,
+				6FE42CDA2A40433C0026AD37 /* punishment.xcframework */,
 				6FE42CDB2A40433C0026AD37 /* CTpunishment.h */,
 			);
 			path = punishment;

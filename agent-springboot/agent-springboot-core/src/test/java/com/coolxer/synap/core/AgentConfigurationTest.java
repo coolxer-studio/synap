@@ -10,6 +10,8 @@ class AgentConfigurationTest {
     @Test void rejectsIncompleteSecureConfiguration() {
         AgentConfiguration value = AgentConfiguration.from(Map.of("server-url", "https://risk.example.com", "app-id", "1"));
         assertFalse(value.ready());
+        assertEquals(java.util.List.of("app-key-id/SYNAP_SC_APP_ID", "server-key-id/SYNAP_SC_SERVER_KEY_ID",
+                "trust-anchor/SYNAP_SC_TRUST_ANCHOR/SYNAP_SC_SERVER_PUBLIC_KEY"), value.missingRequiredSettings());
         assertEquals(AgentConfiguration.Mode.OBSERVE, value.mode());
     }
 

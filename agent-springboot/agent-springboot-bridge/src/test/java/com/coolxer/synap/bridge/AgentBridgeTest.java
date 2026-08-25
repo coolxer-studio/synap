@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -55,5 +56,51 @@ class AgentBridgeTest {
         assertEquals(AgentBridge.Decision.ALLOW,
                 AgentBridge.beforeSink("COMMAND", "Runtime.exec", new Object[]{"echo ok"}));
         assertEquals(before, events.size());
+    }
+
+    @Test
+    void sinkEvaluationDoesNotObserveItsOwnSinkIo() {
+        AtomicInteger nestedCalls = new AtomicInteger();
+        AgentBridge.install(event -> {
+            events.add(event);
+            nestedCalls.incrementAndGet();
+            AgentBridge.beforeSink("FILE", "java.nio.file.Files.write",
+                    new Object[]{"agent-spool.json"});
+        });
+        AgentBridge.openRequest("asset", "POST", "/demo", true, "ip-hmac", List.of("input"));
+
+        assertEquals(AgentBridge.Decision.ALLOW,
+                AgentBridge.beforeSink("COMMAND", "ProcessBuilder.start", new Object[]{"echo input"}));
+
+        assertEquals(1, nestedCalls.get());
+        assertEquals(1, events.size());
+        assertEquals("COMMAND", events.get(0).data().get("sinkType"));
+    }
+
+    @Test
+    void internalAgentOperationsAreNotObserved() {
+        AgentBridge.install(events::add);
+        AgentBridge.openRequest("asset", "POST", "/demo", true, "ip-hmac", List.of("input"));
+
+        AgentBridge.enterInternalOperation();
+        try {
+            AgentBridge.enterInternalOperation();
+            try {
+                assertEquals(AgentBridge.Decision.ALLOW,
+                        AgentBridge.beforeSink("FILE", "java.nio.file.Files.write",
+                                new Object[]{"agent-spool.json"}));
+            } finally {
+                AgentBridge.exitInternalOperation();
+            }
+            assertEquals(AgentBridge.Decision.ALLOW,
+                    AgentBridge.beforeSink("HTTP", "HttpClient.send",
+                            new Object[]{"http://localhost:11099"}));
+            assertEquals(0, events.size());
+        } finally {
+            AgentBridge.exitInternalOperation();
+        }
+
+        AgentBridge.beforeSink("FILE", "java.nio.file.Files.write", new Object[]{"business-file"});
+        assertEquals(1, events.size());
     }
 }

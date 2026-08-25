@@ -59,7 +59,12 @@ public final class AgentRuntime implements AgentBridge.Sink, AutoCloseable {
 
     public static synchronized AgentRuntime start(AgentConfiguration config, String capabilityMode) {
         if (INSTANCE != null) return INSTANCE;
-        if (config == null || !config.ready()) return null;
+        if (config == null || !config.enabled()) return null;
+        if (!config.ready()) {
+            System.err.println("[synap-agent] agent disabled: missing or invalid configuration: "
+                    + String.join(", ", config.missingRequiredSettings()));
+            return null;
+        }
         try {
             AgentRuntime runtime = new AgentRuntime(config, capabilityMode == null ? "degraded" : capabilityMode);
             INSTANCE = runtime; AgentBridge.install(runtime);
@@ -80,20 +85,24 @@ public final class AgentRuntime implements AgentBridge.Sink, AutoCloseable {
     public static AgentRuntime current() { return INSTANCE; }
 
     @Override public void accept(BridgeEvent event) {
+        AgentBridge.enterInternalOperation();
         try {
             Map<String, Object> fact = new LinkedHashMap<>(event.data());
             fact.put("type", event.type()); fact.putIfAbsent("schemaVersion", 1); fact.put("buildDate", iso(event.observedAt()));
             fact.put("messageId", UUID.randomUUID().toString()); fact.put("observedAt", event.observedAt()); fact.put("sequence", sequence.incrementAndGet());
             enqueueFact(fact);
-        } catch (Throwable ignored) { dropped.incrementAndGet(); }
+        } catch (Throwable ignored) { dropped.incrementAndGet(); } finally { AgentBridge.exitInternalOperation(); }
     }
 
     @Override public void flush() { executor.execute(this::sendLoop); }
 
     @Override public Map<String, Object> health() {
-        Map<String, Object> value = new LinkedHashMap<>(); value.put("status", startConfirmed.get() ? "running" : "starting");
-        value.put("capabilityMode", capabilityMode); value.put("queued", spool.queued()); value.put("deadLetters", spool.deadLetters());
-        value.put("accepted", accepted.get()); value.put("rejected", rejected.get()); value.put("failures", failures.get()); value.put("dropped", dropped.get()); return Map.copyOf(value);
+        AgentBridge.enterInternalOperation();
+        try {
+            Map<String, Object> value = new LinkedHashMap<>(); value.put("status", startConfirmed.get() ? "running" : "starting");
+            value.put("capabilityMode", capabilityMode); value.put("queued", spool.queued()); value.put("deadLetters", spool.deadLetters());
+            value.put("accepted", accepted.get()); value.put("rejected", rejected.get()); value.put("failures", failures.get()); value.put("dropped", dropped.get()); return Map.copyOf(value);
+        } finally { AgentBridge.exitInternalOperation(); }
     }
 
     private void enqueueDependencies() {
@@ -111,6 +120,7 @@ public final class AgentRuntime implements AgentBridge.Sink, AutoCloseable {
     }
 
     private void sendLoop() {
+        AgentBridge.enterInternalOperation();
         try {
             if (!startConfirmed.get()) { sendStart(); if (!startConfirmed.get()) return; }
             SpoolStore.Item item = spool.next(); if (item == null) return;
@@ -130,7 +140,7 @@ public final class AgentRuntime implements AgentBridge.Sink, AutoCloseable {
         } catch (SecureCommunicationClient.TransportException error) {
             failures.incrementAndGet();
             if (error.unknownSession()) transport.closeSession();
-        } catch (Throwable ignored) { failures.incrementAndGet(); }
+        } catch (Throwable ignored) { failures.incrementAndGet(); } finally { AgentBridge.exitInternalOperation(); }
     }
 
     private void sendStart() throws Exception {

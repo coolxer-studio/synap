@@ -2,7 +2,9 @@ package com.coolxer.synap.core;
 
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
@@ -31,9 +33,24 @@ public record AgentConfiguration(
     }
 
     public boolean ready() {
-        if (!enabled || serverUrl == null || appId <= 0 || appKeyId.isBlank() || serverKeyId.isBlank() || trustAnchor.isBlank()) return false;
-        String scheme = serverUrl.getScheme();
-        return "https".equalsIgnoreCase(scheme) || "http".equalsIgnoreCase(scheme);
+        return enabled && missingRequiredSettings().isEmpty();
+    }
+
+    /** Returns configuration names only; secret values are never included. */
+    public List<String> missingRequiredSettings() {
+        List<String> missing = new ArrayList<>();
+        if (serverUrl == null) missing.add("server-url/SYNAP_AGENT_SERVER_URL");
+        else {
+            String scheme = serverUrl.getScheme();
+            if (!"https".equalsIgnoreCase(scheme) && !"http".equalsIgnoreCase(scheme)) {
+                missing.add("server-url (http/https required)");
+            }
+        }
+        if (appId <= 0) missing.add("app-id/SYNAP_AGENT_APP_ID");
+        if (appKeyId.isBlank()) missing.add("app-key-id/SYNAP_SC_APP_ID");
+        if (serverKeyId.isBlank()) missing.add("server-key-id/SYNAP_SC_SERVER_KEY_ID");
+        if (trustAnchor.isBlank()) missing.add("trust-anchor/SYNAP_SC_TRUST_ANCHOR/SYNAP_SC_SERVER_PUBLIC_KEY");
+        return List.copyOf(missing);
     }
 
     public static AgentConfiguration fromEnvironment() {

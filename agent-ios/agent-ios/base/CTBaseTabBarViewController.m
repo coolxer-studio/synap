@@ -25,18 +25,29 @@
     self.tabBar.backgroundColor=gray_200;
     [self setupAllChildViewControllers];
     
-    // Public trust values are injected by the build profile. The enrollment
-    // token must be returned by a runtime callback and is never embedded here.
+    NSDictionary *synapConfiguration = [[NSBundle mainBundle] infoDictionary];
+    NSString *baseURLString = synapConfiguration[@"SynapServerBaseURL"];
+    NSString *appID = synapConfiguration[@"SynapAppID"];
+    NSString *serverKeyID = synapConfiguration[@"SynapServerKeyID"];
+    NSString *trustAnchor = synapConfiguration[@"SynapServerTrustAnchor"];
+
+    // Enrollment tokens are short-lived and single-use. For local simulator
+    // runs they are injected with SIMCTL_CHILD_SYNAP_ENROLLMENT_TOKEN.
     BOOL initialized = [CTProbe initWithViewController:self
-        baseURL:[NSURL URLWithString:@"https://synap.invalid"]
-        appID:@"1"
-        serverKeyID:@"replace-at-build-time"
-        trustAnchor:@"replace-at-build-time"
-        enrollmentTokenProvider:nil];
+        baseURL:[NSURL URLWithString:baseURLString]
+        appID:appID
+        serverKeyID:serverKeyID
+        trustAnchor:trustAnchor
+        enrollmentTokenProvider:^NSString * _Nullable{
+            return [[[NSProcessInfo processInfo] environment]
+                objectForKey:@"SYNAP_ENROLLMENT_TOKEN"];
+        }];
     if (initialized){
         [[CTProbe sharedInstance] start];
-        NSLog(@"CTProbe start");
+        NSLog(@"CTProbe started with Synap server %@", baseURLString);
     
+    } else {
+        NSLog(@"CTProbe initialization failed; check Synap configuration");
     }
 }
 /**

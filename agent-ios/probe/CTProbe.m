@@ -18,6 +18,8 @@
 #define PLATFORM @"ios"
 #define APP_ID @"1"
 #define SDK_VERSION @"1.0.0.220519"
+#define MAX_UPLOAD_FACTS 100
+#define MAX_UPLOAD_BODY_BYTES (240 * 1024)
 
 @interface CTProbe()
 
@@ -27,6 +29,11 @@
 @property NSString *userId;
 @property SynapSecureAdapter *secureAdapter;
 @property NSMutableDictionary *startMeta;
+@property NSString *protocolAppKeyID;
+@property NSMutableArray<NSDictionary *> *pendingMessages;
+@property NSArray<NSDictionary *> *inflightMessages;
+@property NSMutableDictionary *inflightMeta;
+@property long long nextMessageSequence;
 
 @property ThreadSafeQueue * checkerDataQueue;
 
@@ -60,6 +67,7 @@ static BOOL instanceStarted = NO;
     });
     
     instance.selfView = selfView;
+    instance.protocolAppKeyID = appID;
     instance.secureAdapter = [[SynapSecureAdapter alloc]
         initWithBaseURL:baseURL
         appID:appID
@@ -70,6 +78,9 @@ static BOOL instanceStarted = NO;
         return NO;
     }
     instance.checkerDataQueue = [[ThreadSafeQueue alloc] init];
+    instance.pendingMessages = [NSMutableArray new];
+    instance.inflightMessages = @[];
+    instance.nextMessageSequence = 2;
     // TODO: 需要执行必要的检查，任何问题需要返回false，就不用调用start了
     return YES;
 }
@@ -225,11 +236,14 @@ static BOOL instanceStarted = NO;
     DispatchTask *dispatchTask = [[DispatchTask alloc] initWithQueueName:@"com.abc.dispatchSender" interval:interval cancelTime:cancelTime taskBlock:^{
         // 周期任务的代码块
         NSLog(@"sender ......");
-        if([_checkerDataQueue count] > 0){
+        [self prepareNextUploadBatch];
+        if(_inflightMessages.count > 0){
             // 封装最终协议内容
             NSMutableDictionary *bodyDic = [NSMutableDictionary new];
             [bodyDic setObject:[self getCommon] forKey:@"common"];
-            [bodyDic setObject:[_checkerDataQueue dequeueAll] forKey:@"data"];
+            [bodyDic setObject:_inflightMessages forKey:@"data"];
+            NSDictionary *uploadMeta = [self nextUploadMeta];
+            [bodyDic setObject:uploadMeta forKey:@"meta"];
             
             NSError *error;
             NSData *jsonData = [NSJSONSerialization dataWithJSONObject:bodyDic options:NSJSONWritingPrettyPrinted error:&error];
@@ -238,17 +252,35 @@ static BOOL instanceStarted = NO;
                 NSLog(@"转化为 JSON 失败：%@", error);
             } else {
                 NSString *jsonString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-                NSLog(@"JSON 字符串：%@", jsonString);
+                NSLog(@"iOS upload batch %@ attempt %@ contains %lu messages: %@",
+                      uploadMeta[@"batchId"], uploadMeta[@"attempt"],
+                      (unsigned long)_inflightMessages.count,
+                      [_inflightMessages valueForKey:@"messageId"]);
             }
             
             NSData *requestBodyData = [NSJSONSerialization dataWithJSONObject:bodyDic options:NSJSONWritingPrettyPrinted error:nil];
             NSString *requestBody = [[NSString alloc] initWithData:requestBodyData encoding:NSUTF8StringEncoding];
             
             NSString *response = [self securePost:@"/attach/upload" body:requestBody];
-            
-            NSDictionary *responseDic = [NSJSONSerialization JSONObjectWithData:[response dataUsingEncoding:NSUTF8StringEncoding] options:NSJSONReadingMutableContainers error:nil];
+            if (response == nil) {
+                NSLog(@"iOS upload batch %@ failed; retaining messages for retry", uploadMeta[@"batchId"]);
+                return;
+            }
+            NSError *responseError = nil;
+            NSDictionary *responseDic = [NSJSONSerialization JSONObjectWithData:[response dataUsingEncoding:NSUTF8StringEncoding]
+                options:NSJSONReadingMutableContainers error:&responseError];
+            if (responseError != nil || ![responseDic isKindOfClass:[NSDictionary class]]) {
+                NSLog(@"iOS upload response is invalid; retaining batch %@ for retry", uploadMeta[@"batchId"]);
+                return;
+            }
             NSInteger status = [[responseDic valueForKey:@"status"] intValue];
             if(status == 1){
+                NSArray<NSDictionary *> *retryMessages = [self retryableMessagesFromResponse:responseDic
+                    expectedBatchID:uploadMeta[@"batchId"]];
+                if (retryMessages == nil) {
+                    NSLog(@"iOS upload ACK is invalid; retaining batch %@ for retry", uploadMeta[@"batchId"]);
+                    return;
+                }
                 NSArray *punishes = responseDic[@"punishes"];
                 for(NSArray *punish in punishes){
                     if([punish[0] intValue] == 1){
@@ -262,6 +294,18 @@ static BOOL instanceStarted = NO;
                         });
                     }
                 }
+                @synchronized(self) {
+                    _inflightMessages = retryMessages;
+                    if (_inflightMessages.count == 0) {
+                        NSLog(@"iOS upload batch %@ acknowledged", uploadMeta[@"batchId"]);
+                        _inflightMeta = nil;
+                    } else {
+                        NSLog(@"iOS upload batch %@ retained %lu retryable messages",
+                              uploadMeta[@"batchId"], (unsigned long)_inflightMessages.count);
+                    }
+                }
+            } else {
+                NSLog(@"iOS upload batch %@ was rejected; retaining messages for retry", uploadMeta[@"batchId"]);
             }
             
         }
@@ -356,18 +400,147 @@ static BOOL instanceStarted = NO;
         if (_startMeta == nil) {
             NSNumber *now = @((NSInteger)round([[NSDate date] timeIntervalSince1970] * 1000));
             _startMeta = [@{
+                @"protocolVersion": @1,
                 @"messageId": [@"start-msg-" stringByAppendingString:[[NSUUID UUID] UUIDString]],
                 @"batchId": [@"start-batch-" stringByAppendingString:[[NSUUID UUID] UUIDString]],
                 @"sessionId": [[self getCommon][2] stringValue],
                 @"attempt": @0,
                 @"createdAt": now,
                 @"observedAt": now,
-                @"sequence": @1
+                @"sequence": @1,
+                @"appKeyId": _protocolAppKeyID,
+                @"detectorVersion": SDK_VERSION
             } mutableCopy];
         }
         _startMeta[@"attempt"] = @([_startMeta[@"attempt"] integerValue] + 1);
         return [_startMeta copy];
     }
+}
+
+- (void)prepareNextUploadBatch {
+    @synchronized(self) {
+        if (_inflightMessages.count > 0) {
+            return;
+        }
+
+        for (id rawMessage in [_checkerDataQueue dequeueAll]) {
+            if (![rawMessage isKindOfClass:[NSDictionary class]]) {
+                NSLog(@"discarding non-object iOS fact");
+                continue;
+            }
+            NSMutableDictionary *message = [rawMessage mutableCopy];
+            if (![message[@"type"] isKindOfClass:[NSString class]]) {
+                NSLog(@"discarding iOS fact without type");
+                continue;
+            }
+            if (![message[@"messageId"] isKindOfClass:[NSString class]]) {
+                message[@"messageId"] = [@"ios-msg-" stringByAppendingString:[[NSUUID UUID] UUIDString]];
+                message[@"observedAt"] = @((long long)round([[NSDate date] timeIntervalSince1970] * 1000));
+                message[@"sequence"] = @(_nextMessageSequence++);
+            }
+            NSError *serializationError = nil;
+            NSData *serialized = [NSJSONSerialization dataWithJSONObject:message options:0 error:&serializationError];
+            if (serialized == nil || serializationError != nil) {
+                NSLog(@"discarding non-serializable iOS fact: %@", serializationError.localizedDescription);
+                continue;
+            }
+            if (serialized.length > MAX_UPLOAD_BODY_BYTES - 8192) {
+                NSLog(@"discarding oversized iOS message %@ (%lu bytes)",
+                      message[@"messageId"], (unsigned long)serialized.length);
+                continue;
+            }
+            [_pendingMessages addObject:[message copy]];
+        }
+
+        if (_pendingMessages.count == 0) {
+            return;
+        }
+
+        NSMutableArray<NSDictionary *> *batch = [NSMutableArray new];
+        NSUInteger estimatedBytes = 8192;
+        while (_pendingMessages.count > 0 && batch.count < MAX_UPLOAD_FACTS) {
+            NSDictionary *candidate = _pendingMessages.firstObject;
+            NSData *serialized = [NSJSONSerialization dataWithJSONObject:candidate options:0 error:nil];
+            if (batch.count > 0 && estimatedBytes + serialized.length > MAX_UPLOAD_BODY_BYTES) {
+                break;
+            }
+            [batch addObject:candidate];
+            [_pendingMessages removeObjectAtIndex:0];
+            estimatedBytes += serialized.length;
+        }
+
+        NSNumber *now = @((long long)round([[NSDate date] timeIntervalSince1970] * 1000));
+        _inflightMessages = [batch copy];
+        _inflightMeta = [@{
+            @"protocolVersion": @1,
+            @"batchId": [@"ios-batch-" stringByAppendingString:[[NSUUID UUID] UUIDString]],
+            @"sessionId": [[self getCommon][2] stringValue],
+            @"attempt": @0,
+            @"createdAt": now,
+            @"appKeyId": _protocolAppKeyID,
+            @"detectorVersion": SDK_VERSION
+        } mutableCopy];
+    }
+}
+
+- (NSDictionary *)nextUploadMeta {
+    @synchronized(self) {
+        _inflightMeta[@"attempt"] = @([_inflightMeta[@"attempt"] integerValue] + 1);
+        return [_inflightMeta copy];
+    }
+}
+
+- (NSArray<NSDictionary *> *)retryableMessagesFromResponse:(NSDictionary *)response
+                                          expectedBatchID:(NSString *)expectedBatchID {
+    NSDictionary *ack = response[@"ack"];
+    if (![ack isKindOfClass:[NSDictionary class]] || ![ack[@"batchId"] isEqualToString:expectedBatchID]
+            || ![ack[@"acceptedMessageIds"] isKindOfClass:[NSArray class]]
+            || ![ack[@"duplicateMessageIds"] isKindOfClass:[NSArray class]]
+            || ![ack[@"rejectedItems"] isKindOfClass:[NSArray class]]) {
+        return nil;
+    }
+
+    NSMutableSet<NSString *> *expected = [NSMutableSet new];
+    for (NSDictionary *message in _inflightMessages) {
+        [expected addObject:message[@"messageId"]];
+    }
+    NSMutableSet<NSString *> *completed = [NSMutableSet setWithArray:ack[@"acceptedMessageIds"]];
+    [completed addObjectsFromArray:ack[@"duplicateMessageIds"]];
+    NSMutableSet<NSString *> *retryable = [NSMutableSet new];
+    NSMutableSet<NSString *> *permanent = [NSMutableSet new];
+    NSMutableSet<NSString *> *classified = [completed mutableCopy];
+
+    for (id rawRejection in ack[@"rejectedItems"]) {
+        if (![rawRejection isKindOfClass:[NSDictionary class]]) {
+            return nil;
+        }
+        NSString *messageID = rawRejection[@"messageId"];
+        if (![messageID isKindOfClass:[NSString class]] || [classified containsObject:messageID]) {
+            return nil;
+        }
+        [classified addObject:messageID];
+        if ([rawRejection[@"retryable"] boolValue]) {
+            [retryable addObject:messageID];
+        } else {
+            [permanent addObject:messageID];
+            NSLog(@"server permanently rejected iOS message %@: %@", messageID, rawRejection[@"reason"]);
+        }
+    }
+    for (NSString *messageID in classified) {
+        if (![expected containsObject:messageID]) {
+            return nil;
+        }
+    }
+
+    NSMutableArray<NSDictionary *> *messages = [NSMutableArray new];
+    for (NSDictionary *message in _inflightMessages) {
+        NSString *messageID = message[@"messageId"];
+        if ([retryable containsObject:messageID]
+                || (![completed containsObject:messageID] && ![permanent containsObject:messageID])) {
+            [messages addObject:message];
+        }
+    }
+    return messages;
 }
 
 - (NSString *)reverseFirst10Characters:(NSString *)input {
