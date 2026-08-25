@@ -11,8 +11,10 @@
 
 - [Agent 接入](/03-Agent接入/README.md)
   - [Web / H5 接入](/03-Agent接入/Web-H5接入.md)
+  - [H5 检测规则](/03-Agent接入/H5检测规则.md)
   - [Electron 接入](/03-Agent接入/Electron接入.md)
   - [Host 接入与运维](/03-Agent接入/Host接入与运维.md)
+  - [Host 审计数据](/03-Agent接入/Host审计数据.md)
   - [Qt 桌面探针](/03-Agent接入/Qt桌面探针.md)
   - [Spring Boot 接入](/03-Agent接入/Spring-Boot接入.md)
   - [Android 与 iOS](/03-Agent接入/Android与iOS.md)
@@ -20,6 +22,7 @@
   - [ESP32 接入状态](/03-Agent接入/ESP32接入状态.md)
   - [数据仿真器](/03-Agent接入/数据仿真器.md)
   - [微信小程序状态](/03-Agent接入/微信小程序状态.md)
+  - [微信小程序检测规则](/03-Agent接入/微信小程序检测规则.md)
 
 - [Synap Build](/04-Synap-Build/README.md)
   - [部署与配置](/04-Synap-Build/部署与配置.md)
@@ -29,6 +32,8 @@
 - [协议与 API](/05-协议与API/README.md)
   - [安全通信协议 v1](/05-协议与API/安全通信协议-v1.md)
   - [Server API](/05-协议与API/Server-API.md)
+  - [Server API 完整参考](/05-协议与API/Server-API-完整参考.md)
+  - [服务端应用安全探针协议](/05-协议与API/服务端应用安全探针协议.md)
   - [Fact 与规则模型](/05-协议与API/Fact与规则模型.md)
   - [Synap Build API](/05-协议与API/Synap-Build-API.md)
 

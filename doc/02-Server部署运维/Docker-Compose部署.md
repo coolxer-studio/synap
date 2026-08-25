@@ -2,9 +2,12 @@
 
 仓库提供 `synap-server/deploy/docker-compose.yml`。该编排只定义 Synap Server，并加入既有的外部网络；Kafka、Redis 和相关业务服务需要由部署环境提供。
 
+推荐使用 Docker Compose v2（`docker compose`）。同时兼容 legacy `docker-compose` 1.29.2，但不支持更低版本的 Compose v1。下文示例使用 v2；在 1.29.2 环境中将 `docker compose` 替换为 `docker-compose`，其余参数不变。项目名由 `COMPOSE_PROJECT_NAME` 设置，Compose 文件为兼容 v1 不使用顶层 `name:`。
+
 ## 前置条件
 
 - 已准备与目标架构匹配的 Synap Server 镜像。
+- 已安装 Docker Compose v2，或 legacy `docker-compose` 1.29.2。
 - 已创建 Compose 所引用的外部网络。
 - Kafka、Redis 和业务服务地址在该网络中可达。
 - `deploy/open_config/` 下的 checker、rule、punish 和 msg API 配置已完成审核。

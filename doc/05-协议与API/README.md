@@ -15,7 +15,9 @@
 
 - [安全通信协议 v1](安全通信协议-v1.md)
 - [Server API](Server-API.md)
+- [Server API 完整参考](Server-API-完整参考.md)
+- [服务端应用安全探针协议](服务端应用安全探针协议.md)
 - [Fact 与规则模型](Fact与规则模型.md)
 - [Synap Build API](Synap-Build-API.md)
 
-完整字段定义的事实来源仍是 `synap-server/doc/API.md` 与 `synap-build/internal/assets/openapi.yaml`；集中站点提供推荐入口和运维所需摘要。
+Server 完整字段定义以 [Server API 完整参考](Server-API-完整参考.md) 为准；Synap Build API 以 `synap-build/internal/assets/openapi.yaml` 为准。摘要页提供推荐入口和运维所需信息。

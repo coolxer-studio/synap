@@ -42,6 +42,20 @@
       }
       .markdown-section table { display: table; width: 100%; }
       .markdown-section img { border-radius: 10px; }
+      .markdown-section pre.mermaid {
+        background: transparent;
+        text-align: center;
+        overflow-x: auto;
+      }
+      .markdown-section pre.mermaid svg {
+        display: inline-block;
+        max-width: 100%;
+        height: auto;
+      }
+      .markdown-section pre.mermaid.mermaid-wide-flow svg {
+        width: 4400px;
+        max-width: none;
+      }
       .cover-main img { box-shadow: none; }
       @media (max-width: 768px) {
         .markdown-section { padding: 1.5rem 18px 40px; }
@@ -63,6 +77,19 @@
         maxLevel: 3,
         subMaxLevel: 2,
         relativePath: false,
+        markdown: {
+          renderer: {
+            code: function (code, language) {
+              if (language === 'mermaid') {
+                var wideFlowClass = code.indexOf('%% synap-wide-flow %%') !== -1
+                  ? ' mermaid-wide-flow'
+                  : '';
+                return '<pre class="mermaid' + wideFlowClass + '">' + code + '</pre>';
+              }
+              return this.origin.code.apply(this, arguments);
+            },
+          },
+        },
         search: {
           noData: '未找到相关文档',
           paths: 'auto',
@@ -70,12 +97,35 @@
         },
         plugins: [
           function (hook) {
+            function renderMermaid() {
+              if (!window.mermaid) return;
+              window.mermaid.run({
+                querySelector: '.mermaid:not([data-processed="true"])',
+              }).catch(function (error) {
+                console.error('Mermaid render failed', error);
+              });
+            }
+
             hook.beforeEach(function (html) {
               return html + '\n\n----\n\nSynap 文档中心';
+            });
+
+            hook.doneEach(function () {
+              if (window.mermaid) {
+                renderMermaid();
+              } else {
+                window.addEventListener('synap-mermaid-ready', renderMermaid, { once: true });
+              }
             });
           },
         ],
       };
+    </script>
+    <script type="module">
+      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11.17.0/dist/mermaid.esm.min.mjs';
+      mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral' });
+      window.mermaid = mermaid;
+      window.dispatchEvent(new Event('synap-mermaid-ready'));
     </script>
     <script src="//fastly.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
     <script src="//fastly.jsdelivr.net/npm/docsify@4/lib/plugins/search.min.js"></script>
