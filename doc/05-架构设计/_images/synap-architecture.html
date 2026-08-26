@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:#f8f9fb;color:#1a1a2e;padding:40px;width:1400px}
+.arch-wrap{max-width:1320px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 2px 20px rgba(0,0,0,.08);overflow:hidden}
+.arch-header{text-align:center;padding:36px 20px 20px;background:linear-gradient(135deg,#2764ff 0%,#1a47cc 100%);color:#fff}
+.arch-header h1{font-size:1.6em;font-weight:700;letter-spacing:1px}
+.arch-header p{font-size:1em;opacity:.85;margin-top:8px}
+.arch-body{padding:32px 28px}
+
+.layer-label{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+.layer-label .bar{width:5px;height:24px;border-radius:2px}
+.layer-label .bar.agent{background:#2764ff}
+.layer-label .bar.sc{background:#7c3aed}
+.layer-label .bar.biz{background:#c0561e}
+.layer-label .bar.data{background:#059669}
+.layer-label span{font-size:1em;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:1px}
+
+.agent-group{margin-bottom:12px}
+.agent-group-title{font-size:.85em;font-weight:700;color:#888;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.agent-group-title .badge{display:inline-block;width:10px;height:10px;border-radius:50%}
+.agent-group-title .badge.live{background:#22c55e}
+.agent-group-title .badge.wip{background:#f59e0b}
+.agent-group-title .badge.planned{background:#9ca3af}
+.agent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.agent-card{background:#f0f4ff;border:1px solid #c3d4ff;border-radius:10px;padding:12px 8px;text-align:center;transition:transform .2s;position:relative}
+.agent-card:hover{transform:translateY(-3px);box-shadow:0 4px 12px rgba(39,100,255,.15)}
+.agent-card.wip{background:#fffbeb;border-color:#fde68a}
+.agent-card.planned{background:#f9fafb;border-color:#e5e7eb;border-style:dashed}
+.agent-card .icon{font-size:2em;margin-bottom:4px}
+.agent-card .name{font-size:.95em;font-weight:700;color:#2764ff}
+.agent-card.wip .name{color:#b45309}
+.agent-card.planned .name{color:#9ca3af}
+.agent-card .tech{font-size:.72em;color:#999;margin-top:3px}
+.agent-card .status{position:absolute;top:5px;right:5px;font-size:.65em;padding:1px 5px;border-radius:3px;font-weight:700}
+.agent-card .status.live{background:#dcfce7;color:#16a34a}
+.agent-card .status.wip{background:#fef3c7;color:#d97706}
+.agent-card .status.planned{background:#f3f4f6;color:#9ca3af}
+
+.arrow-down{display:flex;justify-content:center;padding:8px 0}
+.arrow-down svg{display:block}
+
+.sc-box{background:linear-gradient(135deg,#f5f0ff 0%,#ede5ff 100%);border:2px solid #7c3aed;border-radius:12px;padding:18px;margin-bottom:14px}
+.sc-title{text-align:center;font-size:1.05em;font-weight:700;color:#7c3aed;margin-bottom:12px}
+.sc-endpoints{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.sc-ep{background:#fff;border:1px solid #c4a6ff;border-radius:6px;padding:6px 14px;font-size:.9em;font-family:'SF Mono',Consolas,monospace;color:#7c3aed;font-weight:600}
+.sc-meta{text-align:center;font-size:.82em;color:#999;margin-top:10px}
+.sc-meta code{background:#fff;border:1px solid #e0d4f5;border-radius:3px;padding:2px 6px;font-family:monospace;font-size:.95em;color:#7c3aed}
+
+.filter-box{background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;padding:10px 16px;text-align:center;margin-bottom:14px}
+.filter-box .title{font-size:.95em;font-weight:700;color:#e65100}
+.filter-box .desc{font-size:.82em;color:#888;margin-top:3px}
+
+.biz-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
+.biz-card{flex:1;min-width:180px;max-width:260px;background:#fff5f0;border:1px solid #f0c4a0;border-radius:10px;overflow:hidden}
+.biz-card .header{background:#c0561e;color:#fff;text-align:center;padding:8px 4px;font-size:.95em;font-weight:700}
+.biz-card .body{padding:10px 8px}
+.biz-card .body .item{font-size:.82em;color:#555;margin:4px 0;padding-left:12px;position:relative}
+.biz-card .body .item:before{content:'▸';position:absolute;left:0;color:#c0561e}
+.biz-card .body .route{font-family:monospace;font-size:.88em;color:#c0561e;font-weight:600;text-align:center;margin-bottom:5px}
+
+.proc-chain{display:flex;align-items:stretch;gap:0;margin-bottom:14px;justify-content:center}
+.proc-node{flex:1;max-width:210px;background:#fff;border:1px solid #ddd;border-radius:8px;padding:10px 8px;text-align:center}
+.proc-node .step{font-size:.75em;color:#999;font-weight:700;text-transform:uppercase}
+.proc-node .name{font-size:.95em;font-weight:700;color:#1a47cc;margin:3px 0}
+.proc-node .detail{font-size:.75em;color:#888}
+.proc-arrow{display:flex;align-items:center;justify-content:center;padding:0 6px}
+.proc-arrow svg{display:block}
+.proc-node.fact{border-color:#2764ff;background:#f0f4ff}
+.proc-node.rule{border-color:#c0561e;background:#fff5f0}
+.proc-node.ckpt{border-color:#059669;background:#f0fdf4}
+
+.data-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
+.data-card{flex:1;min-width:240px;max-width:340px;border-radius:10px;overflow:hidden;border:2px solid}
+.data-card.redis{border-color:#dc3545;background:#fff5f5}
+.data-card.kafka{border-color:#23a5d9;background:#f0faff}
+.data-card .header{padding:8px 12px;color:#fff;text-align:center;font-weight:700;font-size:.95em}
+.data-card.redis .header{background:#dc3545}
+.data-card.kafka .header{background:#23a5d9}
+.data-card .body{padding:10px 12px}
+.data-card .body .item{font-size:.82em;color:#444;margin:4px 0}
+.data-card .body .item code{font-family:monospace;font-size:.95em;color:#dc3545;font-weight:600}
+.data-card.kafka .body .item code{color:#23a5d9}
+
+.resp-box{background:#f0f4ff;border:1px solid #c3d4ff;border-radius:8px;padding:12px;margin-bottom:10px}
+.resp-title{font-size:.9em;font-weight:700;color:#2764ff;margin-bottom:8px}
+.resp-items{display:flex;gap:10px;flex-wrap:wrap}
+.resp-item{background:#fff;border:1px solid #d0e0ff;border-radius:4px;padding:4px 10px;font-size:.82em;color:#333}
+.resp-item code{font-family:monospace;color:#2764ff;font-weight:600}
+
+.config-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
+.config-card{min-width:180px;background:#f8f8f8;border:1px solid #e0e0e0;border-radius:8px;padding:10px 12px;text-align:center}
+.config-card .name{font-size:.9em;font-weight:700;color:#555}
+.config-card .desc{font-size:.78em;color:#999;margin-top:3px}
+
+.agent-flow{background:#f0f4ff;border:1px dashed #a3b8ff;border-radius:8px;padding:10px 14px;margin-bottom:12px}
+.agent-flow .title{font-size:.88em;font-weight:700;color:#2764ff;margin-bottom:6px}
+.agent-flow .steps{display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:.8em;color:#444}
+.agent-flow .step{background:#fff;border:1px solid #c3d4ff;border-radius:4px;padding:3px 8px}
+.agent-flow .arrow{color:#a3b8ff;font-size:1.2em}
+
+.legend{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;padding:12px 0;border-top:1px solid #eee;margin-top:10px}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:.82em;color:#777}
+.legend-item .dot{width:12px;height:12px;border-radius:2px}
+.legend-item .dot.blue{background:#2764ff}
+.legend-item .dot.purple{background:#7c3aed}
+.legend-item .dot.orange{background:#c0561e}
+.legend-item .dot.red{background:#dc3545}
+.legend-item .dot.cyan{background:#23a5d9}
+.legend-item .dot.green{background:#22c55e}
+.legend-item .dot.yellow{background:#f59e0b}
+.legend-item .dot.gray{background:#9ca3af}
+</style>
+</head>
+<body>
+<div class="arch-wrap">
+  <div class="arch-header">
+    <h1>Synap Server ⇄ Agent 通信架构</h1>
+    <p>安全通信协议 v1 · 逻辑路由 · 规则引擎 · 数据持久化</p>
+  </div>
+  <div class="arch-body">
+
+    <div class="layer-label"><div class="bar agent"></div><span>Agent 层 — 多端点采集器</span></div>
+
+    <div class="agent-group">
+      <div class="agent-group-title"><span class="badge live"></span>已上线</div>
+      <div class="agent-grid">
+        <div class="agent-card"><span class="status live">●</span><div class="icon">🌐</div><div class="name">H5</div><div class="tech">JS · IndexedDB</div></div>
+        <div class="agent-card"><span class="status live">●</span><div class="icon">💻</div><div class="name">Host</div><div class="tech">Go · File Store</div></div>
+        <div class="agent-card"><span class="status live">●</span><div class="icon">📱</div><div class="name">Android</div><div class="tech">Kotlin · SQLite</div></div>
+        <div class="agent-card"><span class="status live">●</span><div class="icon">🍎</div><div class="name">iOS</div><div class="tech">Swift · Keychain</div></div>
+        <div class="agent-card"><span class="status live">●</span><div class="icon">☕</div><div class="name">Spring Boot</div><div class="tech">Java · File Spool</div></div>
+        <div class="agent-card"><span class="status live">●</span><div class="icon">🖥️</div><div class="name">Electron</div><div class="tech">JS · File Store</div></div>
+        <div class="agent-card"><span class="status live">●</span><div class="icon">📦</div><div class="name">Qt 桌面</div><div class="tech">C++ · File Store</div></div>
+      </div>
+    </div>
+
+    <div class="agent-group">
+      <div class="agent-group-title"><span class="badge wip"></span>适配中</div>
+      <div class="agent-grid">
+        <div class="agent-card wip"><span class="status wip">◐</span><div class="icon">💬</div><div class="name">微信小程序</div><div class="tech">JS · Storage</div></div>
+        <div class="agent-card wip"><span class="status wip">◐</span><div class="icon">📱</div><div class="name">HarmonyOS</div><div class="tech">ArkTS · Prefs</div></div>
+        <div class="agent-card wip"><span class="status wip">◐</span><div class="icon">🔌</div><div class="name">ESP32</div><div class="tech">C · Flash</div></div>
+        <div class="agent-card wip"><span class="status wip">◐</span><div class="icon">🔧</div><div class="name">数据仿真器</div><div class="tech">模拟工具</div></div>
+      </div>
+    </div>
+
+    <div class="agent-group">
+      <div class="agent-group-title"><span class="badge planned"></span>规划中</div>
+      <div class="agent-grid">
+        <div class="agent-card planned"><span class="status planned">○</span><div class="icon">📱</div><div class="name">Flutter</div><div class="tech">Dart</div></div>
+        <div class="agent-card planned"><span class="status planned">○</span><div class="icon">📱</div><div class="name">React Native</div><div class="tech">JS · Bridge</div></div>
+        <div class="agent-card planned"><span class="status planned">○</span><div class="icon">🦀</div><div class="name">Rust 桌面</div><div class="tech">Rust · sled</div></div>
+        <div class="agent-card planned"><span class="status planned">○</span><div class="icon">🐍</div><div class="name">Python</div><div class="tech">Python · File</div></div>
+        <div class="agent-card planned"><span class="status planned">○</span><div class="icon">🔷</div><div class="name">.NET</div><div class="tech">C# · File</div></div>
+        <div class="agent-card planned"><span class="status planned">○</span><div class="icon">🟢</div><div class="name">Node.js</div><div class="tech">JS · File</div></div>
+        <div class="agent-card planned"><span class="status planned">○</span><div class="icon">⚡</div><div class="name">WASM 边缘</div><div class="tech">WASM · OPFS</div></div>
+      </div>
+    </div>
+
+    <div class="agent-flow">
+      <div class="title">Agent 运行时流程</div>
+      <div class="steps">
+        <span class="step">enroll(token)</span>
+        <span class="arrow">→</span>
+        <span class="step">handshake</span>
+        <span class="arrow">→</span>
+        <span class="step">/attach/start</span>
+        <span class="arrow">→</span>
+        <span class="step">收到 config + agenda</span>
+        <span class="arrow">→</span>
+        <span class="step">collect → spool</span>
+        <span class="arrow">→</span>
+        <span class="step">/attach/upload (batch)</span>
+        <span class="arrow">→</span>
+        <span class="step">ACK → 清除/重试队列</span>
+      </div>
+    </div>
+
+    <div class="arrow-down"><svg width="24" height="32" viewBox="0 0 24 32"><line x1="12" y1="0" x2="12" y2="22" stroke="#bbb" stroke-width="2"/><polygon points="12,32 6,22 18,22" fill="#bbb"/></svg></div>
+
+    <div class="layer-label"><div class="bar sc"></div><span>传输层 — 安全通信协议 v1</span></div>
+    <div class="sc-box">
+      <div class="sc-title">密文信封：业务 method/path/header/body 全部在密文内</div>
+      <div class="sc-endpoints">
+        <div class="sc-ep">POST /sc/v1/handshake</div>
+        <div class="sc-ep">POST /sc/v1/handshake/finish</div>
+        <div class="sc-ep">POST /sc/v1/message</div>
+      </div>
+      <div class="sc-meta">
+        <code>P-256 ECDH</code> · <code>HKDF-SHA256</code> · <code>AES-256-GCM</code> · Agent 固定 Server SPKI 信任锚 · 外层 requestId 经 AAD 认证
+      </div>
+    </div>
+
+    <div class="filter-box">
+      <div class="title">SecureRouteEnforcementFilter</div>
+      <div class="desc">拦截 /attach/* /cross/* /1/* /2/* /risk/* — 明文直连返回 404，仅放行 sc1-authenticated 请求</div>
+    </div>
+
+    <div class="arrow-down"><svg width="24" height="32" viewBox="0 0 24 32"><line x1="12" y1="0" x2="12" y2="22" stroke="#bbb" stroke-width="2"/><polygon points="12,32 6,22 18,22" fill="#bbb"/></svg></div>
+
+    <div class="layer-label"><div class="bar biz"></div><span>业务层 — 逻辑路由（密文内）</span></div>
+    <div class="biz-row">
+      <div class="biz-card">
+        <div class="header">/attach/start</div>
+        <div class="body">
+          <div class="route">AttachController.start()</div>
+          <div class="item">校验 envelope + 幂等 claim</div>
+          <div class="item">构建平台 StartFact</div>
+          <div class="item">执行 Groovy 规则</div>
+          <div class="item">返回 config + agenda + punish</div>
+        </div>
+      </div>
+      <div class="biz-card">
+        <div class="header">/attach/upload</div>
+        <div class="body">
+          <div class="route">AttachController.upload()</div>
+          <div class="item">逐条幂等 claim</div>
+          <div class="item">逐条构建 Fact + 规则</div>
+          <div class="item">返回 UploadAck</div>
+          <div class="item">accepted / duplicate / rejected</div>
+        </div>
+      </div>
+      <div class="biz-card">
+        <div class="header">/cross/{id}</div>
+        <div class="body">
+          <div class="route">CrossController</div>
+          <div class="item">同步 RPC 查询</div>
+          <div class="item">crossService.rpc()</div>
+          <div class="item">info / rating / label</div>
+          <div class="item">返回业务结果</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="config-row">
+      <div class="config-card"><div class="name">CheckerConfigService</div><div class="desc">按平台下发采集配置</div></div>
+      <div class="config-card"><div class="name">PunishConfigService</div><div class="desc">tag + sourceRegex 匹配</div></div>
+      <div class="config-card"><div class="name">RequestValidationService</div><div class="desc">envelope + Origin 校验</div></div>
+      <div class="config-card"><div class="name">ClientIpResolver</div><div class="desc">WAN IP / 网关信号</div></div>
+    </div>
+
+    <div class="arrow-down"><svg width="24" height="32" viewBox="0 0 24 32"><line x1="12" y1="0" x2="12" y2="22" stroke="#bbb" stroke-width="2"/><polygon points="12,32 6,22 18,22" fill="#bbb"/></svg></div>
+
+    <div class="layer-label"><div class="bar biz"></div><span>处理链 — Fact 构建 → 规则引擎 → Checkpoint</span></div>
+    <div class="proc-chain">
+      <div class="proc-node fact">
+        <div class="step">Step 1</div>
+        <div class="name">FactBuilder</div>
+        <div class="detail">H5 / Host / Android<br>iOS / Server / Wechat<br>平台分发 + Header/Common 注入</div>
+      </div>
+      <div class="proc-arrow"><svg width="20" height="16" viewBox="0 0 20 16"><line x1="0" y1="8" x2="12" y2="8" stroke="#bbb" stroke-width="2"/><polygon points="20,8 12,4 12,12" fill="#bbb"/></svg></div>
+      <div class="proc-node rule">
+        <div class="step">Step 2</div>
+        <div class="name">RuleEngineImpl</div>
+        <div class="detail">{FactClass}Rule.groovy<br>Binding: fact<br>输出 Agenda 列表</div>
+      </div>
+      <div class="proc-arrow"><svg width="20" height="16" viewBox="0 0 20 16"><line x1="0" y1="8" x2="12" y2="8" stroke="#bbb" stroke-width="2"/><polygon points="20,8 12,4 12,12" fill="#bbb"/></svg></div>
+      <div class="proc-node rule">
+        <div class="step">Step 2b</div>
+        <div class="name">hitPunishRule</div>
+        <div class="detail">tag 匹配 + sourceRegex<br>PunishConfigService<br>生成 Punish 集合</div>
+      </div>
+      <div class="proc-arrow"><svg width="20" height="16" viewBox="0 0 20 16"><line x1="0" y1="8" x2="12" y2="8" stroke="#bbb" stroke-width="2"/><polygon points="20,8 12,4 12,12" fill="#bbb"/></svg></div>
+      <div class="proc-node ckpt">
+        <div class="step">Step 3</div>
+        <div class="name">Checkpoint</div>
+        <div class="detail">Fact + Agenda + Punish<br>+ RiskAssessment<br>+ timestamp</div>
+      </div>
+    </div>
+
+    <div class="arrow-down"><svg width="24" height="32" viewBox="0 0 24 32"><line x1="12" y1="0" x2="12" y2="22" stroke="#bbb" stroke-width="2"/><polygon points="12,32 6,22 18,22" fill="#bbb"/></svg></div>
+
+    <div class="layer-label"><div class="bar data"></div><span>数据层 — 持久化与状态</span></div>
+    <div class="data-row">
+      <div class="data-card redis">
+        <div class="header">Redis</div>
+        <div class="body">
+          <div class="item"><code>synap:sc1:session</code> — 加密会话记录（AES-GCM 保护）</div>
+          <div class="item"><code>synap:sc1:replay</code> — 重放窗口防护</div>
+          <div class="item"><code>synap:sc1:installation</code> — 安装身份注册</div>
+          <div class="item"><code>synap:sc1:enrollment</code> — 注册令牌（短时单次）</div>
+          <div class="item"><code>synap:{platform}:message:*</code> — 幂等 claim（DONE/PROCESSING）</div>
+          <div class="item"><code>synap:host:audit:batch:*</code> — Host 审计批次幂等</div>
+          <div class="item">MessageSequenceStore — 乱序/重复 sequence 观察</div>
+        </div>
+      </div>
+      <div class="data-card kafka">
+        <div class="header">Kafka</div>
+        <div class="body">
+          <div class="item"><code>topic ← FACT_TOPIC_MAP</code> — 按 Fact 类名映射</div>
+          <div class="item">key = <code>guid</code> 或 <code>guid:batchId</code></div>
+          <div class="item">value = Checkpoint JSON</div>
+          <div class="item">发布超时 <code>PT5S</code>，失败抛异常</div>
+          <div class="item">下游消费者：分析、处置、看板</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="resp-box">
+      <div class="resp-title">响应回传 — Agent 收到后处理本地队列</div>
+      <div class="resp-items">
+        <div class="resp-item"><code>start</code> → checker config + agenda + punish + risk</div>
+        <div class="resp-item"><code>upload</code> → UploadAck (accepted / duplicate / rejected) + agenda + punish</div>
+        <div class="resp-item"><code>cross</code> → 业务查询结果</div>
+      </div>
+      <div class="resp-items" style="margin-top:8px">
+        <div class="resp-item">ACK = accepted → 清除消息</div>
+        <div class="resp-item">ACK = duplicate → 清除消息</div>
+        <div class="resp-item">ACK = rejected(retryable) → 重试</div>
+        <div class="resp-item">ACK = rejected → 死信</div>
+        <div class="resp-item">HTTP 429/5xx → 保留重试</div>
+      </div>
+    </div>
+
+    <div class="config-row">
+      <div class="config-card" style="border-color:#dc3545;background:#fff5f5">
+        <div class="name" style="color:#dc3545">SecureEnrollmentController</div>
+        <div class="desc">POST /admin/sc/v1/enrollment-tokens<br>Admin Token 鉴权 · 签发注册令牌</div>
+      </div>
+      <div class="config-card">
+        <div class="name">LogicalRouteAuthorizer</div>
+        <div class="desc">白名单：POST /attach/start<br>/attach/upload · /cross/{id}</div>
+      </div>
+      <div class="config-card">
+        <div class="name">HandshakeAuthorizer</div>
+        <div class="desc">校验 appId ∈ 白名单<br>H5 额外校验 Origin</div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><div class="dot blue"></div>Agent 层</div>
+      <div class="legend-item"><div class="dot purple"></div>传输层 (SC v1)</div>
+      <div class="legend-item"><div class="dot orange"></div>业务逻辑层</div>
+      <div class="legend-item"><div class="dot red"></div>Redis 状态</div>
+      <div class="legend-item"><div class="dot cyan"></div>Kafka 持久化</div>
+      <div class="legend-item"><div class="dot green"></div>已上线</div>
+      <div class="legend-item"><div class="dot yellow"></div>适配中</div>
+      <div class="legend-item"><div class="dot gray"></div>规划中</div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

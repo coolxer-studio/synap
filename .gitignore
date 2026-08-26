@@ -8,3 +8,5 @@ synap-agent/
 synap-server/
 synap-build/
 synap-sdk/
+
+.trae/
