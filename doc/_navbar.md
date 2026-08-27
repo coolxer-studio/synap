@@ -1,4 +1,4 @@
-- [文档首页](/)
-- [快速开始](/01-产品与快速开始/快速开始.md)
-- [Agent 接入](/03-Agent接入/README.md)
-- [协议与 API](/05-协议与API/README.md)
+- [产品介绍](/)
+- [Agent 接入](/02-Agent接入/README.md)
+- [协议与 API](/04-协议与API/README.md)
+- [源码仓库](https://gitee.com/coolxer-studio/synap)
