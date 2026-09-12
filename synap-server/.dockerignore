@@ -1,0 +1,11 @@
+.git
+.github
+.idea
+.local
+deploy
+doc
+logs
+target/*
+!target/application.jar
+*.log
+.DS_Store

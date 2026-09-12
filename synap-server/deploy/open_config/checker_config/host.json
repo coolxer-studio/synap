@@ -1,0 +1,76 @@
+{
+  "policyVersion": "host-3.0.0-audit",
+  "startConfig": [1, 60.0, 600.0, 10.0, 864000.0],
+  "deviceConfig": {
+    "device": ["type", "name", "systemName", "systemVersion", "buildId", "modelCode", "countryCode", "language", "timeZone", "currency", "startElapsedTime"],
+    "screen": ["width", "height", "brightness", "density", "rotation"],
+    "cpu": ["totalCore", "usedCore", "type", "abi"],
+    "battery": ["capacity", "charging"],
+    "uuid": ["macEth0", "serial", "bootId", "guid"],
+    "network": ["lanIp", "mask", "broadcast", "routing", "signal", "type"],
+    "storage": ["totalDisk", "usedDisk", "totalRam", "usedRam"]
+  },
+  "fileConfig": {
+    "exist": [
+      "/usr/local/bin/frida-server",
+      "/usr/sbin/frida-server",
+      "/tmp/frida-server",
+      "C:\\ProgramData\\frida\\frida-server.exe"
+    ],
+    "context": [],
+    "fileList": ["/tmp::(?i)^frida-.*"],
+    "md5": [],
+    "access": [],
+    "yara": []
+  },
+  "runtimeConfig": {
+    "process": ["(?i)^(frida-server|gdbserver|mitmproxy|charles)$"],
+    "env": ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "LD_PRELOAD", "DYLD_INSERT_LIBRARIES"],
+    "cmd": []
+  },
+  "netConfig": {
+    "port": ["27042", "27043"],
+    "socket": ["23946", "31415"],
+    "uds": ["/tmp/frida.sock", "/var/run/frida.sock"],
+    "netInterface": ["(?i).*(tun|tap|utun|ppp).*"],
+    "httpProxy": [".+"],
+    "hosts": ["(?i).*\\b(frida|mitmproxy)\\b.*"],
+    "certificate": []
+  },
+  "eventConfig": {
+    "sshd": [".*"]
+  },
+  "auditConfig": {
+    "events": [
+      "eventId", "eventTime", "category", "action", "result", "actor", "subject", "target",
+      "pid", "process", "localEndpoint", "remoteEndpoint", "protocol", "digestAlgorithm", "digest",
+      "source", "bootId", "detail"
+    ]
+  },
+  "auditPolicy": {
+    "enabled": true,
+    "categories": {
+      "device": true,
+      "session": true,
+      "account": true,
+      "config_file": true,
+      "peripheral": true,
+      "network": true,
+      "process": true,
+      "business_file": true,
+      "scheduled_task": true,
+      "capability": true
+    },
+    "pollIntervalSeconds": 2,
+    "processSnapshotSeconds": 60,
+    "digestMaxBytes": 67108864,
+    "batchMaxEvents": 100,
+    "batchMaxBytes": 131072,
+    "criticalFiles": [],
+    "criticalFilesMode": "append",
+    "businessDirectories": [],
+    "excludeProcesses": [],
+    "excludeCidrs": [],
+    "excludePorts": []
+  }
+}

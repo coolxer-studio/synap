@@ -1,0 +1,48 @@
+{
+  "policyVersion": "h5-2026-08-05",
+  "startConfig": [1, "./core.dev.js", 10.0, 30.0, 10.0, 864000.0],
+  "startConfigUnit": "seconds",
+  "deviceConfig": {
+    "device": ["systemName", "systemVersion", "modelCode", "language", "timeZone"],
+    "screen": ["width", "height", "availWidth", "availHeight", "screenSize"],
+    "cpu": ["totalCore", "type", "abi"],
+    "battery": ["info"],
+    "uuid": ["guid"],
+    "network": ["lanIp", "type", "info"],
+    "storage": ["totalDisk", "totalRam"],
+    "browser": ["type", "playType"],
+    "baseInfo": ["getPixelRatio", "colorDepth", "getPlugins", "getAcceptMimeType", "getCanvasFpCrc", "getWebglVendorAndRenderer", "getNavigatorCpuClass", "getNavigatorPlatform", "getFonts", "getTouchSupport", "getDoNotTrack", "getAdBlock", "hasSessionStorage", "hasLocalStorage", "hasIndexedDB", "getHasLiedLanguages", "getHasLiedResolution", "getHasLiedOs", "getHasLiedBrowser", "getWebglFp", "getEmptyEvalLength", "getProductSub", "getErrorFF"],
+    "document": ["characterSet"],
+    "window": ["initWithKey"],
+    "navigator": ["userAgent", "oscpu", "vendor"]
+  },
+  "selfAppConfig": {
+    "base": ["domain"]
+  },
+  "selfAppAllowlist": {},
+  "locationConfig": {
+    "base": ["timestamp","speed","latitude","longitude","accuracy","altitude","heading","permissionState","status", "country", "province", "city", "county", "thoroughfare"]
+  },
+  "runtimeConfig": {
+    "custom": ["format", "runType", "getSpider", "unknownFunctions"]
+  },
+  "integrityConfig": { "data": ["score", "signals", "platform", "language"] },
+  "resourceIntegrityConfig": { "data": ["detectorVersion", "script", "serviceWorker", "embed", "policy", "navigation", "userActivation", "signals", "capabilities", "reports"] },
+  "behaviorConfig": { "data": ["durationMs", "eventCount", "pointerSamples", "clickCount", "inputCount", "touchCount", "trustedEventCount", "untrustedEventCount", "impossibleClickCount", "totalDistance", "averageSpeed", "maxSpeed", "speedVariance", "averageAcceleration", "directionChangeRatio", "straightLineRatio", "averageClickInterval", "averageInputInterval", "averageForce", "pauseRatio", "timingEntropy", "idleRatio"] },
+  "actionConfig": { "data": ["detectorVersion", "actionIdHash", "name", "phase", "durationMs", "behavior"] },
+  "sessionConfig": { "data": ["visibility", "focused", "online", "bfcacheRestores", "focusChanges", "visibilityChanges", "clockRollback", "clockDriftMs", "concurrentTabs", "serverTimeOffsetMs", "timeOrigin"] },
+  "networkConfig": { "data": ["endpoints"] },
+  "debugConfig": {
+    "base": [".*"]
+  },
+  "errorConfig": {
+    "message": [".*"]
+  },
+  "eventConfig": {
+    "event": ["pageshow", "pagehide", "click", "input", "mousemove", "touchstart", "touchend", "mousedown", "mouseup"]
+  },
+  "devToolConfig": {
+    "shortCut": [".*"],
+    "windowSise": [".*"]
+  }
+}
