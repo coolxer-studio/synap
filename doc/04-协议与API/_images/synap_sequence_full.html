@@ -1,0 +1,435 @@
+<style>
+:root {
+  color-scheme: light;
+  --surface: #F7F7F8;
+  --surface-muted: #EFEFF2;
+  --text: #171717;
+  --text-muted: #52525B;
+  --border: rgba(23, 23, 23, 0.12);
+  --brand: #4B3FE3;
+  --brand-soft: #F2F7FF;
+  --brand-soft-strong: #E5EAFF;
+  --brand-text: #1A1759;
+  --brand-on: #FFFFFF;
+  --chart-series-1: #3C2ECA;
+  --chart-series-2: #A9AEFF;
+  --chart-series-3: #6F6FFF;
+  --chart-series-4: #22A5F7;
+  --chart-other: #D3D4DA;
+  --accent: #27D2BF;
+  --accent-soft: #EAFBF8;
+  --accent-text: #0F766E;
+  --success: #1DC981;
+  --warning: #EFAA17;
+  --danger: #E8463A;
+  --radius: 8px;
+  --radius-card: 12px;
+  --radius-full: 999px;
+  --spacer-4: 4px;
+  --spacer-8: 8px;
+  --spacer-12: 12px;
+  --spacer-16: 16px;
+  --spacer-20: 20px;
+  --spacer-24: 24px;
+  --font-sans: "SF Pro Text", "PingFang SC", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-metric: "Inter", "SF Pro Text", "PingFang SC", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-strong: 600;
+  --text-caption: 12px/18px;
+  --text-body: 14px/20px;
+  --text-title: 16px/24px;
+  --text-code: 13px/20px;
+}
+:root[data-widget-theme="dark"] {
+  color-scheme: dark;
+  --surface: #171717;
+  --surface-muted: #262626;
+  --text: #E5E5E5;
+  --text-muted: #A1A1AA;
+  --border: rgba(229, 229, 229, 0.12);
+  --brand: #6054F1;
+  --brand-soft: #1A1759;
+  --brand-soft-strong: #3C2ECA;
+  --brand-text: #CFD8FF;
+  --chart-series-1: #4B3FE3;
+  --accent-soft: #123F3C;
+  --accent-text: #CCFBF1;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --surface: #171717;
+    --surface-muted: #262626;
+    --text: #E5E5E5;
+    --text-muted: #A1A1AA;
+    --border: rgba(229, 229, 229, 0.12);
+    --brand: #6054F1;
+    --brand-soft: #1A1759;
+    --brand-soft-strong: #3C2ECA;
+    --brand-text: #CFD8FF;
+    --chart-series-1: #4B3FE3;
+    --accent-soft: #123F3C;
+    --accent-text: #CCFBF1;
+  }
+}
+.widget {
+  color: var(--text);
+  background: transparent;
+  font: var(--weight-regular) var(--text-body) var(--font-sans);
+  letter-spacing: 0;
+  width: 100%;
+}
+.sequenceCard {
+  box-sizing: border-box;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: var(--spacer-20);
+}
+.sequenceHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--spacer-16);
+}
+.sequenceTitleGroup { display: grid; gap: var(--spacer-4); min-width: 0; }
+.sequenceTitle {
+  margin: 0;
+  color: var(--text);
+  font: var(--weight-medium) var(--text-title) var(--font-sans);
+}
+.sequenceBadge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 var(--spacer-12);
+  color: var(--brand-text);
+  background: var(--surface-muted);
+  border: 1px solid color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: var(--radius-full);
+  font: var(--weight-medium) var(--text-caption) var(--font-sans);
+}
+.sequenceCanvas {
+  margin-top: var(--spacer-16);
+  overflow: hidden;
+  background: var(--surface-muted);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: var(--radius);
+}
+.mobileSequence { max-height: 0; margin-top: 0; overflow: hidden; opacity: 0; transform: translateY(-2px); transition: opacity 120ms ease, transform 120ms ease; }
+.mobileActors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacer-8); }
+.mobileActor {
+  min-width: 0; padding: var(--spacer-8) var(--spacer-12);
+  color: var(--text); background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+  border-radius: var(--radius);
+  font: var(--weight-medium) var(--text-caption) var(--font-sans);
+}
+.mobileActor[data-role="focus"] {
+  color: var(--brand-text);
+  border-color: color-mix(in srgb, var(--brand) 64%, var(--border));
+  background: color-mix(in srgb, var(--brand) 7%, var(--surface));
+}
+.mobileMessages { display: grid; gap: var(--spacer-8); margin-top: var(--spacer-12); }
+.mobileMessage {
+  display: grid; grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--spacer-8); align-items: start;
+  padding: var(--spacer-8) var(--spacer-12);
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+  border-radius: var(--radius);
+}
+.mobileMessage[data-focus="true"] {
+  border-color: color-mix(in srgb, var(--brand) 54%, var(--border));
+  background: color-mix(in srgb, var(--brand) 5%, var(--surface));
+}
+.messageIndex {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  color: var(--text-muted); background: var(--surface-muted);
+  border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+  border-radius: var(--radius-full);
+  font: var(--weight-medium) var(--text-caption) var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.mobileMessage[data-focus="true"] .messageIndex {
+  color: var(--brand-on); background: var(--brand); border-color: var(--brand);
+}
+.messageRoute { color: var(--text-muted); font: var(--weight-regular) var(--text-caption) var(--font-sans); }
+.messageName { margin-top: var(--spacer-4); color: var(--text); font: var(--weight-medium) var(--text-body) var(--font-sans); }
+.messageType { color: var(--text-muted); font: var(--weight-regular) var(--text-caption) var(--font-sans); }
+.sequenceSvg { display: block; width: 100%; height: auto; }
+.participantBox { fill: var(--surface); stroke: color-mix(in srgb, var(--border) 92%, transparent); stroke-width: 1; }
+.participant[data-role="focus"] .participantBox {
+  fill: color-mix(in srgb, var(--brand) 7%, var(--surface));
+  stroke: color-mix(in srgb, var(--brand) 72%, var(--border));
+}
+.participant[data-role="external"] .participantBox {
+  stroke: color-mix(in srgb, var(--text-muted) 42%, var(--border));
+}
+.participantLabel { fill: var(--text); font: var(--weight-medium) var(--text-body) var(--font-sans); }
+.participantCaption { fill: var(--text-muted); font: var(--weight-regular) var(--text-caption) var(--font-sans); }
+.participant[data-role="focus"] .participantLabel { fill: var(--brand-text); }
+.participant[data-role="focus"] .participantCaption { fill: var(--brand); }
+.lifeline { fill: none; stroke: color-mix(in srgb, var(--text-muted) 42%, transparent); stroke-width: 1.2; stroke-dasharray: 5 7; stroke-linecap: round; }
+.activation { fill: var(--surface); stroke: color-mix(in srgb, var(--border) 92%, transparent); stroke-width: 1; }
+.activation[data-role="focus"] {
+  fill: color-mix(in srgb, var(--brand) 8%, var(--surface));
+  stroke: color-mix(in srgb, var(--brand) 62%, var(--border));
+}
+.messagePath { fill: none; stroke: var(--text-muted); stroke-width: 1.5; stroke-linecap: butt; stroke-linejoin: round; }
+.messagePath[data-type="return"] { stroke-dasharray: 7 6; }
+.messagePath[data-focus="true"] { stroke: var(--brand); stroke-width: 1.8; }
+.arrowHeadPath { fill: var(--text-muted); }
+.arrowHeadPath[data-focus="true"] { fill: var(--brand); }
+.labelBg { fill: var(--surface); stroke: color-mix(in srgb, var(--border) 76%, transparent); }
+.labelBg[data-focus="true"] { fill: var(--brand-soft); stroke: color-mix(in srgb, var(--brand) 42%, var(--border)); }
+.messageLabel { fill: var(--text); font: var(--weight-medium) var(--text-caption) var(--font-sans); }
+.messageLabel[data-focus="true"] { fill: var(--brand-text); }
+.phaseChip { fill: color-mix(in srgb, var(--surface-muted) 56%, var(--surface)); stroke: color-mix(in srgb, var(--border) 68%, transparent); }
+.phaseText { fill: var(--text-muted); font: var(--weight-medium) var(--text-caption) var(--font-sans); }
+@media (max-width: 560px) {
+  .sequenceCard { padding: var(--spacer-16); }
+  .sequenceHeader { display: grid; }
+  .sequenceBadge { width: fit-content; }
+  .sequenceCanvas { max-height: 0; margin-top: 0; border-width: 0; opacity: 0; }
+  .mobileSequence { max-height: 1400px; margin-top: var(--spacer-16); opacity: 1; transform: none; }
+}
+</style>
+<div class="widget" data-dynamic-ui-widget data-template="sequence-diagram">
+  <section class="sequenceCard" aria-label="Synap Agent Server full sequence diagram">
+    <div class="sequenceHeader">
+      <div class="sequenceTitleGroup">
+        <h3 class="sequenceTitle">Synap Agent &harr; Server 通信时序图</h3>
+      </div>
+      <div class="sequenceBadge">15 messages &middot; 4 participants</div>
+    </div>
+    <div class="sequenceCanvas">
+      <svg class="sequenceSvg" viewBox="0 0 720 810" role="img" aria-label="Full sequence diagram with handshake, start, upload, cross query phases including Redis and External interactions">
+        <defs>
+          <marker id="sequenceArrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+            <path class="arrowHeadPath" d="M1 1 L7 4 L1 7 Z" />
+          </marker>
+          <marker id="sequenceArrowFocus" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+            <path class="arrowHeadPath" data-focus="true" d="M1 1 L7 4 L1 7 Z" />
+          </marker>
+        </defs>
+
+        <!-- Phase chips -->
+        <rect class="phaseChip" x="50" y="128" width="130" height="24" rx="12" />
+        <text class="phaseText" x="115" y="145" text-anchor="middle">&#9312; &#23494;&#38057;&#21327;&#21830;</text>
+        <rect class="phaseChip" x="50" y="298" width="130" height="24" rx="12" />
+        <text class="phaseText" x="115" y="315" text-anchor="middle">&#9313; &#31574;&#30053;&#25289;&#21462;</text>
+        <rect class="phaseChip" x="50" y="432" width="170" height="24" rx="12" />
+        <text class="phaseText" x="135" y="449" text-anchor="middle">&#9314; &#25968;&#25454;&#37319;&#38598;&#19978;&#25253;</text>
+        <rect class="phaseChip" x="50" y="602" width="130" height="24" rx="12" />
+        <text class="phaseText" x="115" y="619" text-anchor="middle">&#9315; &#20132;&#21449;&#26597;&#35810;</text>
+
+        <!-- Participants -->
+        <g class="participant" data-role="external" transform="translate(32 58)">
+          <rect class="participantBox" width="116" height="54" rx="8" />
+          <text class="participantLabel" x="58" y="23" text-anchor="middle">Agent &#31471;&#28857;</text>
+          <text class="participantCaption" x="58" y="42" text-anchor="middle">H5 / Host / Server</text>
+        </g>
+        <g class="participant" data-role="focus" transform="translate(205 58)">
+          <rect class="participantBox" width="130" height="54" rx="8" />
+          <text class="participantLabel" x="65" y="23" text-anchor="middle">Synap Server</text>
+          <text class="participantCaption" x="65" y="42" text-anchor="middle">:11099</text>
+        </g>
+        <g class="participant" data-role="neutral" transform="translate(390 58)">
+          <rect class="participantBox" width="100" height="54" rx="8" />
+          <text class="participantLabel" x="50" y="23" text-anchor="middle">Redis</text>
+          <text class="participantCaption" x="50" y="42" text-anchor="middle">session + idem</text>
+        </g>
+        <g class="participant" data-role="external" transform="translate(535 58)">
+          <rect class="participantBox" width="145" height="54" rx="8" />
+          <text class="participantLabel" x="72" y="23" text-anchor="middle">Kafka / Cross</text>
+          <text class="participantCaption" x="72" y="42" text-anchor="middle">&#22806;&#37096;&#26381;&#21153;</text>
+        </g>
+
+        <!-- Lifelines -->
+        <path class="lifeline" d="M90 118 V780" fill="none" />
+        <path class="lifeline" d="M270 118 V780" fill="none" />
+        <path class="lifeline" d="M440 118 V780" fill="none" />
+        <path class="lifeline" d="M607 118 V780" fill="none" />
+
+        <!-- Activation bars -->
+        <!-- Server activations -->
+        <rect class="activation" x="261" y="158" width="18" height="128" rx="6" />
+        <rect class="activation" data-role="focus" x="261" y="328" width="18" height="92" rx="6" />
+        <rect class="activation" data-role="focus" x="261" y="462" width="18" height="128" rx="6" />
+        <rect class="activation" x="261" y="632" width="18" height="128" rx="6" />
+        <!-- Redis activations -->
+        <rect class="activation" x="431" y="266" width="18" height="20" rx="6" />
+        <rect class="activation" x="431" y="364" width="18" height="20" rx="6" />
+        <rect class="activation" x="431" y="498" width="18" height="20" rx="6" />
+        <!-- External activations -->
+        <rect class="activation" x="598" y="534" width="18" height="20" rx="6" />
+        <rect class="activation" x="598" y="668" width="18" height="56" rx="6" />
+
+        <!-- ===== Phase 1: Handshake ===== -->
+
+        <!-- Msg 1: Agent -> Server (handshake) -->
+        <path class="messagePath" d="M100 168 H256" marker-end="url(#sequenceArrow)" fill="none" />
+        <rect class="labelBg" x="106" y="156" width="145" height="24" rx="8" />
+        <text class="messageLabel" x="178" y="173" text-anchor="middle">POST /sc/v1/handshake</text>
+
+        <!-- Msg 2: Server -> Agent (return) -->
+        <path class="messagePath" data-type="return" d="M261 204 H106" marker-end="url(#sequenceArrow)" fill="none" />
+        <rect class="labelBg" x="131" y="192" width="106" height="24" rx="8" />
+        <text class="messageLabel" x="184" y="209" text-anchor="middle">sid, keys, sig</text>
+
+        <!-- Msg 3: Agent -> Server (handshake finish) -->
+        <path class="messagePath" d="M100 240 H256" marker-end="url(#sequenceArrow)" fill="none" />
+        <rect class="labelBg" x="118" y="228" width="120" height="24" rx="8" />
+        <text class="messageLabel" x="178" y="245" text-anchor="middle">handshake/finish</text>
+
+        <!-- Msg 4: Server -> Redis (store session) -->
+        <path class="messagePath" d="M279 276 H431" marker-end="url(#sequenceArrow)" fill="none" />
+        <rect class="labelBg" x="300" y="264" width="110" height="24" rx="8" />
+        <text class="messageLabel" x="355" y="281" text-anchor="middle">store session</text>
+
+        <!-- ===== Phase 2: Start ===== -->
+
+        <!-- Msg 5: Agent -> Server (start, FOCUS) -->
+        <path class="messagePath" data-focus="true" d="M100 338 H256" marker-end="url(#sequenceArrowFocus)" fill="none" />
+        <rect class="labelBg" data-focus="true" x="108" y="326" width="140" height="24" rx="8" />
+        <text class="messageLabel" data-focus="true" x="178" y="343" text-anchor="middle">POST /attach/start</text>
+
+        <!-- Msg 6: Server -> Redis (idempotency check) -->
+        <path class="messagePath" d="M279 374 H431" marker-end="url(#sequenceArrow)" fill="none" />
+        <rect class="labelBg" x="295" y="362" width="120" height="24" rx="8" />
+        <text class="messageLabel" x="355" y="379" text-anchor="middle">idempotency chk</text>
+
+        <!-- Msg 7: Server -> Agent (return) -->
+        <path class="messagePath" data-type="return" d="M261 410 H106" marker-end="url(#sequenceArrow)" fill="none" />
+        <rect class="labelBg" x="119" y="398" width="130" height="24" rx="8" />
+        <text class="messageLabel" x="184" y="415" text-anchor="middle">config + agendas</text>
+
+        <!-- ===== Phase 3: Upload ===== -->
+
+        <!-- Msg 8: Agent -> Server (upload, FOCUS) -->
+        <path class="messagePath" data-focus="true" d="M100 472 H256" marker-end="url(#sequenceArrowFocus)" fill="none" />
+        <rect class="labelBg" data-focus="true" x="103" y="460" width="150" height="24" rx="8" />
+        <text class="messageLabel" data-focus="true" x="178" y="477" text-anchor="middle">POST /attach/upload</text>
+
+        <!-- Msg 9: Server -> Redis (idempotency + sequence) -->
+        <path class="messagePath" d="M279 508 H431" marker-end="url(#sequenceArrow)" fill="none" />
+        <rect class="labelBg" x="290" y="496" width="130" height="24" rx="8" />
+        <text class="messageLabel" x="355" y="513" text-anchor="middle">idempotency + seq</text>
+
+        <!-- Msg 10: Server -> External (publish checkpoint) -->
+        <path class="messagePath" d="M279 544 H593" marker-end="url(#sequenceArrow)" fill="none" />
+        <rect class="labelBg" x="366" y="532" width="140" height="24" rx="8" />
+        <text class="messageLabel" x="436" y="549" text-anchor="middle">publish checkpoint</text>
+
+        <!-- Msg 11: Server -> Agent (ack return) -->
+        <path class="messagePath" data-type="return" d="M261 580 H106" marker-end="url(#sequenceArrow)" fill="none" />
+        <rect class="labelBg" x="124" y="568" width="120" height="24" rx="8" />
+        <text class="messageLabel" x="184" y="585" text-anchor="middle">ack: ok/dup/rej</text>
+
+        <!-- ===== Phase 4: Cross Query ===== -->
+
+        <!-- Msg 12: Agent -> Server (cross) -->
+        <path class="messagePath" d="M100 642 H256" marker-end="url(#sequenceArrow)" fill="none" />
+        <rect class="labelBg" x="113" y="630" width="130" height="24" rx="8" />
+        <text class="messageLabel" x="178" y="647" text-anchor="middle">POST /cross/{id}</text>
+
+        <!-- Msg 13: Server -> External (forward query) -->
+        <path class="messagePath" d="M279 678 H593" marker-end="url(#sequenceArrow)" fill="none" />
+        <rect class="labelBg" x="381" y="666" width="110" height="24" rx="8" />
+        <text class="messageLabel" x="436" y="683" text-anchor="middle">forward query</text>
+
+        <!-- Msg 14: External -> Server (response return) -->
+        <path class="messagePath" data-type="return" d="M598 714 H285" marker-end="url(#sequenceArrow)" fill="none" />
+        <rect class="labelBg" x="392" y="702" width="100" height="24" rx="8" />
+        <text class="messageLabel" x="442" y="719" text-anchor="middle">response</text>
+
+        <!-- Msg 15: Server -> Agent (cross return) -->
+        <path class="messagePath" data-type="return" d="M261 750 H106" marker-end="url(#sequenceArrow)" fill="none" />
+        <rect class="labelBg" x="126" y="738" width="116" height="24" rx="8" />
+        <text class="messageLabel" x="184" y="755" text-anchor="middle">cross response</text>
+
+        <!-- Retry notes -->
+        <rect class="phaseChip" x="50" y="774" width="210" height="24" rx="12" />
+        <text class="phaseText" x="155" y="791" text-anchor="middle">&#37325;&#35797;: &#25351;&#25968;&#36864;&#36974; 1s&rarr;30s + jitter</text>
+        <rect class="phaseChip" x="280" y="774" width="210" height="24" rx="12" />
+        <text class="phaseText" x="385" y="791" text-anchor="middle">&#24149;&#31561;: messageId &#21435;&#37325; (14d TTL)</text>
+      </svg>
+    </div>
+    <div class="mobileSequence" aria-label="Compact sequence message list">
+      <div class="mobileActors" aria-label="Participants">
+        <div class="mobileActor">Agent &#31471;&#28857;</div>
+        <div class="mobileActor" data-role="focus">Synap Server</div>
+        <div class="mobileActor">Redis</div>
+        <div class="mobileActor">Kafka / Cross</div>
+      </div>
+      <div class="mobileMessages">
+        <div class="mobileMessage">
+          <span class="messageIndex">1</span>
+          <div><div class="messageRoute">Agent &rarr; Server</div><div class="messageName">POST /sc/v1/handshake</div><div class="messageType">call</div></div>
+        </div>
+        <div class="mobileMessage" data-type="return">
+          <span class="messageIndex">2</span>
+          <div><div class="messageRoute">Server &rarr; Agent</div><div class="messageName">sid, keys, sig</div><div class="messageType">return</div></div>
+        </div>
+        <div class="mobileMessage">
+          <span class="messageIndex">3</span>
+          <div><div class="messageRoute">Agent &rarr; Server</div><div class="messageName">handshake/finish</div><div class="messageType">call</div></div>
+        </div>
+        <div class="mobileMessage">
+          <span class="messageIndex">4</span>
+          <div><div class="messageRoute">Server &rarr; Redis</div><div class="messageName">store session</div><div class="messageType">call</div></div>
+        </div>
+        <div class="mobileMessage" data-focus="true">
+          <span class="messageIndex">5</span>
+          <div><div class="messageRoute">Agent &rarr; Server</div><div class="messageName">POST /attach/start</div><div class="messageType">call</div></div>
+        </div>
+        <div class="mobileMessage">
+          <span class="messageIndex">6</span>
+          <div><div class="messageRoute">Server &rarr; Redis</div><div class="messageName">idempotency chk</div><div class="messageType">call</div></div>
+        </div>
+        <div class="mobileMessage" data-type="return">
+          <span class="messageIndex">7</span>
+          <div><div class="messageRoute">Server &rarr; Agent</div><div class="messageName">config + agendas</div><div class="messageType">return</div></div>
+        </div>
+        <div class="mobileMessage" data-focus="true">
+          <span class="messageIndex">8</span>
+          <div><div class="messageRoute">Agent &rarr; Server</div><div class="messageName">POST /attach/upload</div><div class="messageType">call</div></div>
+        </div>
+        <div class="mobileMessage">
+          <span class="messageIndex">9</span>
+          <div><div class="messageRoute">Server &rarr; Redis</div><div class="messageName">idempotency + seq</div><div class="messageType">call</div></div>
+        </div>
+        <div class="mobileMessage">
+          <span class="messageIndex">10</span>
+          <div><div class="messageRoute">Server &rarr; Kafka/Cross</div><div class="messageName">publish checkpoint</div><div class="messageType">call</div></div>
+        </div>
+        <div class="mobileMessage" data-type="return">
+          <span class="messageIndex">11</span>
+          <div><div class="messageRoute">Server &rarr; Agent</div><div class="messageName">ack: ok/dup/rej</div><div class="messageType">return</div></div>
+        </div>
+        <div class="mobileMessage">
+          <span class="messageIndex">12</span>
+          <div><div class="messageRoute">Agent &rarr; Server</div><div class="messageName">POST /cross/{id}</div><div class="messageType">call</div></div>
+        </div>
+        <div class="mobileMessage">
+          <span class="messageIndex">13</span>
+          <div><div class="messageRoute">Server &rarr; Kafka/Cross</div><div class="messageName">forward query</div><div class="messageType">call</div></div>
+        </div>
+        <div class="mobileMessage" data-type="return">
+          <span class="messageIndex">14</span>
+          <div><div class="messageRoute">Kafka/Cross &rarr; Server</div><div class="messageName">response</div><div class="messageType">return</div></div>
+        </div>
+        <div class="mobileMessage" data-type="return">
+          <span class="messageIndex">15</span>
+          <div><div class="messageRoute">Server &rarr; Agent</div><div class="messageName">cross response</div><div class="messageType">return</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>

@@ -1,46 +1,12 @@
-HELP.md
-target/
-!.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**
-!**/src/test/**
-
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-.log
-
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-.mvn
-mvnw*
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-
-### VS Code ###
-.vscode/
-
-### generated files ###
-bin/
-gen/
-
-### MAC ###
+# 根目录下的 .DS_Store
 .DS_Store
+# 所有子目录里的 .DS_Store
+**/.DS_Store
 
-### Other ###
-logs/
-log
-temp/
+# 子项目单独git维护
+synap-agent/
+synap-server/
+synap-build/
+synap-sdk/
+
+.trae/
