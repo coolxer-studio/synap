@@ -1,0 +1,26 @@
+<resources>
+    <string name="app_name">x-genie终端</string>
+    <string name="title_device">设备信息</string>
+    <string name="title_analyze">风险分析</string>
+    <string name="title_identify">威胁识别</string>
+
+    <string name="label_tool">工具箱</string>
+    <string name="label_tool_crash">崩溃测试</string>
+    <string name="label_tool_privacy">隐私测试</string>
+    <string name="label_tool_login">模拟登录</string>
+    <string name="label_tool_communication_settings">通信设置</string>
+    <string name="label_auth">用户认证</string>
+
+    <string name="communication_settings_title">通信设置</string>
+    <string name="communication_settings_base_url">服务地址（HTTP/HTTPS）</string>
+    <string name="communication_settings_app_id">App ID</string>
+    <string name="communication_settings_server_key_id">服务端 Key ID</string>
+    <string name="communication_settings_trust_anchor">服务端信任锚</string>
+    <string name="communication_settings_save">保存</string>
+    <string name="communication_settings_save_failed">保存通信配置失败，请重试</string>
+    <string name="communication_settings_saved_title">配置已保存</string>
+    <string name="communication_settings_saved_message">重启应用后新配置生效。立即重启会结束当前探针任务和安全会话。</string>
+    <string name="communication_settings_restart_now">立即重启</string>
+    <string name="communication_settings_restart_later">稍后重启</string>
+
+</resources>

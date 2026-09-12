@@ -1,0 +1,10 @@
+# Production fuse-affecting settings. Review Espressif's security guides and
+# inject the Secure Boot signing key through the controlled build environment.
+CONFIG_SECURE_BOOT=y
+CONFIG_SECURE_BOOT_V2_ENABLED=y
+CONFIG_SECURE_BOOT_BUILD_SIGNED_BINARIES=y
+CONFIG_SECURE_FLASH_ENC_ENABLED=y
+CONFIG_SECURE_FLASH_ENCRYPTION_MODE_RELEASE=y
+CONFIG_NVS_ENCRYPTION=y
+CONFIG_SECURE_DISABLE_ROM_DL_MODE=y
+

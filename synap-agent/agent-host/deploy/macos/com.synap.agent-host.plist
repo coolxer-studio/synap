@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.synap.agent-host</string>
+  <key>ProgramArguments</key><array>
+    <string>/usr/local/sbin/x-probe</string>
+    <string>--server</string><string>https://synap.example.invalid</string>
+    <string>--data-dir</string><string>/Library/Application Support/SynapHost</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>ProcessType</key><string>Interactive</string>
+  <key>StandardOutPath</key><string>/var/log/synap-host.log</string>
+  <key>StandardErrorPath</key><string>/var/log/synap-host-error.log</string>
+</dict></plist>

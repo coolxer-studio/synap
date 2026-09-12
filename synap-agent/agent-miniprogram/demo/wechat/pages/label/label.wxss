@@ -1,0 +1,50 @@
+/* pages/label/label.wxss */
+page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.scrollarea {
+  flex: 1;
+  overflow-y: hidden;
+  background-color: #E4E6E6;
+}
+
+.label-container {
+  margin: 20rpx;
+  padding: 20rpx;
+  height: auto; /* 高度自适应 */
+  background-color: #ffffff; /* 设置背景颜色 */
+  border-radius: 10rpx; /* 设置圆角半径，单位为响应式像素rpx */
+}
+
+/* 在对应的 WXSS 文件中 */
+.label-title {
+  text-align: left; /* 设置容器中子元素左对齐 */
+  width: 100%;
+}
+
+.label-title-image {
+  width: 50rpx; 
+  height: 50rpx;
+}
+
+.label-title-context {
+  margin-left: 30%;
+}
+.line {
+  width: 100%; /* 分割线的宽度为100% */
+  height: 1px; /* 分割线高度为1px */
+  margin: 10rpx;
+  background-color: #E4E6E6; /* 设置分割线颜色为灰色 */
+}
+.label-list{
+  display: flex;
+    flex-wrap: wrap;
+
+}
+.label-context{
+  margin: 10rpx;
+  padding: 10rpx;
+  border-radius: 10rpx; /* 设置圆角半径，单位为响应式像素rpx */
+}

@@ -1,0 +1,35 @@
+{
+  "name": "synap-agent-miniprogram",
+  "version": "1.0.0",
+  "description": "Synap security agent for WeChat Mini Program",
+  "main": "dist/agent.min.js",
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "webpack --config config/webpack.config.js --mode development --watch",
+    "lint": "eslint src config/*.js test/*.cjs",
+    "test": "node --test test/*.test.cjs",
+    "build:prod": "node config/build.js",
+    "build": "npm run build:prod",
+    "size": "node config/size.js",
+    "ci": "npm run lint && npm test && npm run build:prod && npm run size"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@babel/core": "7.29.7",
+    "@babel/preset-env": "7.28.0",
+    "@eslint/js": "9.39.5",
+    "babel-loader": "9.2.1",
+    "eslint": "9.39.5",
+    "terser-webpack-plugin": "5.6.1",
+    "webpack": "5.109.2",
+    "webpack-cli": "6.0.1"
+  },
+  "browserslist": [
+    "Chrome >= 89",
+    "iOS >= 14"
+  ]
+}

@@ -1,0 +1,16 @@
+.DS_Store
+node_modules/
+dist/
+demo/js/probe.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist.zip
+test-results/
+playwright-report/
+# Editor directories and files
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln

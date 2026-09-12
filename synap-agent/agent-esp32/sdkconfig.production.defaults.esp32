@@ -1,0 +1,3 @@
+# ESP32 Secure Boot V2 requires ECO3 or newer silicon.
+CONFIG_ESP32_REV_MIN_3=y
+

@@ -1,0 +1,16 @@
+package com.coolxer.synap.javaagent;
+
+import com.coolxer.synap.bridge.AgentBridge;
+import net.bytebuddy.asm.Advice;
+
+final class SinkAdvices {
+    private SinkAdvices() {}
+    public static class Sql { @Advice.OnMethodEnter public static void enter(@Advice.Origin("#t.#m") String operation, @Advice.This(optional = true) Object target, @Advice.AllArguments Object[] args) { if (AgentBridge.beforeSink("SQL", operation, new Object[]{target, args}) == AgentBridge.Decision.BLOCK) throw new SecurityException("Blocked by Synap runtime protection: SQL"); } }
+    public static class Http { @Advice.OnMethodEnter public static void enter(@Advice.Origin("#t.#m") String operation, @Advice.This(optional = true) Object target, @Advice.AllArguments Object[] args) { if (AgentBridge.beforeSink("HTTP", operation, new Object[]{target, args}) == AgentBridge.Decision.BLOCK) throw new SecurityException("Blocked by Synap runtime protection: HTTP"); } }
+    public static class File { @Advice.OnMethodEnter public static void enter(@Advice.Origin("#t.#m") String operation, @Advice.This(optional = true) Object target, @Advice.AllArguments Object[] args) { if (AgentBridge.beforeSink("FILE", operation, new Object[]{target, args}) == AgentBridge.Decision.BLOCK) throw new SecurityException("Blocked by Synap runtime protection: FILE"); } }
+    public static class FileConstructor { @Advice.OnMethodEnter public static void enter(@Advice.Origin("#t.#m") String operation, @Advice.AllArguments Object[] args) { if (AgentBridge.beforeSink("FILE", operation, args) == AgentBridge.Decision.BLOCK) throw new SecurityException("Blocked by Synap runtime protection: FILE"); } }
+    public static class Command { @Advice.OnMethodEnter public static void enter(@Advice.Origin("#t.#m") String operation, @Advice.This(optional = true) Object target, @Advice.AllArguments Object[] args) { Object command = target instanceof ProcessBuilder builder ? builder.command().toArray() : target; if (AgentBridge.beforeSink("COMMAND", operation, new Object[]{command, args}) == AgentBridge.Decision.BLOCK) throw new SecurityException("Blocked by Synap runtime protection: COMMAND"); } }
+    public static class Jndi { @Advice.OnMethodEnter public static void enter(@Advice.Origin("#t.#m") String operation, @Advice.This(optional = true) Object target, @Advice.AllArguments Object[] args) { if (AgentBridge.beforeSink("JNDI", operation, new Object[]{target, args}) == AgentBridge.Decision.BLOCK) throw new SecurityException("Blocked by Synap runtime protection: JNDI"); } }
+    public static class Deserialization { @Advice.OnMethodEnter public static void enter(@Advice.Origin("#t.#m") String operation, @Advice.This(optional = true) Object target, @Advice.AllArguments Object[] args) { if (AgentBridge.beforeSink("DESERIALIZATION", operation, new Object[]{target, args}) == AgentBridge.Decision.BLOCK) throw new SecurityException("Blocked by Synap runtime protection: DESERIALIZATION"); } }
+    public static class Spel { @Advice.OnMethodEnter public static void enter(@Advice.Origin("#t.#m") String operation, @Advice.This(optional = true) Object target, @Advice.AllArguments Object[] args) { if (AgentBridge.beforeSink("SPEL", operation, new Object[]{target, args}) == AgentBridge.Decision.BLOCK) throw new SecurityException("Blocked by Synap runtime protection: SPEL"); } }
+}

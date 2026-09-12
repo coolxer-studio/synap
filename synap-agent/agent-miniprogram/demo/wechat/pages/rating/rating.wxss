@@ -1,0 +1,31 @@
+/* pages/rating/rating.wxss */
+.page{
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  height: 100vh; /* 设置容器的高度占据整个视口高度 */
+  background-color: #E4E6E6;
+}
+
+.context{
+  display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100vh; /* 可根据际需要设置高度 */
+}
+
+.component1 {
+  position: absolute;
+  top: 50%; /* 元素顶部距离父元素顶部的距离为50% */
+  left: 50%; /* 元素左侧距离父元素左侧的距离为50% */
+  transform: translate(-50%, -50%); /* 使用transform属性平移元素，使其向左上方平移自身宽度和高度的一半，从而实现居中显示 */
+  z-index: 1;
+}
+
+.bottom-view {
+  height: 20%;
+  margin-bottom: 80rpx;
+  align-self: flex-end; /* 让底部 view 靠在父容器底部 */
+}

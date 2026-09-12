@@ -1,0 +1,44 @@
+<!--index.wxml-->
+<navigation-bar title="设备信息" back="{{false}}" color="black" background="#FFF"></navigation-bar>
+<scroll-view class="scrollarea" scroll-y type="list">
+  <view class="container">
+    <view class="title">
+      <image class="title-image" src="/pages/images/ic_device_hardware.png" />
+      <text class="title-context">设备信息</text>
+    </view>
+    <view class="line"></view>
+    <text class="context">{{deviceInfo}}</text>
+  </view>
+  <!-- <view class="container">
+    <view class="title">
+      <image class="title-image" src="/pages/images/ic_device_system.png" />
+      <text class="title-context">系统</text>
+    </view>
+    <view class="line"></view>
+    <text class="context">{{systemInfo}}</text>
+  </view> -->
+  <view class="container">
+    <view class="title">
+      <image class="title-image" src="/pages/images/ic_device_screen.png" />
+      <text class="title-context">屏幕</text>
+    </view>
+    <view class="line"></view>
+    <text class="context">{{screenInfo}}</text>
+  </view>
+  <view class="container">
+    <view class="title">
+      <image class="title-image" src="/pages/images/ic_device_battery.png" />
+      <text class="title-context">电池</text>
+    </view>
+    <view class="line"></view>
+    <text class="context">{{batteryInfo}}</text>
+  </view>
+  <view class="container">
+    <view class="title">
+      <image class="title-image" src="/pages/images/ic_device_other.png" />
+      <text class="title-context">其他</text>
+    </view>
+    <view class="line"></view>
+    <text class="context">{{otherInfo}}</text>
+  </view>
+</scroll-view>

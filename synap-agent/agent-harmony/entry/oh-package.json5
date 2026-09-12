@@ -1,0 +1,12 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "Synap HarmonyOS probe demo",
+  "main": "",
+  "author": "coolxer",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@coolxer/synap-agent-harmony": "file:../probe"
+  }
+}
+

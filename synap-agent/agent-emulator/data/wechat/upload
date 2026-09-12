@@ -1,0 +1,46 @@
+{
+  "common": ["", "3aef158b-1548-4f55-b8f0-f07b488d3795", 1718720348298, "1.0.0", 1, "业务小程序", "wx9354023cec37e940", "1.0.0", "wechat", "apple", "iPhone", "iOS", "17.0", "wifi", "", "", "", "", "", "", "", "", "", "2026-08-05T10:00:00.000Z"],
+  "meta": {
+    "protocolVersion": 1,
+    "appKeyId": "emulator",
+    "detectorVersion": "wechat-risk-1",
+    "batchId": "batch-example",
+    "sessionId": "1718720348298",
+    "attempt": 1,
+    "createdAt": 1785924000000
+  },
+  "data": [
+    {
+      "type": "DeviceData",
+      "buildDate": "2026-08-05T10:00:00.000Z",
+      "messageId": "message-device-example",
+      "sequence": 1,
+      "observedAt": 1785924000000,
+      "device": ["", "", -1, "devtools", "iPhone", "iOS 17.0", "devtools", "", "2048"],
+      "screen": [3, 844, 390, 780, 390, 47, 0],
+      "systemSetting": [true, "portrait", true, true],
+      "appBaseInfo": ["2.25.3", true, "zh_CN", "8.0.50", 1, 16],
+      "appAuthorizeSetting": ["", "", "", "", "", "", "", "", "", "", ""],
+      "battery": ["100", true],
+      "uuid": ["3aef158b-1548-4f55-b8f0-f07b488d3795"],
+      "capabilities": { "device": "available", "network": "available", "localAddress": "disabled", "permission": "disabled" }
+    },
+    {
+      "type": "RuntimeData",
+      "buildDate": "2026-08-05T10:00:00.000Z",
+      "messageId": "message-runtime-example",
+      "sequence": 2,
+      "observedAt": 1785924000000,
+      "data": {
+        "devtools": true,
+        "enableDebug": true,
+        "nonReleaseEnv": true,
+        "automationScene": false,
+        "scene": 1001,
+        "codeFormatting": 1,
+        "route": "/pages/device/device",
+        "state": "available"
+      }
+    }
+  ]
+}

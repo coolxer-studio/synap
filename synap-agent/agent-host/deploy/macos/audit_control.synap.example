@@ -1,0 +1,9 @@
+## Merge the required flags into /etc/security/audit_control using the
+## organization's configuration-management process. Do not replace the whole
+## file blindly. agent-host never changes this configuration.
+flags:lo,aa,ad,ex,fc,fd
+naflags:lo,aa,ad,ex,fc,fd
+minfree:5
+policy:cnt,argv
+filesz:100M
+expire-after:180d OR 10G

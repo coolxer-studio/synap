@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="./static/images/favicon.ico"/>
+  <title>synap-agent-首页</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    #container {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    #header {
+      position: fixed;
+      /* 固定位置 */
+      top: 0;
+      /* 距离视口顶部的距离为0 */
+      left: 0;
+      /* 距离视口左侧的距离为0 */
+      width: 100%;
+      /* 宽度100%，占据整个视口宽度 */
+      height: 50px;
+      background-color: #00BCD4;
+      color: white;
+      padding: 2px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .content-section {
+      overflow: auto;
+      /* 使用滚动条，当内容溢出时显示滚动条 */
+      flex: 1;
+      padding-top: 70px;
+      padding-left: 20px;
+      padding-right: 20px;
+      padding-bottom: 80px;
+      background-color: #E4E6E6;
+    }
+
+    .content-section .content-item {
+      border-radius: 5px;
+      background-color: white;
+      padding: 10px;
+      margin: 20px 10px;
+
+    }
+
+    .content-section .content-item .tag {
+      border-radius: 5px;
+      padding: 3px 5px;
+      margin: 5px;
+    }
+
+    .content-section .analyze {
+      display: flex;
+      width: 400px;
+      height: 400px;
+      justify-content: center;
+      /* 水平居中 */
+      align-items: center;
+      /* 垂直居中 */
+      background-image: url('static/images/ic_analyze_background.gif');
+      background-size: cover;
+      margin: auto;
+      margin-top: 100px;
+    }
+
+    .content-section .rating-bottom {
+      position: fixed;
+      /* 固定位置 */
+      bottom: 0;
+      /* 距离视口底部的距离为0 */
+      left: 0;
+      /* 距离视口左侧的距离为0 */
+      width: 100%;
+      /* 宽度100%，占据整个视口宽度 */
+      background-image: url('static/images/ic_analyze_background_down.png');
+      -moz-background-size: 100% 100%;
+      background-size: 100% 100%;
+    }
+
+    .content-section .content-item .title {
+      display: flex;
+    }
+
+    .content-section .content-item .title .left-title {
+      flex: 1;
+      text-align: left;
+    }
+
+    .content-section .content-item .title .left-title img {
+      width: 30px;
+      height: 30px;
+    }
+
+    .content-section .content-item .title .center-title {
+      flex: 10;
+      text-align: center;
+      padding-top: 5px;
+    }
+
+    .content-section .content-item .title .right-title {
+      flex: 1;
+    }
+
+    .content-section .content-item hr {
+      border: 1px solid #E4E6E6;
+    }
+
+    .nav {
+      position: fixed;
+      /* 固定位置 */
+      bottom: 0;
+      /* 距离视口底部的距离为0 */
+      left: 0;
+      /* 距离视口左侧的距离为0 */
+      width: 100%;
+      /* 宽度100%，占据整个视口宽度 */
+      height: 60px;
+      display: flex;
+      justify-content: space-around;
+      background-color: #f0f0f0;
+      padding: 10px 0;
+    }
+
+    .nav a {
+      text-decoration: none;
+      color: #333;
+      font-weight: bold;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .nav a img {
+      max-width: 24px;
+      max-height: 24px;
+      margin-bottom: 5px;
+    }
+
+    .active {
+      box-shadow: 0px 5px rgba(0, 188, 212);
+    }
+
+    /* 弹出框样式 */
+    .alert-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    .modal-content {
+      background-color: white;
+      padding: 20px;
+      border-radius: 5px;
+      box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-input {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    .modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 15px;
+    }
+
+    .modal-buttons button {
+      margin-left: 10px;
+      padding: 5px 10px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .left-content {
+      flex: 1;
+      padding: 10px;
+    }
+
+    .center-content {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      text-align: center;
+    }
+
+    .right-content {
+      flex: 1;
+      padding: 10px;
+      display: flex;
+      justify-content: flex-end;
+      align-items: flex-start;
+    }
+
+    .right-content img {
+      width: 40px;
+      height: 40px;
+    }
+  </style>
+  <script>
+    // 底部导航栏
+    document.addEventListener("DOMContentLoaded", function () {
+      const navLinks = document.querySelectorAll(".nav a");
+      const contentSections = document.querySelectorAll(".content-section");
+      navLinks.forEach(link => {
+        link.addEventListener("click", function (event) {
+          event.preventDefault();
+          navLinks.forEach(navLink => {
+            navLink.classList.remove("active");
+          });
+          link.classList.add("active");
+
+          const targetSection = document.querySelector(link.getAttribute("href"));
+          contentSections.forEach(section => {
+            section.style.display = "none";
+          });
+          targetSection.style.display = "block";
+
+          // 填充数据
+          var htmlContent = "";
+          switch (link.getAttribute("href")) {
+            case "#device-info":
+              setDeviceInfoData();
+              break;
+            case "#rating":
+              // 修改样式
+              var bottomBarHeight = document.getElementById("bottomBar").clientHeight;
+              var ratingBottom = document.getElementById("ratingBottom");
+              ratingBottom.style.height = bottomBarHeight + "px";
+              ratingBottom.style.marginBottom = bottomBarHeight + "px";
+              setRatingData();
+              break;
+            case "#label":
+              setLabelData();
+              break;
+            default:
+              break
+          }
+        });
+      });
+    });
+
+    // 提示框    
+    function instruction(info) {
+      document.getElementById("alert-modal-instruction").style.display = "flex";
+      document.getElementById("instruction-content").innerHTML = info;
+    }
+    function instructionConfirm() {
+      document.getElementById("alert-modal-instruction").style.display = "none";
+    };
+
+    // 设备信息
+    async function setDeviceInfoData() {
+      var data = await window.SynapAgent.getDeviceInfo();
+      if (data.code === 0) {
+        const deviceInfoMap = {
+          "hardware": ["device"],
+          "cpu": ["cpu"],
+          "storage": ["storage"],
+          "network": ["network"],
+          "battery": ["battery"],
+          "screen": ["screen"],
+          "app": ["app"],
+          "other": ["browser", "uuid", "document", "window", "navigator", "baseInfo"]
+        };
+        const detail = data.data.fact;
+        for (const deviceInfoKey in deviceInfoMap) {
+          if (Object.hasOwnProperty.call(deviceInfoMap, deviceInfoKey)) {
+            const deviceInfoMapValueArray = deviceInfoMap[deviceInfoKey];
+            var htmlContent = "";
+            for (const detailKey of deviceInfoMapValueArray) {
+              for (var contextKey in detail[detailKey]) {
+                htmlContent += contextKey + ":" + detail[detailKey][contextKey] + "<br>"
+              }
+            }
+            document.getElementById("device-info-" + deviceInfoKey).innerHTML = htmlContent;
+          }
+        }
+
+      }
+    };
+
+    // 风险分析
+    async function setRatingData() {
+      var data = await window.SynapAgent.getRatingInfo();
+      if (data.code === 0) {
+        var grade = data.data.grade;
+        var score = data.data.score;
+        var gradeColor = "#20C997";
+        if (grade.indexOf("高") !== -1) {
+          gradeColor = "#FA5252";
+        } else if (grade.indexOf("中") !== -1) {
+          gradeColor = "#FCC419";
+        }
+        var htmlContent = `
+                    <span style="color: ${gradeColor};">${grade}(${score})</span>
+                `;
+        var detail = data.data.detail;
+        document.getElementById("ratingAnalyze").innerHTML = htmlContent;
+      }
+    };
+
+    // 威胁识别
+    async function setLabelData() {
+      var data = await window.SynapAgent.getLabelInfo();
+      if (data.code === 0) {
+        for (var labelData of data.data) {
+          var labelColor = "#20C997";
+          if (labelData.type.indexOf("high") !== -1) {
+            labelColor = "#FA5252";
+          } else if (labelData.type.indexOf("medium") !== -1) {
+            labelColor = "#FCC419";
+          }
+          var htmlContent = "";
+          for (var labelTag of labelData.value_list) {
+            htmlContent += `<span class="tag" style="background-color: ${labelColor};">${labelTag}</span>`;
+          }
+          document.getElementById(labelData.type + "Label").innerHTML = htmlContent;
+        }
+      }
+    };
+
+    window.onload = function () {
+
+      // 点击屏幕加载device数据
+      document.getElementById("device-info").addEventListener("click", function (event) {
+        setDeviceInfoData();
+      });
+
+    }
+
+  </script>
+
+  <script>
+window.SynapAgentConfig = {
+  appId: 'synap-h5-test',
+  baseUrl: 'http://192.168.0.101:11099',
+  serverTrustAnchors: {
+    'server-key-test': 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEbn5vVUmDNdGt6kinA3qZBrrpk5e39C7NkPzuK8z-_xA1WNmqpmXvUvbplcDfzTnpERMyarM7Xh-w3UFCy7aXOQ'
+  }
+};
+</script>
+
+
+<script type="text/javascript" src="./js/probe.js"></script>
+</head>
+
+<body>
+  <div id="container">
+    <div id="header">
+      <div class="left-content">
+      </div>
+      <div class="center-content">
+        synap-agent-h5
+      </div>
+      <div class="right-content">
+        <a href="./tools.html">
+          <img src="./static/images/ic_tool.png" alt="">
+        </a>
+      </div>
+    </div>
+    <div id="device-info" class="content-section">
+
+      <div class="content-item">
+        <div class="title">
+          <div class="left-title"><img src="static/images/ic_device_hardware.png"></div>
+          <div class="center-title">
+            <span>设备信息</span>
+          </div>
+          <div class="right-title"></div>
+        </div>
+        <hr>
+        <div id="device-info-hardware"></div>
+      </div>
+
+      <div class="content-item">
+        <div class="title">
+          <div class="left-title"><img src="static/images/ic_device_system.png"></div>
+          <div class="center-title">
+            <span>CPU</span>
+          </div>
+          <div class="right-title"></div>
+        </div>
+        <hr>
+        <div id="device-info-cpu"></div>
+      </div>
+
+      <div class="content-item">
+        <div class="title">
+          <div class="left-title"><img src="static/images/ic_device_storage.png"></div>
+          <div class="center-title">
+            <span>存储</span>
+          </div>
+          <div class="right-title"></div>
+        </div>
+        <hr>
+        <div id="device-info-storage"></div>
+      </div>
+
+      <div class="content-item">
+        <div class="title">
+          <div class="left-title"><img src="static/images/ic_device_network.png"></div>
+          <div class="center-title">
+            <span>网络</span>
+          </div>
+          <div class="right-title"></div>
+        </div>
+        <hr>
+        <div id="device-info-network"></div>
+      </div>
+
+      <div class="content-item">
+        <div class="title">
+          <div class="left-title"><img src="static/images/ic_device_battery.png"></div>
+          <div class="center-title">
+            <span>电池</span>
+          </div>
+          <div class="right-title"></div>
+        </div>
+        <hr>
+        <div id="device-info-battery"></div>
+      </div>
+
+      <div class="content-item">
+        <div class="title">
+          <div class="left-title"><img src="static/images/ic_device_screen.png"></div>
+          <div class="center-title">
+            <span>屏幕</span>
+          </div>
+          <div class="right-title"></div>
+        </div>
+        <hr>
+        <div id="device-info-screen"></div>
+      </div>
+
+      <div class="content-item">
+        <div class="title">
+          <div class="left-title"><img src="static/images/ic_device_app.png"></div>
+          <div class="center-title">
+            <span>站点信息</span>
+          </div>
+          <div class="right-title"></div>
+        </div>
+        <hr>
+        <div id="device-info-app"></div>
+      </div>
+
+      <div class="content-item">
+        <div class="title">
+          <div class="left-title"><img src="static/images/ic_device_other.png"></div>
+          <div class="center-title">
+            <span>其他</span>
+          </div>
+          <div class="right-title"></div>
+        </div>
+        <hr>
+        <div id="device-info-other"></div>
+      </div>
+
+    </div>
+    <div id="rating" class="content-section" style="display: none;">
+
+      <div id="ratingAnalyze" class="analyze">
+        <!-- <span style="color: #FA5252;">高风险(89)</span> -->
+      </div>
+      <div id="ratingBottom" class="rating-bottom">
+      </div>
+    </div>
+    <div id="label" class="content-section" style="display: none;">
+
+      <div class="content-item">
+        <div class="title">
+          <div onclick="instruction('高风险标记需要及时处理')" class="left-title"><img src="static/images/ic_identify_high.png">
+          </div>
+          <div class="center-title">
+            <span style="color: #FA5252;">高风险标记</span>
+          </div>
+          <div class="right-title"></div>
+        </div>
+        <hr>
+        <div id="highLabel">
+          <!-- <span class="tag" style="background-color: #FA5252;">aaa</span>
+          <span class="tag" style="background-color: #FA5252;">ddd</span> -->
+        </div>
+      </div>
+
+      <div class="content-item">
+        <div class="title">
+          <div onclick="instruction('中风险标记需要重点关注')" class="left-title"><img src="static/images/ic_identify_medium.png">
+          </div>
+          <div class="center-title">
+            <span style="color: #FCC419;">中风险标记</span>
+          </div>
+          <div class="right-title"></div>
+        </div>
+        <hr>
+        <div id="mediumLabel">
+        </div>
+      </div>
+
+      <div class="content-item">
+        <div class="title">
+          <div onclick="instruction('低风险标记')" class="left-title"><img src="static/images/ic_identify_low.png"></div>
+          <div class="center-title">
+            <span style="color: #20C997;">低风险标记</span>
+          </div>
+          <div class="right-title"></div>
+        </div>
+        <hr>
+        <div id="lowLabel">
+        </div>
+      </div>
+
+      <div class="content-item">
+        <div class="title">
+          <div onclick="instruction('常规标记无风险')" class="left-title"><img src="static/images/ic_identify_low.png"></div>
+          <div class="center-title">
+            <span style="color: #20C997;">一般标记</span>
+          </div>
+          <div class="right-title"></div>
+        </div>
+        <hr>
+        <div id="normalLabel">
+        </div>
+      </div>
+
+      <div class="content-item">
+        <div class="title">
+          <div onclick="instruction('未分类的标记')" class="left-title"><img src="static/images/ic_identify_low.png"></div>
+          <div class="center-title">
+            <span style="color: #20C997;">其他</span>
+          </div>
+          <div class="right-title"></div>
+        </div>
+        <hr>
+        <div id="otherLabel">
+        </div>
+      </div>
+
+    </div>
+    <div id="bottomBar" class="nav">
+      <a href="#device-info" class="active">
+        <img src="static/images/ic_device.png" alt="设备信息图标">
+        设备信息
+      </a>
+      <a href="#rating">
+        <img src="static/images/ic_analyze.png" alt="评级指数图标">
+        评级指数
+      </a>
+      <a href="#label">
+        <img src="static/images/ic_identify.png" alt="设备标签图标">
+        设备标签
+      </a>
+    </div>
+
+    <!-- 提示框 -->
+    <div id="alert-modal-instruction" class="alert-modal">
+      <div class="modal-content">
+        <h2>说明</h2>
+        <p id="instruction-content"></p>
+        <div class="modal-buttons">
+          <button onclick="instructionConfirm()">确认</button>
+        </div>
+      </div>
+    </div>
+    <!-- 提示框 -->
+  </div>
+</body>
+
+</html>
