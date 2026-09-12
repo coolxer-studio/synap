@@ -4,8 +4,6 @@
 **/.DS_Store
 
 # 子项目单独git维护
-synap-agent/
-synap-server/
 synap-build/
 synap-sdk/
 
