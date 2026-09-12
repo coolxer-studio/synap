@@ -1,0 +1,11 @@
+[
+  {"id":"info","api_name":"设备信息查询","api_url":"http://192.168.1.201:11003/device/info/{guid}"},
+  {"id":"1","api_name":"设备信息查询（旧版兼容）","api_url":"http://192.168.1.201:11003/device/info/{guid}"},
+  {"id":"app","api_name":"设备安装应用信息查询","api_url":"http://192.168.1.201:11003/device/app/{guid}"},
+  {"id":"device_id","api_name":"设备指纹查询","api_url":"http://192.168.1.201:11003/device/id/{guid}"},
+  {"id":"label_start","api_name":"当次启动标签查询","api_url":"http://192.168.1.201:11005/risk_index/label/{guid}?app_id={appId}&start_id={startId}"},
+  {"id":"5","api_name":"当次启动标签查询（旧版兼容）","api_url":"http://192.168.1.201:11005/risk_index/label/{guid}?app_id={appId}&start_id={startId}"},
+  {"id":"rating","api_name":"风险指数查询","api_url":"http://192.168.1.201:11005/risk_index/rating/{guid}?app_id={appId}&rating_code=default"},
+  {"id":"6","api_name":"风险指数查询（旧版兼容）","api_url":"http://192.168.1.201:11005/risk_index/rating/{guid}?app_id={appId}&rating_code=default"},
+  {"id":"label-today","api_name":"当日标签查询","api_url":"http://127.0.0.1:11003/risk_index/label/{guid}?app_id={appId}&time=today"}
+]

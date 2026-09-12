@@ -1,0 +1,90 @@
+# Compatibility baseline:
+# - Docker Compose v2 (`docker compose`) is recommended.
+# - Legacy `docker-compose` 1.29.2 is supported; lower v1 releases are not.
+# Keep the project name in COMPOSE_PROJECT_NAME. The top-level `name` field is
+# intentionally omitted because it is not understood by legacy Compose v1.
+
+services:
+  synap-server:
+    image: ${SYNAP_IMAGE}:${SYNAP_IMAGE_TAG:-latest}-${IMAGE_ARCH:-amd64}
+    container_name: synap-server
+    platform: linux/${IMAGE_ARCH:-amd64}
+    init: true
+    ports:
+      - "${SYNAP_PORT:-11099}:11099"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./open_config/identify_config:/app/config/identify_config:ro
+      - ./open_config/checker_config:/app/config/checker_config:ro
+      - ./open_config/punish_config:/app/config/punish_config:ro
+      - ./open_config/msg_api_config:/app/config/msg_api_config:ro
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: "11099"
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0 -XX:InitialRAMPercentage=25.0 -Dfile.encoding=UTF-8}
+
+      RULE_ENGINE_GROOVY_PATH: /app/config/identify_config/
+      CHECKER_CONFIG_PATH: /app/config/checker_config/
+      PUNISH_CONFIG_PATH: /app/config/punish_config/punish_config.json
+      MSG_API_CONFIG_PATH: /app/config/msg_api_config/msg_api_config.json
+
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_TOPIC_PARTITIONS: ${KAFKA_TOPIC_PARTITIONS:-1}
+      KAFKA_TOPIC_REPLICAS: ${KAFKA_TOPIC_REPLICAS:-1}
+      KAFKA_PUBLISH_TIMEOUT: ${KAFKA_PUBLISH_TIMEOUT:-PT5S}
+      REDIS_HOST: ${REDIS_HOST:-redis-service}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+
+      SYNAP_TRUSTED_PROXIES: ${SYNAP_TRUSTED_PROXIES:-}
+      SYNAP_CORS_ALLOWED_ORIGINS: ${SYNAP_CORS_ALLOWED_ORIGINS:-}
+      SYNAP_APP_ORIGINS: ${SYNAP_APP_ORIGINS:-}
+      SYNAP_WECHAT_APPIDS: ${SYNAP_WECHAT_APPIDS:-}
+      SYNAP_REQUIRE_WECHAT_APPID: ${SYNAP_REQUIRE_WECHAT_APPID:-true}
+      SYNAP_SEQUENCE_TTL: ${SYNAP_SEQUENCE_TTL:-PT30M}
+      SYNAP_RISK_TTL: ${SYNAP_RISK_TTL:-PT30M}
+      SYNAP_RISK_HALF_LIFE: ${SYNAP_RISK_HALF_LIFE:-PT15M}
+      SYNAP_MAX_BODY_BYTES: ${SYNAP_MAX_BODY_BYTES:-262144}
+      SYNAP_MAX_FACTS: ${SYNAP_MAX_FACTS:-100}
+      SYNAP_MAX_STRING_LENGTH: ${SYNAP_MAX_STRING_LENGTH:-8192}
+
+      SYNAP_SC_ENABLED: ${SYNAP_SC_ENABLED:-false}
+      SYNAP_SC_REQUIRE_TLS: ${SYNAP_SC_REQUIRE_TLS:-true}
+      SYNAP_SC_SERVER_KEY_ID: ${SYNAP_SC_SERVER_KEY_ID:-}
+      SYNAP_SC_SERVER_PRIVATE_KEY: ${SYNAP_SC_SERVER_PRIVATE_KEY:-}
+      SYNAP_SC_SERVER_PUBLIC_KEY: ${SYNAP_SC_SERVER_PUBLIC_KEY:-}
+      SYNAP_SC_SESSION_RECORD_KEY: ${SYNAP_SC_SESSION_RECORD_KEY:-}
+      SYNAP_SC_ALLOWED_APP_IDS: ${SYNAP_SC_ALLOWED_APP_IDS:-}
+      SYNAP_SC_ENROLLMENT_ADMIN_TOKEN: ${SYNAP_SC_ENROLLMENT_ADMIN_TOKEN:-}
+
+      SERVICE_ASSET_URL: ${ASSET_SERVICE_URL}
+      SERVICE_OPERATION_URL: ${OPERATION_SERVICE_URL}
+      SERVICE_RISK_URL: ${RISK_SERVICE_URL}
+
+      ZENVIS_BUSINESS_SERVICE_ENABLED: ${ZENVIS_BUSINESS_SERVICE_ENABLED}
+      ZENVIS_BASE_URL: ${ZENVIS_BASE_URL}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - zenvis-network
+    restart: unless-stopped
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "bash", "-ec", "exec 3<>/dev/tcp/127.0.0.1/11099"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  zenvis-network:
+    external: true
+    name: ${ZENVIS_NETWORK_NAME}

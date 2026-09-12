@@ -1,0 +1,234 @@
+<style>
+:root {
+  color-scheme: light;
+  --surface: #F7F7F8;
+  --surface-muted: #EFEFF2;
+  --text: #171717;
+  --text-muted: #52525B;
+  --border: rgba(23, 23, 23, 0.12);
+  --brand: #4B3FE3;
+  --brand-soft: #F2F7FF;
+  --brand-soft-strong: #E5EAFF;
+  --brand-text: #1A1759;
+  --brand-on: #FFFFFF;
+  --chart-series-1: #3C2ECA;
+  --chart-series-2: #A9AEFF;
+  --chart-series-3: #6F6FFF;
+  --chart-series-4: #22A5F7;
+  --chart-other: #D3D4DA;
+  --accent: #27D2BF;
+  --accent-2: #F87454;
+  --accent-soft: #EAFBF8;
+  --accent-text: #0F766E;
+  --success: #1DC981;
+  --warning: #EFAA17;
+  --danger: #E8463A;
+  --radius: 8px;
+  --radius-card: 12px;
+  --radius-full: 999px;
+  --spacer-4: 4px;
+  --spacer-8: 8px;
+  --spacer-12: 12px;
+  --spacer-16: 16px;
+  --spacer-20: 20px;
+  --spacer-24: 24px;
+  --font-sans: "SF Pro Text", "PingFang SC", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-metric: "Inter", "SF Pro Text", "PingFang SC", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-strong: 600;
+  --text-caption: 12px/18px;
+  --text-body: 14px/20px;
+  --text-title: 16px/24px;
+  --text-code: 13px/20px;
+}
+:root[data-widget-theme="dark"] {
+  color-scheme: dark;
+  --surface: #171717;
+  --surface-muted: #262626;
+  --text: #E5E5E5;
+  --text-muted: #A1A1AA;
+  --border: rgba(229, 229, 229, 0.12);
+  --brand: #6054F1;
+  --brand-soft: #1A1759;
+  --brand-soft-strong: #3C2ECA;
+  --brand-text: #CFD8FF;
+  --chart-series-1: #4B3FE3;
+  --accent-2: #F87454;
+  --accent-soft: #123F3C;
+  --accent-text: #CCFBF1;
+}
+.widget { color: var(--text); background: transparent; font: var(--weight-regular) var(--text-body) var(--font-sans); }
+.t { fill: var(--text); font: var(--weight-regular) var(--text-body) var(--font-sans); }
+.th { fill: var(--text); font: var(--weight-medium) var(--text-body) var(--font-sans); }
+.ts { fill: var(--text-muted); font: var(--weight-regular) var(--text-caption) var(--font-sans); }
+.tc { fill: var(--text); font: var(--weight-medium) var(--text-code) var(--font-mono); }
+.tt { fill: var(--text); font: var(--weight-strong) var(--text-title) var(--font-sans); }
+.arr { stroke: var(--text-muted); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+.arr-brand { stroke: var(--brand); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+.boundary { fill: none; stroke: var(--border); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.gl { fill: var(--text-muted); font: var(--weight-medium) var(--text-caption) var(--font-sans); }
+.cl { fill: var(--text-muted); font: var(--weight-regular) var(--text-caption) var(--font-sans); }
+.cl-brand { fill: var(--brand); font: var(--weight-regular) var(--text-caption) var(--font-sans); }
+.anno { fill: var(--text-muted); font: italic var(--weight-regular) var(--text-caption) var(--font-sans); }
+g.c-neutral > rect, rect.c-neutral { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; }
+g.c-brand > rect, rect.c-brand { fill: var(--brand-soft); stroke: var(--brand); stroke-width: 2; }
+.c-brand > .th, .c-brand > .t { fill: var(--brand-text); }
+.c-brand > .ts { fill: var(--brand); }
+.c-brand > .tc { fill: var(--brand-text); }
+</style>
+
+<div data-dynamic-ui-widget data-template="node-flow" class="widget">
+<svg viewBox="0 0 780 620" width="100%" height="auto" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M1 1 L7 4 L1 7 Z" fill="var(--text-muted)"/>
+    </marker>
+    <marker id="ahb" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M1 1 L7 4 L1 7 Z" fill="var(--brand)"/>
+    </marker>
+  </defs>
+
+  <text class="tt" x="390" y="20" text-anchor="middle">Synap 产品应用场景图</text>
+
+  <rect class="boundary" x="30" y="30" width="180" height="260" rx="12"/>
+  <text class="gl" x="120" y="50" text-anchor="middle">构建阶段</text>
+
+  <rect class="boundary" x="260" y="30" width="200" height="260" rx="12"/>
+  <text class="gl" x="360" y="50" text-anchor="middle">全链路应用</text>
+
+  <rect class="boundary" x="525" y="30" width="225" height="260" rx="12"/>
+  <text class="gl" x="637" y="50" text-anchor="middle">分析与决策</text>
+
+  <g class="c-neutral">
+    <rect x="45" y="62" width="150" height="55" rx="8"/>
+    <text class="th" x="120" y="84" text-anchor="middle">Git 仓库</text>
+    <text class="ts" x="120" y="102" text-anchor="middle">企业内部代码</text>
+  </g>
+  <line class="arr" x1="120" y1="120" x2="120" y2="138" marker-end="url(#ah)"/>
+
+  <g class="c-neutral">
+    <rect x="45" y="142" width="150" height="55" rx="8"/>
+    <text class="th" x="120" y="164" text-anchor="middle">CI/CD</text>
+    <text class="ts" x="120" y="182" text-anchor="middle">构建 · 测试</text>
+  </g>
+  <line class="arr" x1="120" y1="200" x2="120" y2="218" marker-end="url(#ah)"/>
+
+  <g class="c-brand">
+    <rect x="45" y="222" width="150" height="55" rx="8"/>
+    <text class="tc" x="120" y="244" text-anchor="middle">synap-build</text>
+    <text class="ts" x="120" y="262" text-anchor="middle">探针编译植入</text>
+  </g>
+
+  <g class="c-neutral">
+    <rect x="270" y="62" width="170" height="55" rx="8"/>
+    <text class="th" x="355" y="84" text-anchor="middle">前端应用</text>
+    <text class="ts" x="355" y="102" text-anchor="middle">synap-agent</text>
+  </g>
+
+  <g class="c-neutral">
+    <rect x="270" y="142" width="170" height="55" rx="8"/>
+    <text class="th" x="355" y="164" text-anchor="middle">网络层</text>
+    <text class="ts" x="355" y="182" text-anchor="middle">synap-agent</text>
+  </g>
+
+  <g class="c-neutral">
+    <rect x="270" y="222" width="170" height="55" rx="8"/>
+    <text class="th" x="355" y="244" text-anchor="middle">后端应用</text>
+    <text class="ts" x="355" y="262" text-anchor="middle">synap-agent</text>
+  </g>
+
+  <g class="c-brand">
+    <rect x="540" y="62" width="195" height="55" rx="8"/>
+    <text class="tc" x="637" y="84" text-anchor="middle">synap-server</text>
+    <text class="ts" x="637" y="102" text-anchor="middle">数据接收 · 策略分发</text>
+  </g>
+  <line class="arr" x1="637" y1="120" x2="637" y2="138" marker-end="url(#ah)"/>
+  <text class="cl" x="645" y="133">数据/分析</text>
+
+  <g class="c-neutral">
+    <rect x="540" y="142" width="195" height="55" rx="8"/>
+    <text class="tc" x="637" y="164" text-anchor="middle">zenvis</text>
+    <text class="ts" x="637" y="182" text-anchor="middle">智能化分析</text>
+  </g>
+  <line class="arr" x1="637" y1="200" x2="637" y2="218" marker-end="url(#ah)"/>
+  <text class="cl" x="645" y="213">洞察/策略</text>
+
+  <g class="c-neutral">
+    <rect x="540" y="222" width="195" height="55" rx="8"/>
+    <text class="th" x="637" y="244" text-anchor="middle">AI 控制策略</text>
+    <text class="ts" x="637" y="262" text-anchor="middle">智能决策生成</text>
+  </g>
+
+  <line class="arr-brand" x1="235" y1="84" x2="235" y2="249"/>
+  <line class="arr-brand" x1="235" y1="84" x2="268" y2="84" marker-end="url(#ahb)"/>
+  <line class="arr-brand" x1="235" y1="164" x2="268" y2="164" marker-end="url(#ahb)"/>
+  <line class="arr-brand" x1="195" y1="249" x2="268" y2="249" marker-end="url(#ahb)"/>
+  <text class="cl-brand" x="252" y="76" text-anchor="middle">探针植入</text>
+
+  <line class="arr-brand" x1="440" y1="82" x2="470" y2="82"/>
+  <line class="arr-brand" x1="440" y1="162" x2="470" y2="162"/>
+  <line class="arr-brand" x1="440" y1="242" x2="470" y2="242"/>
+  <line class="arr-brand" x1="470" y1="82" x2="470" y2="242"/>
+  <line class="arr-brand" x1="470" y1="82" x2="538" y2="82" marker-end="url(#ahb)"/>
+  <text class="cl-brand" x="504" y="74" text-anchor="middle">数据上报</text>
+
+  <line class="arr" x1="540" y1="97" x2="440" y2="97" marker-end="url(#ah)"/>
+  <line class="arr" x1="495" y1="97" x2="495" y2="257"/>
+  <line class="arr" x1="495" y1="177" x2="440" y2="177" marker-end="url(#ah)"/>
+  <line class="arr" x1="495" y1="257" x2="440" y2="257" marker-end="url(#ah)"/>
+  <text class="cl" x="517" y="112" text-anchor="middle">策略下发</text>
+
+  <text class="anno" x="390" y="306" text-anchor="middle">上述流程即 ReAct 循环的工程实现</text>
+
+  <rect class="boundary" x="40" y="316" width="700" height="280" rx="12"/>
+  <text class="gl" x="390" y="338" text-anchor="middle">ReAct 自迭代循环</text>
+
+  <g class="c-neutral">
+    <rect x="345" y="350" width="90" height="50" rx="8"/>
+    <text class="th" x="390" y="372" text-anchor="middle">采集</text>
+    <text class="ts" x="390" y="389" text-anchor="middle">agent</text>
+  </g>
+
+  <g class="c-neutral">
+    <rect x="435" y="438" width="90" height="50" rx="8"/>
+    <text class="th" x="480" y="460" text-anchor="middle">分析</text>
+    <text class="ts" x="480" y="477" text-anchor="middle">zenvis</text>
+  </g>
+
+  <g class="c-neutral">
+    <rect x="345" y="526" width="90" height="50" rx="8"/>
+    <text class="th" x="390" y="548" text-anchor="middle">决策</text>
+    <text class="ts" x="390" y="565" text-anchor="middle">AI</text>
+  </g>
+
+  <g class="c-neutral">
+    <rect x="255" y="438" width="90" height="50" rx="8"/>
+    <text class="th" x="300" y="460" text-anchor="middle">执行</text>
+    <text class="ts" x="300" y="477" text-anchor="middle">server</text>
+  </g>
+
+  <text class="th" x="390" y="458" text-anchor="middle" style="fill:var(--brand)">ReAct</text>
+  <text class="ts" x="390" y="476" text-anchor="middle">满足业务需求</text>
+
+  <path class="arr-brand" d="M 435,375 Q 480,390 480,438" marker-end="url(#ahb)"/>
+  <text class="cl-brand" x="488" y="408">数据</text>
+
+  <path class="arr-brand" d="M 480,488 Q 480,536 435,551" marker-end="url(#ahb)"/>
+  <text class="cl-brand" x="488" y="518">洞察</text>
+
+  <path class="arr-brand" d="M 345,551 Q 300,536 300,488" marker-end="url(#ahb)"/>
+  <text class="cl-brand" x="292" y="518" text-anchor="end">策略</text>
+
+  <path class="arr-brand" d="M 300,438 Q 300,390 345,375" marker-end="url(#ahb)"/>
+  <text class="cl-brand" x="292" y="408" text-anchor="end">再采集</text>
+
+</svg>
+</div>
+<script>
+  (function() {
+    var root = document.querySelector('[data-dynamic-ui-widget]');
+    if (root) root.setAttribute('data-mounted', 'true');
+  })();
+</script>
