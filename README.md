@@ -12,6 +12,7 @@ Synap 是一个以配置驱动的端点执行器，用于资产梳理、数字�
 | `synap-agent` | 多平台端点 SDK 与数据仿真工具集，覆盖 H5、Electron、Host、Qt、Spring Boot、Android、iOS 等平台 | TypeScript、C++、Kotlin/Swift、Go |
 | `synap-build` | 模板驱动的 AI 工程修改工作台，在 CI/CD 环节将 Agent SDK 自动接入目标工程 | Go 1.23 |
 | `synap-sdk` | Android 与 iOS 端点功能 SDK 模块集合 | Kotlin、Swift |
+| `agent-skills` | 面向研发人员和 Codex 的 Issue 整理、修复与提交追踪工作流 | Markdown、YAML、Python |
 | `doc` | 产品、部署、接入、协议、架构与开发文档中心 | Markdown、Docsify 4 |
 
 各子项目以自身 `README.md` 为构建与维护入口；跨模块的产品、架构、部署、使用与开发说明统一维护在 [Synap 文档中心](doc/README.md)。
@@ -85,6 +86,7 @@ Agent：各平台 SDK 的构建方式不同，详见 [Agent 接入](doc/02-Agent
 | 协议与 API | [协议与 API](doc/04-协议与API/README.md) |
 | 架构设计 | [架构与安全](doc/05-架构设计/README.md) |
 | 开发指南 | [开发指南](doc/06-开发指南/README.md) |
+| Issue 工作流 | [Issue 归纳与修复](doc/06-开发指南/issue-workflow.md) |
 
 ## 许可证与联系
 

@@ -8,3 +8,8 @@ synap-build/
 synap-sdk/
 
 .trae/
+
+# Synap Issue Workflow local state
+.synap/
+__pycache__/
+*.py[cod]

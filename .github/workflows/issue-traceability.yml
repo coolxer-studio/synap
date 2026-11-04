@@ -1,0 +1,38 @@
+name: Issue traceability
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: issue-traceability-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  close-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout mirror history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Comment commit links and close issues
+        env:
+          SYNAP_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SYNAP_GITHUB_REPO: ${{ github.repository }}
+          SYNAP_GITEE_TOKEN: ${{ secrets.SYNAP_GITEE_TOKEN }}
+          SYNAP_GITEE_REPO: "${{ vars.SYNAP_GITEE_REPO || 'coolxer-studio/synap' }}"
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          python3 agent-skills/synap-issue-workflow/scripts/synap_issue.py \
+            --root "$GITHUB_WORKSPACE" \
+            action-close \
+            --before "$BEFORE_SHA" \
+            --after "$AFTER_SHA"
