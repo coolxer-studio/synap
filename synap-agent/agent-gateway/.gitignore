@@ -1,0 +1,21 @@
+# Runtime artifacts
+*.ndjson
+*.ndjson.replay.*
+*.log
+agent-gateway-spool.*
+data/
+
+# Build output
+agent-gateway
+agent-gateway.exe
+agent-gateway.bin
+agent-gateway-*
+*.exe
+
+# Local config overrides
+live.json
+local.json
+
+# OS/editor
+.DS_Store
+Thumbs.db

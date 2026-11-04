@@ -15,6 +15,7 @@ Synap 客户端安全探针与数据仿真工具集。
 | `agent-qt` | 嵌入 Qt 5.15/6.x 桌面应用的轻量安全探针 | CMake/qmake C++ SDK |
 | `agent-springboot` | 服务端 Spring Boot API 资产与运行时安全探针 | Starter / shaded Java Agent |
 | `agent-emulator` | Android、iOS、H5、WeChat、Host 报文仿真 | Go 可执行文件 |
+| `agent-gateway` | API 网关探针，转发请求并采集完整调用记录至 Kafka | Go 可执行文件 |
 
 H5、Host、Qt、ESP32、Emulator、Android 和 iOS 统一接入安全通信协议 v1；HarmonyOS 客户端也已
 实现相同协议，但当前服务端尚未注册 `HARMONY/harmony`，需完成服务端适配后才能生产

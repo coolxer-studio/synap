@@ -1,0 +1,25 @@
+# Version control / CI
+.git
+.gitignore
+.github
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Docs and example config (not needed to build)
+*.md
+config.example.json
+
+# Runtime artifacts
+*.ndjson
+*.ndjson.replay.*
+*.log
+agent-gateway-spool.*
+live.json
+local.json
+
+# Build output
+agent-gateway
+agent-gateway.exe
+agent-gateway.bin
+*.exe

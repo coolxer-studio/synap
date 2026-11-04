@@ -1,0 +1,68 @@
+{
+  "listen": ":8080",
+  "target": "http://10.10.5.71:8080",
+  "timeout": "30s",
+  "strip_prefix": [],
+  "add_prefix": "",
+  "add_headers": {
+    "X-Forwarded-By": "agent-gateway"
+  },
+  "remove_headers": [
+    "X-Internal-Debug"
+  ],
+  "insecure_skip_verify": false,
+  "tls": {
+    "cert": "",
+    "key": ""
+  },
+  "capture": {
+    "headers": true,
+    "body": true,
+    "max_body_size": 0,
+    "redact_headers": [
+      "Authorization",
+      "Proxy-Authorization",
+      "Cookie",
+      "Set-Cookie"
+    ]
+  },
+  "output": {
+    "console": false,
+    "file": "",
+    "kafka": {
+      "enabled": true,
+      "brokers": [
+        "127.0.0.1:9092"
+      ],
+      "topic": "agent-gateway",
+      "client_id": "agent-gateway",
+      "key": "id",
+      "batch_size": 500,
+      "batch_timeout": "1s",
+      "queue_size": 10000,
+      "write_timeout": "5s",
+      "max_attempts": 3,
+      "required_acks": "all",
+      "compression": "none",
+      "tls": {
+        "enabled": false,
+        "insecure_skip_verify": false,
+        "ca_file": "",
+        "cert_file": "",
+        "key_file": ""
+      },
+      "sasl": {
+        "enabled": false,
+        "mechanism": "plain",
+        "username": "",
+        "password": ""
+      },
+      "fallback": {
+        "enabled": true,
+        "file": "agent-gateway-spool.ndjson",
+        "replay": true,
+        "replay_interval": "30s"
+      }
+    }
+  }
+}
