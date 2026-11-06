@@ -1,15 +1,40 @@
 # Synap Build
 
-Synap Build 是模板驱动的 AI 工程修改工作台。用户填写目标仓库和端点参数，服务在安全约束内驱动执行器修改仓库，并输出完整变更包。
+Synap Build 是模板驱动的 AI 工程修改工作台。用户填写目标仓库和探针参数，服务在安全约束内驱动执行器修改仓库，并输出完整变更包。
 
 ## 当前能力
 
-- 服务端模板元数据驱动动态表单，当前内置 H5 和 Host 端点接入参数。
+- 服务端模板元数据驱动动态表单，当前内置 9 类探针接入参数，按 `probeType` 显示公共与平台字段。
 - 全局同时只运行一个任务；活动任务期间重复提交返回 `409 task_running`。
 - 默认显示可读时间线，也可查看经过凭据脱敏的原始输出。
 - SSE 使用文件字节 offset，支持重放和断线恢复。
 - 历史任务支持状态筛选、搜索、游标分页和交付包恢复。
 - 成功任务生成修改后工程、Git patch 和 JSON/Markdown 报告。
+
+## 探针支持矩阵
+
+| `probeType` | 接入方式 | 服务端契约 | 当前状态 |
+| --- | --- | --- | --- |
+| `h5` | `agent-h5` 生产脚本 | `h5` | 生产可用 |
+| `electron` | 主进程、隔离 preload、renderer | `h5` | 生产可用 |
+| `host` | `agent-host` 部署与服务 | `host` | 生产可用 |
+| `qt` | `agent-qt` CMake/qmake | `host` | 生产可用 |
+| `springboot` | Starter + Java Agent | `server` | 生产可用 |
+| `android` | `probe.aar` | `android` | 生产可用 |
+| `ios` | iOS Framework | `ios` | ACK 与队列能力有条件 |
+| `harmony` | `probe` HAR | `harmony` | Server 待适配，仅联调准备 |
+| `esp32` | `synap_agent` ESP-IDF component | `esp32` | Server 待适配，仅联调准备 |
+
+微信小程序当前不支持安全协议 v1，仿真器不纳入探针接入。HarmonyOS 和 ESP32 可以从页面提交，但结果只代表客户端工程接入和联调准备，不代表服务端已经放行。
+
+### 字段规则
+
+- 公共字段：`repositoryUrl`、`probeType`、`serverBaseUrl`、锁定的协议参数、`appId`（安全通信标识）、`serverKeyId`、`trustAnchor` 和 `additionalRequirements`。
+- `targetOs` 适用于 Host、Qt、Electron；`targetArch` 仅适用于 Host。
+- `businessAppId` 适用于 Host、Qt、Spring Boot、Android、iOS、ESP32，必须是 1–2147483647 的正整数，不能与安全通信 appId 混用。
+- Qt 使用 `qtBuildSystem=auto|cmake|qmake`，ESP32 使用 `esp32Chip=esp32|esp32c3|esp32s3`。
+- 应用名称、包名和版本由执行器从工程识别。模板不接收 enrollment token，平台只接入运行时 provider 或受控 secret 读取。
+- `visibleWhen` 支持单值 `equals` 和多值 `in`；不可见字段如果仍被提交，API 返回 `400`。
 
 ## 明确边界
 
@@ -80,7 +105,7 @@ curl http://127.0.0.1:11100/readyz
 
 ![Synap 令牌认证](_images/01令牌认证.png)
 
-2. 选择模板，填写目标仓库、端点类型和安全通信参数。
+2. 选择模板和探针类型，按平台填写目标仓库、通信、安全与条件字段。
 3. 提交任务，在右侧查看状态与可读时间线。
 4. 使用消息、文件、命令、警告过滤器，或切换到原始输出。
 5. 必要时停止活动任务；成功后下载交付包。
