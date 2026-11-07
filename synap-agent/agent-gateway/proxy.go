@@ -19,6 +19,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -43,6 +44,10 @@ type exchange struct {
 	bodyTrunc   bool
 	upstreamMs  float64
 	errMsg      string
+	upgrade     string
+
+	bytesToClient   atomic.Int64
+	bytesToUpstream atomic.Int64
 }
 
 func (e *exchange) appendBody(p []byte, limit int64) {
@@ -85,7 +90,15 @@ func (e *exchange) build(redactor headerRedactor, cap *CaptureConfig, bytesOut i
 		BodySize:      int64(e.body.Len()),
 		BodyTruncated: e.bodyTrunc,
 		BytesOut:      bytesOut,
+		BytesIn:       e.bytesToUpstream.Load(),
 		UpstreamMs:    e.upstreamMs,
+		Upgrade:       e.upgrade,
+	}
+
+	// Bytes written to an upgraded client bypass statusRecorder: they flow
+	// through the tunnel wrapper, which counts backend-to-client bytes.
+	if e.upgrade != "" {
+		resp.BytesOut = e.bytesToClient.Load()
 	}
 
 	if !cap.Headers {
@@ -237,7 +250,19 @@ func (g *Gateway) modifyResponse(resp *http.Response) error {
 	ex.status = resp.StatusCode
 	ex.respHeaders = resp.Header.Clone()
 	ex.upstreamMs = float64(time.Since(ex.start).Microseconds()) / 1000
+	if resp.StatusCode == http.StatusSwitchingProtocols {
+		ex.upgrade = resp.Header.Get("Upgrade")
+	}
 	ex.mu.Unlock()
+
+	// ReverseProxy requires an io.ReadWriteCloser on 101 responses so it can
+	// keep tunneling. Wrapping must preserve that interface.
+	if resp.StatusCode == http.StatusSwitchingProtocols {
+		if rwc, ok := resp.Body.(io.ReadWriteCloser); ok {
+			resp.Body = &upgradeReadWriteCloser{rwc: rwc, ex: ex}
+		}
+		return nil
+	}
 
 	if g.cfg.Capture.Body && resp.Body != nil {
 		resp.Body = &captureReadCloser{
@@ -409,6 +434,40 @@ func captureRequestBody(r *http.Request, cfg CaptureConfig) (body []byte, trunca
 type readCloser struct {
 	io.Reader
 	io.Closer
+}
+
+// upgradeReadWriteCloser passes tunneled bytes through untouched while counting
+// each direction, so WebSocket-style sessions stay streamable and observable.
+type upgradeReadWriteCloser struct {
+	rwc io.ReadWriteCloser
+	ex  *exchange
+}
+
+func (u *upgradeReadWriteCloser) Read(p []byte) (int, error) {
+	n, err := u.rwc.Read(p)
+	if n > 0 {
+		u.ex.bytesToClient.Add(int64(n))
+	}
+	return n, err
+}
+
+func (u *upgradeReadWriteCloser) Write(p []byte) (int, error) {
+	n, err := u.rwc.Write(p)
+	if n > 0 {
+		u.ex.bytesToUpstream.Add(int64(n))
+	}
+	return n, err
+}
+
+func (u *upgradeReadWriteCloser) Close() error { return u.rwc.Close() }
+
+// CloseWrite propagates the TCP half-close so both tunnel directions end
+// cleanly when the client goes away.
+func (u *upgradeReadWriteCloser) CloseWrite() error {
+	if cw, ok := u.rwc.(interface{ CloseWrite() error }); ok {
+		return cw.CloseWrite()
+	}
+	return fmt.Errorf("CloseWrite: %w", http.ErrNotSupported)
 }
 
 // captureReadCloser tees response bytes into the exchange as the client reads

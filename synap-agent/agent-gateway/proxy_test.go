@@ -1,14 +1,17 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 // captureSink records every write in memory for assertions.
@@ -197,6 +200,127 @@ func TestGatewayUpstreamDownReturns502(t *testing.T) {
 	tx := sink.last(t)
 	if tx.Response.Status != http.StatusBadGateway || tx.Error == "" {
 		t.Errorf("expected 502 record with error, got %+v", tx)
+	}
+}
+
+// TestGatewayUpgradePreservesTunnel reproduces the default-config 502: body
+// capture must not strip the io.ReadWriteCloser contract from a 101 response.
+func TestGatewayUpgradePreservesTunnel(t *testing.T) {
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.EqualFold(r.Header.Get("Upgrade"), "echo") {
+			http.Error(w, "missing upgrade header", http.StatusBadRequest)
+			return
+		}
+		conn, brw, err := http.NewResponseController(w).Hijack()
+		if err != nil {
+			t.Errorf("backend hijack: %v", err)
+			return
+		}
+		defer conn.Close()
+		if _, err := brw.WriteString("HTTP/1.1 101 Switching Protocols\r\nUpgrade: echo\r\nConnection: Upgrade\r\n\r\n"); err != nil {
+			t.Errorf("backend write 101: %v", err)
+			return
+		}
+		if err := brw.Flush(); err != nil {
+			t.Errorf("backend flush 101: %v", err)
+			return
+		}
+		buf := make([]byte, 64)
+		for {
+			n, err := brw.Read(buf)
+			if n > 0 {
+				if _, werr := brw.Write(buf[:n]); werr != nil {
+					return
+				}
+				if werr := brw.Flush(); werr != nil {
+					return
+				}
+			}
+			if err != nil {
+				return
+			}
+		}
+	}))
+	defer backend.Close()
+
+	gw, sink, _ := newTestGateway(t, backend.URL, nil)
+	proxySrv := httptest.NewServer(gw)
+	defer proxySrv.Close()
+
+	addr := strings.TrimPrefix(proxySrv.URL, "http://")
+	conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
+	if err != nil {
+		t.Fatalf("dial gateway: %v", err)
+	}
+	brw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+	req := "GET /ws HTTP/1.1\r\nHost: " + addr + "\r\nConnection: Upgrade\r\nUpgrade: echo\r\n\r\n"
+	if _, err := brw.WriteString(req); err != nil {
+		t.Fatalf("write upgrade request: %v", err)
+	}
+	if err := brw.Flush(); err != nil {
+		t.Fatalf("flush upgrade request: %v", err)
+	}
+	statusLine, err := brw.ReadString('\n')
+	if err != nil {
+		t.Fatalf("read status line: %v", err)
+	}
+	if !strings.Contains(statusLine, "101") {
+		t.Fatalf("status line = %q, want 101 Switching Protocols", statusLine)
+	}
+	for {
+		line, err := brw.ReadString('\n')
+		if err != nil {
+			t.Fatalf("read response header: %v", err)
+		}
+		if line == "\r\n" {
+			break
+		}
+	}
+
+	msg := []byte("hello-tunnel")
+	if _, err := brw.Write(msg); err != nil {
+		t.Fatalf("write tunnel payload: %v", err)
+	}
+	if err := brw.Flush(); err != nil {
+		t.Fatalf("flush tunnel payload: %v", err)
+	}
+	echoed := make([]byte, len(msg))
+	if _, err := io.ReadFull(brw, echoed); err != nil {
+		t.Fatalf("read echoed payload: %v", err)
+	}
+	if string(echoed) != string(msg) {
+		t.Errorf("echoed payload = %q, want %q", echoed, msg)
+	}
+	_ = conn.Close()
+
+	var tx Transaction
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		txs := sink.transactions(t)
+		if len(txs) > 0 {
+			tx = txs[len(txs)-1]
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("no transaction captured for upgraded connection")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	if tx.Response.Status != http.StatusSwitchingProtocols {
+		t.Errorf("recorded status = %d, want 101", tx.Response.Status)
+	}
+	if tx.Response.Upgrade != "echo" {
+		t.Errorf("recorded upgrade = %q, want echo", tx.Response.Upgrade)
+	}
+	if tx.Response.Body != "" {
+		t.Errorf("upgrade body should not be captured, got %q", tx.Response.Body)
+	}
+	if tx.Response.BytesIn != int64(len(msg)) {
+		t.Errorf("bytes_in = %d, want %d", tx.Response.BytesIn, len(msg))
+	}
+	if tx.Response.BytesOut != int64(len(msg)) {
+		t.Errorf("bytes_out = %d, want %d", tx.Response.BytesOut, len(msg))
 	}
 }
 

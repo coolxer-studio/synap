@@ -80,7 +80,9 @@ curl -i -X POST "http://localhost:8080/gateway/users?page=2" -H "Authorization: 
 | `id` | 每次调用唯一；默认作为 Kafka 消息 key，保证同一调用落到同一分区 |
 | `duration_ms` | 端到端耗时（收到请求 → 响应写回完成） |
 | `response.upstream_ms` | 上游耗时（收到上游响应头，即 TTFB） |
-| `body_size` / `bytes_out` | 记录的 body 字节数 / 实际写回客户端的字节数 |
+| `body_size` / `bytes_out` | 记录的 body 字节数 / 实际写回客户端的字节数（101 升级时为上游→客户端的隧道字节数） |
+| `bytes_in` | 仅 101 升级连接：客户端→上游的隧道字节数 |
+| `upgrade` | 仅 101 升级连接：协商的协议名，如 `websocket` |
 | `body_truncated` | 仅在设置了 `max_body_size` 且超限时为 `true`（默认不截断，字段省略） |
 | `error` | 上游错误（此时状态码 502），仅出错时出现 |
 | `gateway` | 产生该记录的网关实例（监听地址 + 目标） |

@@ -66,7 +66,9 @@ type ResponseRec struct {
 	BodySize      int64       `json:"body_size"`
 	BodyTruncated bool        `json:"body_truncated,omitempty"`
 	BytesOut      int64       `json:"bytes_out"`
+	BytesIn       int64       `json:"bytes_in,omitempty"`
 	UpstreamMs    float64     `json:"upstream_ms"`
+	Upgrade       string      `json:"upgrade,omitempty"`
 }
 
 // headerRedactor masks configured header values (case-insensitive).
