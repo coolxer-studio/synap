@@ -105,6 +105,7 @@ $synap-issue-workflow 整理当前 GitHub 和 Gitee 的 open issue，生成审�
 | `repair` | “按报告修复”“修复 gitee#ID” | 修改代码、运行测试、输出提交命令 | 不自动 commit 或 push |
 | `commit` | “生成提交命令”“由你提交” | 默认输出命令；授权后只执行 add + commit | 永不顺带 push |
 | `push` | “推送”“推送到 origin” | 明确授权后推送当前分支 | 不会把提交授权当成推送授权 |
+| `close` | “直接关闭 github#4”“关闭这些测试 issue” | 关闭指定 issue 并回读确认 | 不操作 Git，不重复关闭已关闭 issue |
 
 ## 场景 1：整理并修复已有 issue
 
@@ -322,6 +323,7 @@ python3 "$S" <command>
 | `create-issue --platform github\|gitee --title ... --summary ...` | 在指定平台立即创建 issue |
 | `repair [--report DIR] [--issue REF] [--json]` | 读取审核后的报告并返回待修复 issue |
 | `show github#N\|gitee#ID` | 重新读取单个 issue 的当前平台内容 |
+| `close REF [REF ...] [--comment ...] [--json]` | 直接关闭一个或多个 issue，幂等且会回读确认 |
 | `commit --message ... --file ... [--issue REF] [--execute]` | 生成命令；授权后只执行 add + commit |
 | `commit-command ...` | `commit` 的兼容别名，只输出命令 |
 | `push` | 明确授权后推送当前分支，并尝试关闭关联 Gitee issue |
@@ -367,6 +369,15 @@ python3 agent-skills/synap-issue-workflow/scripts/synap_issue.py reconcile
 ```
 
 `reconcile` 只会关闭平台 commit API 已确认存在的提交，不会因为本地存在 commit 就提前关闭。
+
+- 需要不经提交直接关闭一个或多个 issue 时：
+
+```bash
+python3 agent-skills/synap-issue-workflow/scripts/synap_issue.py close \
+  github#4 gitee#IKSGM9 --comment "测试 issue 已完成验证，现直接关闭。"
+```
+
+`close` 会先读取当前状态；已关闭的 issue 不会重复评论或更新，可安全重跑。传入 `--comment` 时，只有真正发生状态变更才写入一次说明；命令结束前会重新读取 issue，确认状态为 `closed`。使用 `--json` 输出机器可读结果，配合 `SYNAP_ISSUE_DRY_RUN=1` 只预览不写入。任一 issue 失败时命令返回非零退出码，其余 issue 仍会继续处理。
 
 - 评论或关闭 API 暂时失败：失败项写入 `.synap/issues/retry-close.json`，修复权限或网络后执行：
 

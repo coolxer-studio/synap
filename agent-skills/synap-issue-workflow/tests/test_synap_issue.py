@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
+from dataclasses import replace
 from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
@@ -56,6 +57,8 @@ class FakeClient:
         self.token = "token"
         self.comments = []
         self.closed = []
+        self.issues = {}
+        self.get_calls = []
         self.close_error = None
         self.created = []
         self.existing_commits = None
@@ -80,10 +83,21 @@ class FakeClient:
     def comment_issue(self, number, body):
         self.comments.append((number, body))
 
+    def get_issue(self, number):
+        self.get_calls.append(number)
+        if number in self.issues:
+            return self.issues[number]
+        return make_issue(self.platform, number, "标题")
+
     def close_issue(self, number):
         if self.close_error:
             raise self.close_error
         self.closed.append(number)
+        normalized = zi.normalize_issue_number(self.platform, number)
+        self.issues[number] = replace(
+            self.get_issue(number), state="closed", number=normalized
+        )
+        return {"state": "closed"}
 
     def commit_exists(self, sha):
         return self.existing_commits is None or sha in self.existing_commits
@@ -257,6 +271,28 @@ class ApiClientTests(unittest.TestCase):
         self.assertIn("/repos/owner/repo/issues", url)
         self.assertNotIn("repo", json.loads(body.decode("utf-8")))
 
+    def test_github_close_issue_uses_repository_endpoint(self):
+        transport = QueueTransport([response({"number": 7, "state": "closed"})])
+        client = zi.PlatformClient("github", "owner/repo", "token", transport)
+        result = client.close_issue("7")
+        self.assertEqual(result["state"], "closed")
+        method, url, _, body = transport.calls[0]
+        self.assertEqual(method, "PATCH")
+        self.assertIn("/repos/owner/repo/issues/7", url)
+        self.assertEqual(json.loads(body.decode("utf-8")), {"state": "closed"})
+
+    def test_gitee_close_issue_uses_owner_endpoint_and_repo_body_field(self):
+        transport = QueueTransport([response({"number": "IKSGM9", "state": "closed"})])
+        client = zi.PlatformClient("gitee", "owner/repo", "token", transport)
+        result = client.close_issue("IKSGM9")
+        self.assertEqual(result["state"], "closed")
+        method, url, _, body = transport.calls[0]
+        self.assertEqual(method, "PATCH")
+        self.assertIn("/repos/owner/issues/IKSGM9", url)
+        self.assertNotIn("/repos/owner/repo/issues", url)
+        payload = json.loads(body.decode("utf-8"))
+        self.assertEqual(payload, {"state": "closed", "repo": "repo"})
+
 
 class CreateIssueTests(unittest.TestCase):
     def test_creates_github_issue_and_returns_reference(self):
@@ -342,6 +378,87 @@ class CreateIssueTests(unittest.TestCase):
             with redirect_stdout(output):
                 self.assertEqual(args.func(args), 0)
         self.assertEqual(json.loads(output.getvalue()), result)
+
+
+class CloseIssueTests(unittest.TestCase):
+    def test_closes_multiple_issues_and_verifies_state(self):
+        clients = {
+            "github": FakeClient("github"),
+            "gitee": FakeClient("gitee"),
+        }
+        with mock.patch.object(
+            zi.PlatformClient,
+            "from_environment",
+            side_effect=lambda platform, **_: clients[platform],
+        ):
+            results = zi.close_issues(
+                ["github#42", "gitee#IKSGM9"],
+                comment="测试 issue 已完成验证，现直接关闭。",
+            )
+        self.assertTrue(all(item["ok"] for item in results))
+        self.assertTrue(all(item["state"] == "closed" for item in results))
+        self.assertEqual(clients["github"].closed, ["42"])
+        self.assertEqual(clients["gitee"].closed, ["IKSGM9"])
+        self.assertEqual(len(clients["github"].comments), 1)
+        self.assertEqual(len(clients["gitee"].comments), 1)
+
+    def test_already_closed_issue_is_not_commented_or_closed_again(self):
+        client = FakeClient("gitee")
+        client.issues["IKSGM9"] = replace(
+            make_issue("gitee", "IKSGM9", "测试"),
+            state="closed",
+        )
+        with mock.patch.object(
+            zi.PlatformClient, "from_environment", return_value=client
+        ):
+            results = zi.close_issues(["gitee#IKSGM9"], comment="关闭说明")
+        self.assertEqual(client.closed, [])
+        self.assertEqual(client.comments, [])
+        self.assertFalse(results[0]["changed"])
+        self.assertEqual(results[0]["previous_state"], "closed")
+
+    def test_dry_run_reads_state_without_writing(self):
+        client = FakeClient("github")
+        with mock.patch.object(
+            zi.PlatformClient, "from_environment", return_value=client
+        ):
+            results = zi.close_issues(["github#42"], comment="说明", preview=True)
+        self.assertTrue(results[0]["dry_run"])
+        self.assertEqual(client.closed, [])
+        self.assertEqual(client.comments, [])
+
+    def test_missing_token_fails_without_writing(self):
+        client = FakeClient("gitee")
+        client.token = ""
+        with mock.patch.object(
+            zi.PlatformClient, "from_environment", return_value=client
+        ):
+            results = zi.close_issues(["gitee#IKSGM9"])
+        self.assertFalse(results[0]["ok"])
+        self.assertIn("token", results[0]["error"])
+        self.assertEqual(client.closed, [])
+
+    def test_partial_failure_returns_non_zero_exit_code(self):
+        clients = {
+            "github": FakeClient("github"),
+            "gitee": FakeClient("gitee"),
+        }
+        clients["gitee"].close_error = zi.IssueWorkflowError("temporary")
+        args = zi.build_parser().parse_args(
+            ["close", "github#42", "gitee#IKSGM9", "--json"]
+        )
+        output = StringIO()
+        with mock.patch.object(
+            zi.PlatformClient,
+            "from_environment",
+            side_effect=lambda platform, **_: clients[platform],
+        ):
+            with redirect_stdout(output):
+                self.assertEqual(args.func(args), 1)
+        payload = json.loads(output.getvalue())
+        self.assertTrue(payload[0]["ok"])
+        self.assertFalse(payload[1]["ok"])
+        self.assertEqual(clients["github"].closed, ["42"])
 
 
 class CommitCommandTests(unittest.TestCase):
